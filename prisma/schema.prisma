@@ -1,0 +1,116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+enum ProjectStatus {
+  DRAFT
+  IN_PROGRESS
+  PENDING_REVIEW
+  APPROVED
+  COMPLETED
+}
+
+enum ProjectTag {
+  RESIDENTIAL
+  COMMERCIAL
+  INDUSTRIAL
+  RENOVATION
+  NEW_CONSTRUCTION
+  URGENT
+  ECO_FRIENDLY
+  HISTORIC
+}
+
+model Organization {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  apikeys   Apikey[]
+  projects  Project[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Apikey {
+  id             Int          @id @default(autoincrement())
+  key            String       @unique
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+model Project {
+  id             Int          @id @default(autoincrement())
+  name           String
+  salesforce_id  String?
+  ai_address     String?
+  status         ProjectStatus @default(DRAFT)
+  tags           ProjectTag[]
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  documents      Document[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+model Document {
+  id        Int         @id @default(autoincrement())
+  filename  String
+  path      String
+  mimetype  String
+  size      Int
+  projectId Int
+  project   Project     @relation(fields: [projectId], references: [id])
+  chunks    Chunk[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([projectId])
+}
+
+model Chunk {
+  id         Int         @id @default(autoincrement())
+  text       String
+  page       Int?
+  documentId Int
+  document   Document    @relation(fields: [documentId], references: [id])
+  embeddings Embedding[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([documentId])
+  @@index([text], map: "chunk_text_idx")
+}
+
+model Embedding {
+  id         Int      @id @default(autoincrement())
+  vector     Unsupported("vector(1536)")
+  modelName  String
+  modelVersion String
+  dimensions Int
+  chunkId    Int
+  chunk      Chunk    @relation(fields: [chunkId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([chunkId])
+  @@index([vector], map: "embedding_vector_idx")
+  @@unique([chunkId, modelName, modelVersion], name: "unique_chunk_model")
+}

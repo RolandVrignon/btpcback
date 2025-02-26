@@ -1,0 +1,70 @@
+# NestJS Backend Context Prompt
+
+Node version 20.13.0
+
+## Tech Stack
+
+- **Backend:** Node.js with Nest.js
+- **Database:** PostgreSQL managed via Prisma
+- **Authentication:** API Tokens
+
+## Workflow Setup
+
+- **Dependency Management:**
+  - Use **pnpm** when adding new dependencies.
+  - Ensure that development-only dependencies are marked with the appropriate flags.
+
+## Coding Standards
+
+- **Language:**
+  - Use **TypeScript** for all new code.
+  - Utilize proper TypeScript types for all variables, functions, and return types.
+- **Imports:**
+  - Employ **barrel imports** for centralized exports.
+  - Always use **relative imports**.
+- **Error Handling & Input Validation:**
+  - Implement robust error handling and strict input validation.
+- **Comments:**
+  - All code comments must be written in **English**.
+
+## Best Practices
+
+- **Security & Efficiency:**
+  - Write secure, efficient code following RESTful API best practices.
+- **Architecture:**
+  - Adhere to **SOLID principles** to ensure maintainability.
+- **Readability & Performance:**
+  - Focus on code readability and performance optimization.
+
+## Additional Requirements
+
+- **API Documentation:**
+  - Implement a **Swagger interface** for API documentation.
+  - Ensure that the Swagger setup is kept up-to-date with the API routes and models.
+- **Testing & Mocks:**
+  - Provide **mocks for services and controllers** to facilitate isolated testing.
+  - Develop comprehensive **unit tests** for the various components of the backend, ensuring all business logic and API endpoints are covered.
+
+---
+
+**Instructions for Cursor Rules:**
+
+1. **Structure Analysis:**
+   - Identify and map out the architecture of the NestJS backend, paying attention to the separation of modules, services, and controllers.
+   - Verify that the code organization adheres to TypeScript standards and the use of barrel imports.
+
+2. **Standards Validation:**
+   - Ensure all files conform to the defined conventions (relative imports, comments in English, proper error handling, etc.).
+   - Check the implementation of RESTful best practices and the SOLID principles.
+
+3. **Workflow and Dependency Management:**
+   - Review the workflow setup, specifically the usage of pnpm and the distinction between production and development dependencies.
+   - Verify the consistency of Prisma integration for managing the PostgreSQL database.
+
+4. **Security & Authentication:**
+   - Confirm that the API Token-based authentication mechanism is implemented securely and correctly.
+
+5. **API Documentation & Testing:**
+   - Ensure a **Swagger interface** is implemented and correctly documents all API endpoints.
+   - Verify that **mocks for services and controllers** are available for testing.
+   - Check that unit tests are provided and cover the core functionalities of the backend.
