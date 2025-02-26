@@ -1,5 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsOptional } from 'class-validator';
+
+export enum OrganizationScope {
+  ADMIN = 'ADMIN',
+  REGULAR = 'REGULAR',
+}
 
 export class CreateOrganizationDto {
   @ApiProperty({
@@ -9,4 +14,14 @@ export class CreateOrganizationDto {
   @IsString()
   @IsNotEmpty()
   name: string;
+
+  @ApiProperty({
+    description: "Le niveau d'accès de l'organisation",
+    enum: OrganizationScope,
+    default: OrganizationScope.REGULAR,
+    required: false,
+  })
+  @IsEnum(OrganizationScope)
+  @IsOptional()
+  scope?: OrganizationScope;
 }

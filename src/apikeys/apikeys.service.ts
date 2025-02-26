@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateApikeyDto } from './dto/create-apikey.dto';
 import { randomBytes } from 'crypto';
@@ -36,7 +40,16 @@ export class ApikeysService {
     });
   }
 
-  async findOne(id: number) {
+  async findByOrganization(organizationId: number) {
+    return await this.prisma.apikey.findMany({
+      where: { organizationId },
+      include: {
+        organization: true,
+      },
+    });
+  }
+
+  async findOne(id: number, organizationId: number) {
     const apikey = await this.prisma.apikey.findUnique({
       where: { id },
       include: {
@@ -46,6 +59,11 @@ export class ApikeysService {
 
     if (!apikey) {
       throw new NotFoundException('Clé API non trouvée');
+    }
+
+    // Vérifier si l'utilisateur a accès à cette clé API
+    if (apikey.organizationId !== organizationId) {
+      throw new ForbiddenException('Accès non autorisé à cette clé API');
     }
 
     return apikey;

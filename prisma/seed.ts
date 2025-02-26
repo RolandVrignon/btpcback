@@ -7,33 +7,63 @@ async function main() {
   try {
     console.log('Création des données de base...');
 
-    // Création d'une organisation par défaut
-    const organization = await prisma.organization.create({
+    // Création d'une organisation ADMIN
+    const adminOrg = await prisma.organization.create({
       data: {
-        name: 'BTPC Organisation',
+        name: 'BTP-Consultants',
+        scope: 'ADMIN',
       },
     });
-    console.log(`Organisation créée avec ID: ${organization.id}`);
+    console.log(`Organisation ADMIN créée avec ID: ${adminOrg.id}`);
 
-    // Création d'une clé API pour cette organisation
-    const apiKey = await prisma.apikey.create({
+    // Création d'une clé API pour l'organisation ADMIN
+    const adminApiKey = await prisma.apikey.create({
       data: {
         key: `btpc_${randomBytes(16).toString('hex')}`,
-        organizationId: organization.id,
+        organizationId: adminOrg.id,
       },
     });
-    console.log(`Clé API créée: ${apiKey.key}`);
+    console.log(`Clé API ADMIN créée: ${adminApiKey.key}`);
 
-    // Création d'un projet de démonstration
-    const project = await prisma.project.create({
+    // Création d'un projet de démonstration pour l'organisation ADMIN
+    const adminProject = await prisma.project.create({
       data: {
-        name: 'Projet de démonstration',
+        name: 'Projet BTP-Consultants',
         status: 'DRAFT',
-        tags: ['RESIDENTIAL', 'ECO_FRIENDLY'],
-        organizationId: organization.id,
+        tags: ['COMMERCIAL', 'ECO_FRIENDLY'],
+        organizationId: adminOrg.id,
       },
     });
-    console.log(`Projet créé avec ID: ${project.id}`);
+    console.log(`Projet ADMIN créé avec ID: ${adminProject.id}`);
+
+    // Création d'une organisation REGULAR
+    const regularOrg = await prisma.organization.create({
+      data: {
+        name: 'Acme',
+        scope: 'REGULAR',
+      },
+    });
+    console.log(`Organisation REGULAR créée avec ID: ${regularOrg.id}`);
+
+    // Création d'une clé API pour l'organisation REGULAR
+    const regularApiKey = await prisma.apikey.create({
+      data: {
+        key: `acme_${randomBytes(16).toString('hex')}`,
+        organizationId: regularOrg.id,
+      },
+    });
+    console.log(`Clé API REGULAR créée: ${regularApiKey.key}`);
+
+    // Création d'un projet de démonstration pour l'organisation REGULAR
+    const regularProject = await prisma.project.create({
+      data: {
+        name: 'Projet Acme',
+        status: 'DRAFT',
+        tags: ['RESIDENTIAL', 'RENOVATION'],
+        organizationId: regularOrg.id,
+      },
+    });
+    console.log(`Projet REGULAR créé avec ID: ${regularProject.id}`);
 
     console.log('Données de base créées avec succès');
   } catch (error) {

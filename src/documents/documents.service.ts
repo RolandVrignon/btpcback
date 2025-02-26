@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 
@@ -32,11 +36,37 @@ export class DocumentsService {
     });
   }
 
-  async findOne(id: number) {
+  async findAllByOrganization(organizationId: number) {
+    // Récupérer tous les projets de l'organisation
+    const projects = await this.prisma.project.findMany({
+      where: { organizationId },
+      select: { id: true },
+    });
+
+    const projectIds = projects.map((project) => project.id);
+
+    // Récupérer tous les documents des projets de l'organisation
+    return await this.prisma.document.findMany({
+      where: {
+        projectId: {
+          in: projectIds,
+        },
+      },
+      include: {
+        project: true,
+      },
+    });
+  }
+
+  async findOne(id: number, organizationId: number) {
     const document = await this.prisma.document.findUnique({
       where: { id },
       include: {
-        project: true,
+        project: {
+          include: {
+            organization: true,
+          },
+        },
       },
     });
 
@@ -44,17 +74,17 @@ export class DocumentsService {
       throw new NotFoundException('Document non trouvé');
     }
 
+    // Vérifier si le document appartient à l'organisation
+    if (document.project.organizationId !== organizationId) {
+      throw new ForbiddenException('Accès non autorisé à ce document');
+    }
+
     return document;
   }
 
-  async findByProject(projectId: number) {
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
-    });
-
-    if (!project) {
-      throw new NotFoundException('Projet non trouvé');
-    }
+  async findByProject(projectId: number, organizationId: number) {
+    // Vérifier si le projet existe et appartient à l'organisation
+    await this.checkProjectAccess(projectId, organizationId);
 
     return await this.prisma.document.findMany({
       where: { projectId },
@@ -64,7 +94,10 @@ export class DocumentsService {
     });
   }
 
-  async remove(id: number) {
+  async remove(id: number, organizationId: number) {
+    // Vérifier si le document existe et appartient à l'organisation
+    await this.findOne(id, organizationId);
+
     try {
       return await this.prisma.document.delete({
         where: { id },
@@ -75,5 +108,24 @@ export class DocumentsService {
       }
       throw error;
     }
+  }
+
+  async checkProjectAccess(projectId: number, organizationId: number) {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        organization: true,
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Projet non trouvé');
+    }
+
+    if (project.organizationId !== organizationId) {
+      throw new ForbiddenException('Accès non autorisé à ce projet');
+    }
+
+    return project;
   }
 }

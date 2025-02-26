@@ -34,20 +34,26 @@ enum ProjectTag {
   HISTORIC
 }
 
+enum OrganizationScope {
+  ADMIN
+  REGULAR
+}
+
 model Organization {
-  id        Int       @id @default(autoincrement())
-  name      String    @unique
+  id        Int               @id @default(autoincrement())
+  name      String            @unique
+  scope     OrganizationScope @default(REGULAR)
   apikeys   Apikey[]
   projects  Project[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
 }
 
 model Apikey {
   id             Int          @id @default(autoincrement())
   key            String       @unique
   organizationId Int
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -62,7 +68,7 @@ model Project {
   status         ProjectStatus @default(DRAFT)
   tags           ProjectTag[]
   organizationId Int
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   documents      Document[]
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -77,7 +83,7 @@ model Document {
   mimetype  String
   size      Int
   projectId Int
-  project   Project     @relation(fields: [projectId], references: [id])
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   chunks    Chunk[]
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
@@ -90,7 +96,7 @@ model Chunk {
   text       String
   page       Int?
   documentId Int
-  document   Document    @relation(fields: [documentId], references: [id])
+  document   Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
   embeddings Embedding[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
@@ -106,7 +112,7 @@ model Embedding {
   modelVersion String
   dimensions Int
   chunkId    Int
-  chunk      Chunk    @relation(fields: [chunkId], references: [id])
+  chunk      Chunk    @relation(fields: [chunkId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

@@ -1,7 +1,8 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { DocumentsController } from './documents.controller';
 import { MulterModule } from '@nestjs/platform-express';
+import { ApiKeyMiddleware } from '../middleware/api-key.middleware';
 
 @Module({
   imports: [
@@ -13,4 +14,9 @@ import { MulterModule } from '@nestjs/platform-express';
   providers: [DocumentsService],
   exports: [DocumentsService],
 })
-export class DocumentsModule {}
+export class DocumentsModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Toutes les routes de documents nécessitent une API Key
+    consumer.apply(ApiKeyMiddleware).forRoutes(DocumentsController);
+  }
+}

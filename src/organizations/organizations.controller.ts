@@ -1,9 +1,15 @@
 import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
 import { OrganizationsService } from './organizations.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
+import { Organization } from '../decorators/organization.decorator';
 
 @ApiTags('organizations')
+@ApiHeader({
+  name: 'x-api-key',
+  description: "Clé API pour l'authentification",
+  required: true,
+})
 @Controller('organizations')
 export class OrganizationsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
@@ -15,6 +21,11 @@ export class OrganizationsController {
     status: 409,
     description: 'Une organisation avec ce nom existe déjà.',
   })
+  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès réservé aux administrateurs.',
+  })
   create(@Body() createOrganizationDto: CreateOrganizationDto) {
     return this.organizationsService.create(createOrganizationDto);
   }
@@ -24,6 +35,11 @@ export class OrganizationsController {
   @ApiResponse({
     status: 200,
     description: 'Liste des organisations récupérée avec succès.',
+  })
+  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès réservé aux administrateurs.',
   })
   findAll() {
     return this.organizationsService.findAll();
@@ -36,6 +52,11 @@ export class OrganizationsController {
     description: 'Organisation récupérée avec succès.',
   })
   @ApiResponse({ status: 404, description: 'Organisation non trouvée.' })
+  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès réservé aux administrateurs.',
+  })
   findOne(@Param('id') id: string) {
     return this.organizationsService.findOne(+id);
   }
@@ -47,6 +68,11 @@ export class OrganizationsController {
     description: 'Organisation supprimée avec succès.',
   })
   @ApiResponse({ status: 404, description: 'Organisation non trouvée.' })
+  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès réservé aux administrateurs.',
+  })
   remove(@Param('id') id: string) {
     return this.organizationsService.remove(+id);
   }

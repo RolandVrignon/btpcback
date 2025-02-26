@@ -49,6 +49,16 @@ export class OrganizationsService {
 
   async remove(id: number) {
     try {
+      // Vérifier si l'organisation existe
+      const organization = await this.prisma.organization.findUnique({
+        where: { id },
+      });
+
+      if (!organization) {
+        throw new NotFoundException('Organisation non trouvée');
+      }
+
+      // Supprimer l'organisation (la suppression en cascade est gérée par Prisma)
       return await this.prisma.organization.delete({
         where: { id },
       });

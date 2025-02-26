@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
@@ -6,12 +10,20 @@ import {
   ListBucketsCommand,
   CreateBucketCommand,
   CreateBucketCommandInput,
+  GetObjectCommand,
+  HeadObjectCommand,
+  NoSuchKey,
+  S3ServiceException,
+  BucketAlreadyExists,
+  BucketAlreadyOwnedByYou,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { PresignedUrlDto } from './dto/presigned-url.dto';
 import { PresignedUrlResponseDto } from './dto/presigned-url-response.dto';
 import { BucketListResponseDto } from './dto/bucket-list-response.dto';
 import { CreateBucketResponseDto } from './dto/create-bucket-response.dto';
+import { DownloadFileDto } from './dto/download-file.dto';
+import { DownloadFileResponseDto } from './dto/download-file-response.dto';
 import { randomBytes } from 'crypto';
 
 @Injectable()
@@ -68,6 +80,55 @@ export class StorageService {
   }
 
   /**
+   * Génère une URL présignée pour télécharger un fichier depuis S3
+   * @param dto Informations sur le fichier à télécharger
+   * @returns URL présignée pour télécharger le fichier
+   * @throws NotFoundException si le fichier n'existe pas
+   */
+  async getDownloadUrl(dto: DownloadFileDto): Promise<DownloadFileResponseDto> {
+    const expiresIn = 3600; // 1 heure par défaut
+
+    // Construire le chemin du fichier
+    const key = `projects/${dto.projectId}/${dto.fileName}`;
+
+    // Vérifier si le fichier existe
+    try {
+      const headCommand = new HeadObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+
+      await this.s3Client.send(headCommand);
+    } catch (error) {
+      // Vérifier si l'erreur est due à un fichier inexistant
+      if (
+        error instanceof NoSuchKey ||
+        (error instanceof S3ServiceException && error.name === 'NotFound') ||
+        (error instanceof Error && 'name' in error && error.name === 'NotFound')
+      ) {
+        throw new NotFoundException(
+          `Le fichier ${dto.fileName} n'existe pas dans le projet ${dto.projectId}`,
+        );
+      }
+      throw error;
+    }
+
+    // Générer l'URL présignée
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+    });
+
+    const url = await getSignedUrl(this.s3Client, command, { expiresIn });
+
+    return {
+      url,
+      expiresIn,
+      key,
+    };
+  }
+
+  /**
    * Liste tous les buckets disponibles dans le compte AWS
    * @returns Liste des buckets avec leur nom et date de création
    */
@@ -95,9 +156,23 @@ export class StorageService {
   /**
    * Crée un nouveau bucket S3 avec le nom spécifié dans la variable d'environnement AWS_S3_BUCKET
    * @returns Informations sur le bucket créé
+   * @throws BadRequestException si le bucket existe déjà
    */
   async createDefaultBucket(): Promise<CreateBucketResponseDto> {
     try {
+      // Vérifier si le bucket existe déjà
+      const listCommand = new ListBucketsCommand({});
+      const { Buckets } = await this.s3Client.send(listCommand);
+
+      const bucketExists = Buckets?.some(
+        (bucket) => bucket.Name === this.bucketName,
+      );
+      if (bucketExists) {
+        throw new BadRequestException(
+          `Le bucket ${this.bucketName} existe déjà`,
+        );
+      }
+
       const input: CreateBucketCommandInput = {
         Bucket: this.bucketName,
       };
@@ -111,6 +186,24 @@ export class StorageService {
           response.Location || `https://${this.bucketName}.s3.amazonaws.com`,
       };
     } catch (error: unknown) {
+      // Gérer spécifiquement les erreurs d'existence de bucket
+      if (
+        error instanceof BucketAlreadyExists ||
+        error instanceof BucketAlreadyOwnedByYou ||
+        (error instanceof Error &&
+          (error.name === 'BucketAlreadyExists' ||
+            error.name === 'BucketAlreadyOwnedByYou'))
+      ) {
+        throw new BadRequestException(
+          `Le bucket ${this.bucketName} existe déjà`,
+        );
+      }
+
+      // Pour les autres erreurs
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
       const errorMessage =
         error instanceof Error ? error.message : 'Erreur inconnue';
       throw new Error(`Erreur lors de la création du bucket: ${errorMessage}`);

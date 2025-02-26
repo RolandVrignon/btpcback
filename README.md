@@ -1,99 +1,154 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# API Backend BTPC
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend API pour le projet BTPC, développé avec NestJS, TypeScript et PostgreSQL avec Prisma ORM.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Technologies utilisées
 
-## Description
+- **Backend**: Node.js v20.13.0 avec NestJS
+- **Base de données**: PostgreSQL avec extension pgvector
+- **ORM**: Prisma
+- **Authentification**: API Keys
+- **Stockage de fichiers**: AWS S3
+- **Documentation API**: Swagger
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Prérequis
 
-## Project setup
+- Node.js v20.13.0 ou supérieur
+- pnpm
+- PostgreSQL avec extension pgvector
+- Docker (optionnel, pour exécuter PostgreSQL)
 
+## Installation
+
+1. Cloner le dépôt
 ```bash
-$ pnpm install
+git clone <url-du-repo>
+cd back
 ```
 
-## Compile and run the project
-
+2. Installer les dépendances
 ```bash
-# development
-$ pnpm run start
-
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+pnpm install
 ```
 
-## Run tests
-
+3. Configurer les variables d'environnement
 ```bash
-# unit tests
-$ pnpm run test
+cp .env.example .env
+```
+Puis modifiez le fichier `.env` avec vos propres valeurs.
 
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+4. Démarrer la base de données PostgreSQL (avec Docker)
+```bash
+make docker-start
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
+5. Exécuter les migrations Prisma
 ```bash
-$ pnpm install -g mau
-$ mau deploy
+npx prisma migrate dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+6. Générer le client Prisma
+```bash
+npx prisma generate
+```
 
-## Resources
+7. Initialiser les données de base
+```bash
+npx prisma db seed
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+8. Démarrer le serveur en mode développement
+```bash
+pnpm run start:dev
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## Structure du projet
 
-## Support
+```
+src/
+├── apikeys/            # Module de gestion des clés API
+├── chunks/             # Module de gestion des chunks de documents
+├── decorators/         # Décorateurs personnalisés
+├── documents/          # Module de gestion des documents
+├── embeddings/         # Module de gestion des embeddings vectoriels
+├── middleware/         # Middleware d'authentification par API Key
+├── organizations/      # Module de gestion des organisations
+├── prisma/             # Service Prisma et migrations
+├── projects/           # Module de gestion des projets
+├── storage/            # Module de gestion du stockage S3
+└── main.ts             # Point d'entrée de l'application
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## Modèles de données
 
-## Stay in touch
+- **Organization**: Représente une organisation avec un scope (ADMIN ou REGULAR)
+- **Apikey**: Clés API associées à une organisation
+- **Project**: Projets appartenant à une organisation
+- **Document**: Documents associés à un projet
+- **Chunk**: Fragments de texte extraits des documents
+- **Embedding**: Vecteurs d'embedding associés aux chunks
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## Fonctionnalités principales
 
-## License
+### Authentification par API Key
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Toutes les routes de l'API nécessitent une clé API valide, transmise via l'en-tête HTTP `x-api-key`. Deux niveaux d'accès sont disponibles:
+- **Standard**: Pour les opérations régulières
+- **Admin**: Pour les opérations administratives
+
+### Gestion des organisations
+
+- Création, lecture et suppression d'organisations
+- Gestion des scopes (ADMIN, REGULAR)
+
+### Gestion des projets
+
+- Création, lecture, mise à jour et suppression de projets
+- Association des projets à une organisation
+- Filtrage des projets par organisation
+
+### Gestion des documents
+
+- Upload de documents associés à un projet
+- Récupération des documents par projet ou par organisation
+- Suppression de documents
+
+### Chunking et Embeddings
+
+- Découpage des documents en chunks de texte
+- Génération et stockage d'embeddings vectoriels
+- Recherche sémantique via pgvector
+
+### Stockage S3
+
+- Génération d'URLs présignées pour l'upload de fichiers
+- Téléchargement de fichiers depuis S3
+- Gestion des buckets S3
+
+## Documentation API
+
+La documentation Swagger de l'API est disponible à l'adresse:
+```
+http://localhost:3083/api
+```
+
+## Commandes utiles
+
+- Démarrer le serveur en développement: `pnpm run start:dev`
+- Compiler le projet: `pnpm run build`
+- Lancer les tests: `pnpm run test`
+- Formater le code: `pnpm run format`
+- Linter: `pnpm run lint`
+- Démarrer la base de données: `make docker-start`
+- Arrêter la base de données: `make docker-stop`
+
+## Sécurité
+
+- Toutes les routes sont protégées par authentification API Key
+- Vérification des accès basée sur l'organisation
+- Validation des entrées avec class-validator
+- Gestion des erreurs robuste
+
+## Licence
+
+Propriétaire - Tous droits réservés
