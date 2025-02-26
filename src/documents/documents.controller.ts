@@ -1,6 +1,21 @@
-import { Controller, Get, Post, Body, Param, Delete, UseInterceptors, UploadedFile, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  UseInterceptors,
+  UploadedFile,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiResponse, ApiConsumes } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiConsumes,
+} from '@nestjs/swagger';
 import { DocumentsService } from './documents.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { diskStorage } from 'multer';
@@ -21,7 +36,8 @@ export class DocumentsController {
       storage: diskStorage({
         destination: './uploads',
         filename: (req, file, callback) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
           callback(null, `${uniqueSuffix}${extname(file.originalname)}`);
         },
       }),
@@ -44,7 +60,10 @@ export class DocumentsController {
 
   @Get()
   @ApiOperation({ summary: 'Récupérer tous les documents' })
-  @ApiResponse({ status: 200, description: 'Liste des documents récupérée avec succès.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des documents récupérée avec succès.',
+  })
   findAll() {
     return this.documentsService.findAll();
   }
@@ -58,8 +77,11 @@ export class DocumentsController {
   }
 
   @Get('project/:id')
-  @ApiOperation({ summary: 'Récupérer tous les documents d\'un projet' })
-  @ApiResponse({ status: 200, description: 'Liste des documents récupérée avec succès.' })
+  @ApiOperation({ summary: "Récupérer tous les documents d'un projet" })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des documents récupérée avec succès.',
+  })
   @ApiResponse({ status: 404, description: 'Projet non trouvé.' })
   findByProject(@Param('id', ParseIntPipe) id: number) {
     return this.documentsService.findByProject(id);

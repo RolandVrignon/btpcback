@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Param, Delete, Patch } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  Patch,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -19,7 +27,10 @@ export class ProjectsController {
 
   @Get()
   @ApiOperation({ summary: 'Récupérer tous les projets' })
-  @ApiResponse({ status: 200, description: 'Liste des projets récupérée avec succès.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des projets récupérée avec succès.',
+  })
   findAll() {
     return this.projectsService.findAll();
   }
@@ -33,8 +44,11 @@ export class ProjectsController {
   }
 
   @Get('organization/:id')
-  @ApiOperation({ summary: 'Récupérer tous les projets d\'une organisation' })
-  @ApiResponse({ status: 200, description: 'Liste des projets récupérée avec succès.' })
+  @ApiOperation({ summary: "Récupérer tous les projets d'une organisation" })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des projets récupérée avec succès.',
+  })
   @ApiResponse({ status: 404, description: 'Organisation non trouvée.' })
   findByOrganization(@Param('id') id: string) {
     return this.projectsService.findByOrganization(+id);

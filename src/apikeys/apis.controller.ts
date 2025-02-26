@@ -18,7 +18,10 @@ export class ApisController {
 
   @Get()
   @ApiOperation({ summary: 'Récupérer toutes les clés API' })
-  @ApiResponse({ status: 200, description: 'Liste des clés API récupérée avec succès.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des clés API récupérée avec succès.',
+  })
   findAll() {
     return this.apisService.findAll();
   }

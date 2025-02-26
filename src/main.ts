@@ -17,11 +17,13 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, document);
 
   // Configuration des validations globales
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    transform: true,
-    forbidNonWhitelisted: true,
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
 
   // Configuration CORS
   app.enableCors();

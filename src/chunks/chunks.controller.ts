@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Param, Delete, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ChunksService } from './chunks.service';
 import { CreateChunkDto } from './dto/create-chunk.dto';
@@ -9,17 +17,17 @@ import { Type } from 'class-transformer';
 // Créer un DTO pour la recherche full-text
 class TextSearchDto {
   @ApiProperty({
-    description: "Le texte à rechercher",
-    example: "construction écologique"
+    description: 'Le texte à rechercher',
+    example: 'construction écologique',
   })
   @IsString()
   @IsNotEmpty()
   query: string;
 
   @ApiProperty({
-    description: "Nombre maximum de résultats à retourner",
+    description: 'Nombre maximum de résultats à retourner',
     example: 10,
-    required: false
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -43,14 +51,20 @@ export class ChunksController {
   @Post('batch')
   @ApiOperation({ summary: 'Créer plusieurs chunks en une seule requête' })
   @ApiResponse({ status: 201, description: 'Chunks créés avec succès.' })
-  @ApiResponse({ status: 404, description: 'Un ou plusieurs documents non trouvés.' })
+  @ApiResponse({
+    status: 404,
+    description: 'Un ou plusieurs documents non trouvés.',
+  })
   createMany(@Body() createChunkDtos: CreateChunkDto[]) {
     return this.chunksService.createMany(createChunkDtos);
   }
 
   @Get()
   @ApiOperation({ summary: 'Récupérer tous les chunks' })
-  @ApiResponse({ status: 200, description: 'Liste des chunks récupérée avec succès.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des chunks récupérée avec succès.',
+  })
   findAll() {
     return this.chunksService.findAll();
   }
@@ -64,8 +78,11 @@ export class ChunksController {
   }
 
   @Get('document/:id')
-  @ApiOperation({ summary: 'Récupérer tous les chunks d\'un document' })
-  @ApiResponse({ status: 200, description: 'Liste des chunks récupérée avec succès.' })
+  @ApiOperation({ summary: "Récupérer tous les chunks d'un document" })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des chunks récupérée avec succès.',
+  })
   @ApiResponse({ status: 404, description: 'Document non trouvé.' })
   findByDocument(@Param('id', ParseIntPipe) id: number) {
     return this.chunksService.findByDocument(id);
@@ -73,7 +90,10 @@ export class ChunksController {
 
   @Post('search/text')
   @ApiOperation({ summary: 'Rechercher des chunks par texte' })
-  @ApiResponse({ status: 200, description: 'Résultats de recherche récupérés avec succès.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Résultats de recherche récupérés avec succès.',
+  })
   searchFullText(@Body() searchDto: TextSearchDto) {
     return this.chunksService.searchFullText(searchDto.query, searchDto.limit);
   }

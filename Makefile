@@ -74,6 +74,13 @@ test:
 	@echo "Exécution des tests..."
 	@pnpm test
 
+# Commande Prettier
+.PHONY: prettier
+prettier:
+	@echo "Formatage du code avec Prettier..."
+	@pnpm prettier --write "src/**/*.ts"
+	@echo "Formatage terminé"
+
 # Commandes combinées
 .PHONY: setup
 setup:
@@ -87,6 +94,27 @@ setup:
 reset-db:
 	@make docker-start
 	@make prisma-migrate-reset
+
+.PHONY: init-db
+init-db:
+	@echo "Initialisation de la base de données..."
+	@make docker-start
+	@echo "Application des migrations..."
+	@pnpm prisma migrate deploy
+	@echo "Génération du client Prisma..."
+	@pnpm prisma generate
+	@echo "Base de données initialisée avec succès"
+
+.PHONY: seed-db
+seed-db:
+	@echo "Création des données de base..."
+	@pnpm seed
+	@echo "Données de base créées avec succès"
+
+.PHONY: init-with-seed
+init-with-seed:
+	@make init-db
+	@make seed-db
 
 .PHONY: help
 help:
@@ -104,8 +132,12 @@ help:
 	@echo "  make build               - Construire l'application"
 	@echo "  make start               - Lancer le serveur en mode production"
 	@echo "  make test                - Exécuter les tests"
+	@echo "  make prettier            - Formater le code avec Prettier"
 	@echo "  make setup               - Installer les dépendances et configurer le projet"
 	@echo "  make reset-db            - Réinitialiser la base de données"
+	@echo "  make init-db             - Initialiser la base de données"
+	@echo "  make seed-db             - Créer des données de base (organisation et clé API)"
+	@echo "  make init-with-seed      - Initialiser la base de données et créer des données de base"
 
 # Commande par défaut
 .DEFAULT_GOAL := help

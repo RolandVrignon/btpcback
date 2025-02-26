@@ -3,17 +3,17 @@ import { IsString, IsNumber, IsNotEmpty, IsOptional } from 'class-validator';
 
 export class CreateChunkDto {
   @ApiProperty({
-    description: "Le texte du chunk",
-    example: "Ceci est un extrait de texte du document..."
+    description: 'Le texte du chunk',
+    example: 'Ceci est un extrait de texte du document...',
   })
   @IsString()
   @IsNotEmpty()
   text: string;
 
   @ApiProperty({
-    description: "La page du document (optionnel)",
+    description: 'La page du document (optionnel)',
     example: 5,
-    required: false
+    required: false,
   })
   @IsNumber()
   @IsOptional()
@@ -21,7 +21,7 @@ export class CreateChunkDto {
 
   @ApiProperty({
     description: "L'ID du document auquel le chunk est associé",
-    example: 1
+    example: 1,
   })
   @IsNumber()
   @IsNotEmpty()
