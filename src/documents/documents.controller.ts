@@ -7,7 +7,6 @@ import {
   Delete,
   UseInterceptors,
   UploadedFile,
-  ParseIntPipe,
   Patch,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -25,6 +24,9 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { Organization } from '../decorators/organization.decorator';
 import { UpdateDocumentDto } from './dto/update-document.dto';
+import { ConfirmUploadDto } from './dto/confirm-upload.dto';
+import { OrganizationEntity } from '../types';
+import { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
 
 @ApiTags('documents')
 @ApiHeader({
@@ -58,7 +60,7 @@ export class DocumentsController {
   async uploadFile(
     @Param('projectId') projectId: string,
     @UploadedFile() file: Express.Multer.File,
-    @Organization() organization,
+    @Organization() organization: OrganizationEntity,
   ) {
     // Vérifier si le projet appartient à l'organisation
     await this.documentsService.checkProjectAccess(projectId, organization.id);
@@ -83,7 +85,7 @@ export class DocumentsController {
     description: 'Liste des documents récupérée avec succès.',
   })
   @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
-  findAll(@Organization() organization) {
+  findAll(@Organization() organization: OrganizationEntity) {
     return this.documentsService.findAllByOrganization(organization.id);
   }
 
@@ -96,7 +98,10 @@ export class DocumentsController {
   })
   @ApiResponse({ status: 200, description: 'Document récupéré avec succès' })
   @ApiResponse({ status: 404, description: 'Document non trouvé' })
-  findOne(@Param('id') id: string, @Organization() organization) {
+  findOne(
+    @Param('id') id: string,
+    @Organization() organization: OrganizationEntity,
+  ) {
     return this.documentsService.findOne(id, organization.id);
   }
 
@@ -111,7 +116,7 @@ export class DocumentsController {
   @ApiResponse({ status: 404, description: 'Projet non trouvé' })
   findByProject(
     @Param('projectId') projectId: string,
-    @Organization() organization,
+    @Organization() organization: OrganizationEntity,
   ) {
     return this.documentsService.findByProject(projectId, organization.id);
   }
@@ -128,7 +133,7 @@ export class DocumentsController {
   update(
     @Param('id') id: string,
     @Body() updateDocumentDto: UpdateDocumentDto,
-    @Organization() organization,
+    @Organization() organization: OrganizationEntity,
   ) {
     return this.documentsService.update(id, updateDocumentDto, organization.id);
   }
@@ -142,7 +147,59 @@ export class DocumentsController {
   })
   @ApiResponse({ status: 200, description: 'Document supprimé avec succès' })
   @ApiResponse({ status: 404, description: 'Document non trouvé' })
-  remove(@Param('id') id: string, @Organization() organization) {
+  remove(
+    @Param('id') id: string,
+    @Organization() organization: OrganizationEntity,
+  ) {
     return this.documentsService.remove(id, organization.id);
+  }
+
+  @Post('confirm-upload')
+  @ApiOperation({ summary: "Confirmer l'upload d'un fichier sur S3" })
+  @ApiResponse({ status: 201, description: 'Document créé avec succès.' })
+  @ApiResponse({ status: 404, description: 'Projet ou fichier non trouvé.' })
+  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès non autorisé à ce projet.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Erreur lors de la vérification du fichier.',
+  })
+  confirmUpload(
+    @Body() confirmUploadDto: ConfirmUploadDto,
+    @Organization() organization: OrganizationEntity,
+  ) {
+    return this.documentsService.confirmUpload(
+      confirmUploadDto,
+      organization.id,
+    );
+  }
+
+  @Patch(':id/status')
+  @ApiOperation({ summary: "Mettre à jour le statut d'un document" })
+  @ApiResponse({
+    status: 200,
+    description: 'Le statut du document a été mis à jour avec succès',
+  })
+  @ApiResponse({ status: 404, description: 'Document non trouvé' })
+  @ApiResponse({ status: 403, description: 'Accès interdit' })
+  @ApiParam({
+    name: 'id',
+    description: 'ID du document à mettre à jour',
+    example: '01234567890123456789012345678901',
+  })
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() updateStatusDto: UpdateDocumentStatusDto,
+    @Organization() organization: OrganizationEntity,
+  ) {
+    // Vérifier que le document appartient à un projet de l'organisation
+    await this.documentsService.findOne(id, organization.id);
+    return this.documentsService.updateDocumentStatus(
+      id,
+      updateStatusDto.status,
+    );
   }
 }

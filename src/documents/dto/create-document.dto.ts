@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNumber, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsNotEmpty,
+  IsEnum,
+  IsOptional,
+} from 'class-validator';
+import { DocumentStatus } from '@prisma/client';
 
 export class CreateDocumentDto {
   @ApiProperty({
@@ -41,4 +48,14 @@ export class CreateDocumentDto {
   @IsString()
   @IsNotEmpty()
   projectId: string;
+
+  @ApiProperty({
+    description: 'Le statut du document',
+    enum: ['NOT_STARTED', 'PROCESSING', 'READY', 'ERROR'],
+    default: 'NOT_STARTED',
+    required: false,
+  })
+  @IsEnum(DocumentStatus)
+  @IsOptional()
+  status?: DocumentStatus;
 }

@@ -34,6 +34,15 @@ enum ProjectTag {
   HISTORIC
 }
 
+enum DocumentStatus {
+  NOT_STARTED
+  INDEXING
+  RAFTING
+  PROCESSING
+  READY
+  ERROR
+}
+
 enum OrganizationScope {
   ADMIN
   REGULAR
@@ -77,16 +86,17 @@ model Project {
 }
 
 model Document {
-  id        String      @id @default(uuid())
+  id        String         @id @default(uuid())
   filename  String
   path      String
   mimetype  String
   size      Int
+  status    DocumentStatus @default(NOT_STARTED)
   projectId String
-  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   chunks    Chunk[]
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
   @@index([projectId])
 }
