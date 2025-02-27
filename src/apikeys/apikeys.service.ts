@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateApikeyDto } from './dto/create-apikey.dto';
 import { randomBytes } from 'crypto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ApikeysService {
@@ -40,7 +41,7 @@ export class ApikeysService {
     });
   }
 
-  async findByOrganization(organizationId: number) {
+  async findByOrganization(organizationId: string) {
     return await this.prisma.apikey.findMany({
       where: { organizationId },
       include: {
@@ -49,7 +50,7 @@ export class ApikeysService {
     });
   }
 
-  async findOne(id: number, organizationId: number) {
+  async findOne(id: string, organizationId: string) {
     const apikey = await this.prisma.apikey.findUnique({
       where: { id },
       include: {
@@ -69,13 +70,16 @@ export class ApikeysService {
     return apikey;
   }
 
-  async remove(id: number) {
+  async remove(id: string) {
     try {
       return await this.prisma.apikey.delete({
         where: { id },
       });
     } catch (error) {
-      if (error.code === 'P2025') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
         throw new NotFoundException('Clé API non trouvée');
       }
       throw error;

@@ -7,6 +7,13 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 
+// Interface pour les erreurs Prisma
+interface PrismaError {
+  code: string;
+  meta?: Record<string, unknown>;
+  message: string;
+}
+
 @Injectable()
 export class OrganizationsService {
   constructor(private prisma: PrismaService) {}
@@ -17,7 +24,7 @@ export class OrganizationsService {
         data: createOrganizationDto,
       });
     } catch (error) {
-      if (error.code === 'P2002') {
+      if ((error as PrismaError).code === 'P2002') {
         throw new ConflictException('Une organisation avec ce nom existe déjà');
       }
       throw error;
@@ -32,7 +39,7 @@ export class OrganizationsService {
     });
   }
 
-  async findOne(id: number) {
+  async findOne(id: string) {
     const organization = await this.prisma.organization.findUnique({
       where: { id },
       include: {
@@ -47,7 +54,7 @@ export class OrganizationsService {
     return organization;
   }
 
-  async remove(id: number) {
+  async remove(id: string) {
     try {
       // Vérifier si l'organisation existe
       const organization = await this.prisma.organization.findUnique({
@@ -63,7 +70,7 @@ export class OrganizationsService {
         where: { id },
       });
     } catch (error) {
-      if (error.code === 'P2025') {
+      if ((error as PrismaError).code === 'P2025') {
         throw new NotFoundException('Organisation non trouvée');
       }
       throw error;

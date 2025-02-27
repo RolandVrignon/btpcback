@@ -8,6 +8,7 @@ import {
   UseInterceptors,
   UploadedFile,
   ParseIntPipe,
+  Patch,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -16,12 +17,14 @@ import {
   ApiResponse,
   ApiConsumes,
   ApiHeader,
+  ApiParam,
 } from '@nestjs/swagger';
 import { DocumentsService } from './documents.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { Organization } from '../decorators/organization.decorator';
+import { UpdateDocumentDto } from './dto/update-document.dto';
 
 @ApiTags('documents')
 @ApiHeader({
@@ -53,7 +56,7 @@ export class DocumentsController {
     }),
   )
   async uploadFile(
-    @Param('projectId', ParseIntPipe) projectId: number,
+    @Param('projectId') projectId: string,
     @UploadedFile() file: Express.Multer.File,
     @Organization() organization,
   ) {
@@ -86,43 +89,60 @@ export class DocumentsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer un document par son ID' })
-  @ApiResponse({ status: 200, description: 'Document récupéré avec succès.' })
-  @ApiResponse({ status: 404, description: 'Document non trouvé.' })
-  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
-  @ApiResponse({
-    status: 403,
-    description: 'Accès non autorisé à ce document.',
+  @ApiParam({
+    name: 'id',
+    description: 'ID du document à récupérer',
+    example: '01234567890123456789012345678901',
   })
-  findOne(@Param('id', ParseIntPipe) id: number, @Organization() organization) {
+  @ApiResponse({ status: 200, description: 'Document récupéré avec succès' })
+  @ApiResponse({ status: 404, description: 'Document non trouvé' })
+  findOne(@Param('id') id: string, @Organization() organization) {
     return this.documentsService.findOne(id, organization.id);
   }
 
-  @Get('project/:id')
+  @Get('project/:projectId')
   @ApiOperation({ summary: "Récupérer tous les documents d'un projet" })
-  @ApiResponse({
-    status: 200,
-    description: 'Liste des documents récupérée avec succès.',
+  @ApiParam({
+    name: 'projectId',
+    description: 'ID du projet',
+    example: '01234567890123456789012345678901',
   })
-  @ApiResponse({ status: 404, description: 'Projet non trouvé.' })
-  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
-  @ApiResponse({ status: 403, description: 'Accès non autorisé à ce projet.' })
+  @ApiResponse({ status: 200, description: 'Documents récupérés avec succès' })
+  @ApiResponse({ status: 404, description: 'Projet non trouvé' })
   findByProject(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('projectId') projectId: string,
     @Organization() organization,
   ) {
-    return this.documentsService.findByProject(id, organization.id);
+    return this.documentsService.findByProject(projectId, organization.id);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Mettre à jour un document' })
+  @ApiParam({
+    name: 'id',
+    description: 'ID du document à mettre à jour',
+    example: '01234567890123456789012345678901',
+  })
+  @ApiResponse({ status: 200, description: 'Document mis à jour avec succès' })
+  @ApiResponse({ status: 404, description: 'Document non trouvé' })
+  update(
+    @Param('id') id: string,
+    @Body() updateDocumentDto: UpdateDocumentDto,
+    @Organization() organization,
+  ) {
+    return this.documentsService.update(id, updateDocumentDto, organization.id);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Supprimer un document' })
-  @ApiResponse({ status: 200, description: 'Document supprimé avec succès.' })
-  @ApiResponse({ status: 404, description: 'Document non trouvé.' })
-  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
-  @ApiResponse({
-    status: 403,
-    description: 'Accès non autorisé à ce document.',
+  @ApiParam({
+    name: 'id',
+    description: 'ID du document à supprimer',
+    example: '01234567890123456789012345678901',
   })
-  remove(@Param('id', ParseIntPipe) id: number, @Organization() organization) {
+  @ApiResponse({ status: 200, description: 'Document supprimé avec succès' })
+  @ApiResponse({ status: 404, description: 'Document non trouvé' })
+  remove(@Param('id') id: string, @Organization() organization) {
     return this.documentsService.remove(id, organization.id);
   }
 }

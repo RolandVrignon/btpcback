@@ -7,30 +7,47 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 
+// Interface pour les erreurs Prisma
+interface PrismaError {
+  code: string;
+  meta?: Record<string, unknown>;
+  message: string;
+}
+
 @Injectable()
 export class ProjectsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createProjectDto: CreateProjectDto) {
+  async create(createProjectDto: CreateProjectDto, organizationId: string) {
     // Vérifier si l'organisation existe
     const organization = await this.prisma.organization.findUnique({
-      where: { id: createProjectDto.organizationId },
+      where: { id: organizationId },
     });
 
     if (!organization) {
       throw new NotFoundException('Organisation non trouvée');
     }
 
-    return await this.prisma.project.create({
+    const project = await this.prisma.project.create({
       data: {
-        ...createProjectDto,
+        name: createProjectDto.name || '',
+        salesforce_id: createProjectDto.salesforce_id,
         status: createProjectDto.status || 'DRAFT',
         tags: createProjectDto.tags || [],
-      },
-      include: {
-        organization: true,
+        organization: {
+          connect: {
+            id: organizationId,
+          },
+        },
       },
     });
+
+    return {
+      id: project.id,
+      name: project.name,
+      date: project.createdAt,
+      status: project.status,
+    };
   }
 
   async findAll() {
@@ -41,7 +58,7 @@ export class ProjectsService {
     });
   }
 
-  async findOne(id: number, organizationId: number) {
+  async findOne(id: string, organizationId: string) {
     const project = await this.prisma.project.findUnique({
       where: { id },
       include: {
@@ -61,7 +78,7 @@ export class ProjectsService {
     return project;
   }
 
-  async findByOrganization(organizationId: number) {
+  async findByOrganization(organizationId: string) {
     const organization = await this.prisma.organization.findUnique({
       where: { id: organizationId },
     });
@@ -79,9 +96,9 @@ export class ProjectsService {
   }
 
   async update(
-    id: number,
+    id: string,
     updateProjectDto: UpdateProjectDto,
-    organizationId: number,
+    organizationId: string,
   ) {
     // Vérifier si le projet existe et appartient à l'organisation
     await this.findOne(id, organizationId);
@@ -95,14 +112,14 @@ export class ProjectsService {
         },
       });
     } catch (error) {
-      if (error.code === 'P2025') {
+      if ((error as PrismaError).code === 'P2025') {
         throw new NotFoundException('Projet non trouvé');
       }
       throw error;
     }
   }
 
-  async remove(id: number, organizationId: number) {
+  async remove(id: string, organizationId: string) {
     // Vérifier si le projet existe et appartient à l'organisation
     await this.findOne(id, organizationId);
 
@@ -111,7 +128,7 @@ export class ProjectsService {
         where: { id },
       });
     } catch (error) {
-      if (error.code === 'P2025') {
+      if ((error as PrismaError).code === 'P2025') {
         throw new NotFoundException('Projet non trouvé');
       }
       throw error;

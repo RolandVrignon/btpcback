@@ -50,7 +50,7 @@ export class ApikeysController {
     description: 'Accès non autorisé à cette clé API.',
   })
   findOne(@Param('id') id: string, @Organization() organization) {
-    return this.apikeysService.findOne(+id, organization.id);
+    return this.apikeysService.findOne(id, organization.id);
   }
 
   @Delete(':id')
@@ -63,6 +63,6 @@ export class ApikeysController {
     description: 'Accès réservé aux administrateurs.',
   })
   remove(@Param('id') id: string) {
-    return this.apikeysService.remove(+id);
+    return this.apikeysService.remove(id);
   }
 }

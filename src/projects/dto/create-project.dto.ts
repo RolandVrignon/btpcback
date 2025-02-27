@@ -1,12 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsString,
-  IsNumber,
-  IsNotEmpty,
-  IsOptional,
-  IsEnum,
-  IsArray,
-} from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsArray } from 'class-validator';
 
 export enum ProjectStatus {
   DRAFT = 'DRAFT',
@@ -31,18 +24,11 @@ export class CreateProjectDto {
   @ApiProperty({
     description: 'Le nom du projet',
     example: 'Mon Super Projet',
+    required: false,
   })
   @IsString()
-  @IsNotEmpty()
-  name: string;
-
-  @ApiProperty({
-    description: "L'ID de l'organisation à laquelle le projet appartient",
-    example: 1,
-  })
-  @IsNumber()
-  @IsNotEmpty()
-  organizationId: number;
+  @IsOptional()
+  name?: string;
 
   @ApiProperty({
     description: "L'ID Salesforce du projet",
@@ -57,6 +43,7 @@ export class CreateProjectDto {
     description: 'Le statut du projet',
     enum: ProjectStatus,
     default: ProjectStatus.DRAFT,
+    required: false,
   })
   @IsEnum(ProjectStatus)
   @IsOptional()

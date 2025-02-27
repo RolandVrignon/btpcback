@@ -1,7 +1,12 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, OrganizationScope } from '@prisma/client';
 import { randomBytes } from 'crypto';
 
 const prisma = new PrismaClient();
+
+// Fonction pour générer une clé API au format sk_XXXX...
+function generateApiKey(): string {
+  return `sk_${randomBytes(24).toString('hex')}`;
+}
 
 async function main() {
   try {
@@ -10,8 +15,8 @@ async function main() {
     // Création d'une organisation ADMIN
     const adminOrg = await prisma.organization.create({
       data: {
-        name: 'BTP-Consultants',
-        scope: 'ADMIN',
+        name: 'S+',
+        scope: 'ADMIN' as OrganizationScope,
       },
     });
     console.log(`Organisation ADMIN créée avec ID: ${adminOrg.id}`);
@@ -19,7 +24,7 @@ async function main() {
     // Création d'une clé API pour l'organisation ADMIN
     const adminApiKey = await prisma.apikey.create({
       data: {
-        key: `btpc_${randomBytes(16).toString('hex')}`,
+        key: generateApiKey(),
         organizationId: adminOrg.id,
       },
     });
@@ -28,7 +33,7 @@ async function main() {
     // Création d'un projet de démonstration pour l'organisation ADMIN
     const adminProject = await prisma.project.create({
       data: {
-        name: 'Projet BTP-Consultants',
+        name: 'Printemps de la Défense',
         status: 'DRAFT',
         tags: ['COMMERCIAL', 'ECO_FRIENDLY'],
         organizationId: adminOrg.id,
@@ -40,7 +45,7 @@ async function main() {
     const regularOrg = await prisma.organization.create({
       data: {
         name: 'Acme',
-        scope: 'REGULAR',
+        scope: 'REGULAR' as OrganizationScope,
       },
     });
     console.log(`Organisation REGULAR créée avec ID: ${regularOrg.id}`);
@@ -48,7 +53,7 @@ async function main() {
     // Création d'une clé API pour l'organisation REGULAR
     const regularApiKey = await prisma.apikey.create({
       data: {
-        key: `acme_${randomBytes(16).toString('hex')}`,
+        key: generateApiKey(),
         organizationId: regularOrg.id,
       },
     });
@@ -57,7 +62,7 @@ async function main() {
     // Création d'un projet de démonstration pour l'organisation REGULAR
     const regularProject = await prisma.project.create({
       data: {
-        name: 'Projet Acme',
+        name: '85, rue Vauvenargues 75018 Paris',
         status: 'DRAFT',
         tags: ['RESIDENTIAL', 'RENOVATION'],
         organizationId: regularOrg.id,

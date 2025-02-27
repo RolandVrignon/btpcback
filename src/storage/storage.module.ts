@@ -7,9 +7,10 @@ import {
   AdminApiKeyMiddleware,
 } from '../middleware/api-key.middleware';
 import { RequestMethod } from '@nestjs/common';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, PrismaModule],
   controllers: [StorageController],
   providers: [StorageService],
   exports: [StorageService],

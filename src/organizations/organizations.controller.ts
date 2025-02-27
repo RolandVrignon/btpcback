@@ -2,7 +2,6 @@ import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
 import { OrganizationsService } from './organizations.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
-import { Organization } from '../decorators/organization.decorator';
 
 @ApiTags('organizations')
 @ApiHeader({
@@ -58,7 +57,7 @@ export class OrganizationsController {
     description: 'Accès réservé aux administrateurs.',
   })
   findOne(@Param('id') id: string) {
-    return this.organizationsService.findOne(+id);
+    return this.organizationsService.findOne(id);
   }
 
   @Delete(':id')
@@ -74,6 +73,6 @@ export class OrganizationsController {
     description: 'Accès réservé aux administrateurs.',
   })
   remove(@Param('id') id: string) {
-    return this.organizationsService.remove(+id);
+    return this.organizationsService.remove(id);
   }
 }

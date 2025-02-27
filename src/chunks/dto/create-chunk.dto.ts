@@ -21,9 +21,9 @@ export class CreateChunkDto {
 
   @ApiProperty({
     description: "L'ID du document auquel le chunk est associé",
-    example: 1,
+    example: '01234567890123456789012345678901',
   })
-  @IsNumber()
+  @IsString()
   @IsNotEmpty()
-  documentId: number;
+  documentId: string;
 }

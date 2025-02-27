@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -16,6 +17,7 @@ import {
   S3ServiceException,
   BucketAlreadyExists,
   BucketAlreadyOwnedByYou,
+  ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { PresignedUrlDto } from './dto/presigned-url.dto';
@@ -24,14 +26,18 @@ import { BucketListResponseDto } from './dto/bucket-list-response.dto';
 import { CreateBucketResponseDto } from './dto/create-bucket-response.dto';
 import { DownloadFileDto } from './dto/download-file.dto';
 import { DownloadFileResponseDto } from './dto/download-file-response.dto';
-import { randomBytes } from 'crypto';
+import { RootObjectsResponseDto } from './dto/root-objects-response.dto';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class StorageService {
   private s3Client: S3Client;
   private bucketName: string;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private prisma: PrismaService,
+  ) {
     this.s3Client = new S3Client({
       region: this.configService.get<string>('AWS_REGION', 'eu-west-3'),
       credentials: {
@@ -48,21 +54,38 @@ export class StorageService {
     );
   }
 
+  /**
+   * Génère une URL présignée pour télécharger un fichier vers S3
+   * @param dto Informations sur le fichier à télécharger
+   * @param organizationId ID de l'organisation qui fait la demande
+   * @returns URL présignée pour télécharger le fichier
+   * @throws NotFoundException si le projet n'existe pas
+   * @throws ForbiddenException si le projet n'appartient pas à l'organisation
+   */
   async createPresignedUrl(
     dto: PresignedUrlDto,
+    organizationId: string,
   ): Promise<PresignedUrlResponseDto> {
+    // Vérifier si le projet existe et appartient à l'organisation
+    const project = await this.prisma.project.findUnique({
+      where: { id: dto.projectId },
+      include: {
+        organization: true,
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Projet non trouvé');
+    }
+
+    if (project.organizationId !== organizationId) {
+      throw new ForbiddenException('Accès non autorisé à ce projet');
+    }
+
     const expiresIn = 3600; // 1 heure par défaut
 
     // Construire le chemin du fichier avec le projectId
-    const basePath = `projects/${dto.projectId}`;
-
-    // Générer un nom de fichier aléatoire basé sur le timestamp et un hash
-    const timestamp = Date.now();
-    const randomId = randomBytes(8).toString('hex');
-    const extension = this.getExtensionFromContentType(dto.contentType);
-    const fileName = `${timestamp}-${randomId}${extension}`;
-
-    const key = `${basePath}/${fileName}`;
+    const key = `ct-toolbox/${dto.projectId}/${dto.fileName}`;
 
     const command = new PutObjectCommand({
       Bucket: this.bucketName,
@@ -72,20 +95,42 @@ export class StorageService {
 
     const url = await getSignedUrl(this.s3Client, command, { expiresIn });
 
+    // Retourner le chemin relatif au projet dans la réponse
     return {
       url,
       expiresIn,
-      key,
+      key: `./${dto.projectId}/`,
     };
   }
 
   /**
    * Génère une URL présignée pour télécharger un fichier depuis S3
    * @param dto Informations sur le fichier à télécharger
+   * @param organizationId ID de l'organisation qui fait la demande
    * @returns URL présignée pour télécharger le fichier
    * @throws NotFoundException si le fichier n'existe pas
+   * @throws ForbiddenException si le projet n'appartient pas à l'organisation
    */
-  async getDownloadUrl(dto: DownloadFileDto): Promise<DownloadFileResponseDto> {
+  async getDownloadUrl(
+    dto: DownloadFileDto,
+    organizationId: string,
+  ): Promise<DownloadFileResponseDto> {
+    // Vérifier si le projet existe et appartient à l'organisation
+    const project = await this.prisma.project.findUnique({
+      where: { id: dto.projectId },
+      include: {
+        organization: true,
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Projet non trouvé');
+    }
+
+    if (project.organizationId !== organizationId) {
+      throw new ForbiddenException('Accès non autorisé à ce projet');
+    }
+
     const expiresIn = 3600; // 1 heure par défaut
 
     // Construire le chemin du fichier
@@ -231,5 +276,79 @@ export class StorageService {
     };
 
     return mimeToExt[contentType] || '';
+  }
+
+  /**
+   * Liste tous les objets du bucket S3 par défaut jusqu'à une profondeur de 3 niveaux
+   * @returns Liste des objets avec leur clé, taille et date de dernière modification
+   */
+  async listRootObjects(): Promise<RootObjectsResponseDto> {
+    try {
+      // Lister tous les objets sans délimiteur
+      const command = new ListObjectsV2Command({
+        Bucket: this.bucketName,
+      });
+
+      const response = await this.s3Client.send(command);
+
+      // Filtrer pour obtenir les objets et les préfixes jusqu'à une profondeur de 3
+      const objects: Array<{
+        key: string;
+        size: number;
+        lastModified: Date;
+      }> = [];
+      const prefixes = new Set<string>();
+
+      response.Contents?.forEach((object) => {
+        const key = object.Key;
+
+        if (key) {
+          // Compter le nombre de segments dans le chemin
+          const segments = key.split('/').filter(Boolean);
+          const depth = segments.length;
+
+          // Ajouter l'objet s'il est dans la profondeur souhaitée (≤ 3)
+          if (depth <= 3) {
+            objects.push({
+              key,
+              size: object.Size || 0,
+              lastModified: object.LastModified || new Date(),
+            });
+
+            // Extraire et ajouter tous les préfixes parents
+            if (depth > 0) {
+              // Ajouter les préfixes de premier niveau
+              const firstLevelPrefix = segments[0] + '/';
+              prefixes.add(firstLevelPrefix);
+
+              // Ajouter les préfixes de deuxième niveau si disponible
+              if (depth > 1) {
+                const secondLevelPrefix = segments[0] + '/' + segments[1] + '/';
+                prefixes.add(secondLevelPrefix);
+              }
+
+              // Ajouter les préfixes de troisième niveau si disponible
+              if (depth > 2) {
+                const thirdLevelPrefix =
+                  segments[0] + '/' + segments[1] + '/' + segments[2] + '/';
+                prefixes.add(thirdLevelPrefix);
+              }
+            }
+          }
+        }
+      });
+
+      return {
+        objects,
+        prefixes: Array.from(prefixes).sort(),
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+
+      throw new Error(
+        `Erreur lors de la récupération des objets: ${errorMessage}`,
+      );
+    }
   }
 }

@@ -16,6 +16,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmbeddingDto } from './dto/create-embedding.dto';
 import { Prisma } from '@prisma/client';
 
+// Interface pour les erreurs Prisma
+interface PrismaError {
+  code: string;
+  meta?: Record<string, unknown>;
+  message: string;
+}
+
 @Injectable()
 export class EmbeddingsService {
   constructor(private prisma: PrismaService) {}
@@ -42,7 +49,7 @@ export class EmbeddingsService {
 
       return { success: true, message: 'Embedding créé avec succès' };
     } catch (error) {
-      if (error.code === '23505') {
+      if ((error as PrismaError).code === '23505') {
         // Code PostgreSQL pour violation de contrainte unique
         throw new ConflictException(
           'Un embedding avec ce modèle existe déjà pour ce chunk',
@@ -77,7 +84,7 @@ export class EmbeddingsService {
             `;
           } catch (error) {
             // Ignorer les erreurs de duplication
-            if (error.code === '23505') {
+            if ((error as PrismaError).code === '23505') {
               // Code PostgreSQL pour violation de contrainte unique
               return null;
             }
@@ -88,7 +95,7 @@ export class EmbeddingsService {
 
       return { count: createdEmbeddings.filter(Boolean).length };
     } catch (error) {
-      if (error.code === 'P2002') {
+      if ((error as PrismaError).code === 'P2002') {
         throw new ConflictException(
           'Un ou plusieurs embeddings existent déjà pour ces chunks et modèles',
         );
@@ -110,7 +117,7 @@ export class EmbeddingsService {
     `;
   }
 
-  async findOne(id: number) {
+  async findOne(id: string) {
     // Utiliser une requête SQL brute pour récupérer un embedding spécifique
     const results = await this.prisma.$queryRaw`
       SELECT e.id, e."vector", e."modelName", e."modelVersion", e."dimensions", e."chunkId",
@@ -130,7 +137,7 @@ export class EmbeddingsService {
     return (results as any[])[0];
   }
 
-  async findByChunk(chunkId: number) {
+  async findByChunk(chunkId: string) {
     // Vérifier si le chunk existe
     const chunks = await this.prisma.$queryRaw`
       SELECT id FROM "Chunk" WHERE id = ${chunkId}
@@ -202,7 +209,7 @@ export class EmbeddingsService {
     return results;
   }
 
-  async remove(id: number) {
+  async remove(id: string) {
     try {
       // Vérifier si l'embedding existe
       const embeddings = await this.prisma.$queryRaw`

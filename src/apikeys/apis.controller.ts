@@ -31,7 +31,7 @@ export class ApisController {
   @ApiResponse({ status: 200, description: 'Clé API récupérée avec succès.' })
   @ApiResponse({ status: 404, description: 'Clé API non trouvée.' })
   findOne(@Param('id') id: string) {
-    return this.apisService.findOne(+id);
+    return this.apisService.findOne(id);
   }
 
   @Delete(':id')
@@ -39,6 +39,6 @@ export class ApisController {
   @ApiResponse({ status: 200, description: 'Clé API supprimée avec succès.' })
   @ApiResponse({ status: 404, description: 'Clé API non trouvée.' })
   remove(@Param('id') id: string) {
-    return this.apisService.remove(+id);
+    return this.apisService.remove(id);
   }
 }

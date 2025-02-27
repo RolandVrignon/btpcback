@@ -7,7 +7,7 @@ import {
   Delete,
   ParseIntPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { ChunksService } from './chunks.service';
 import { CreateChunkDto } from './dto/create-chunk.dto';
 import { ApiProperty } from '@nestjs/swagger';
@@ -71,20 +71,27 @@ export class ChunksController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer un chunk par son ID' })
-  @ApiResponse({ status: 200, description: 'Chunk récupéré avec succès.' })
-  @ApiResponse({ status: 404, description: 'Chunk non trouvé.' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  @ApiParam({
+    name: 'id',
+    description: 'ID du chunk à récupérer',
+    example: '01234567890123456789012345678901',
+  })
+  @ApiResponse({ status: 200, description: 'Chunk récupéré avec succès' })
+  @ApiResponse({ status: 404, description: 'Chunk non trouvé' })
+  findOne(@Param('id') id: string) {
     return this.chunksService.findOne(id);
   }
 
   @Get('document/:id')
   @ApiOperation({ summary: "Récupérer tous les chunks d'un document" })
-  @ApiResponse({
-    status: 200,
-    description: 'Liste des chunks récupérée avec succès.',
+  @ApiParam({
+    name: 'id',
+    description: 'ID du document',
+    example: '01234567890123456789012345678901',
   })
-  @ApiResponse({ status: 404, description: 'Document non trouvé.' })
-  findByDocument(@Param('id', ParseIntPipe) id: number) {
+  @ApiResponse({ status: 200, description: 'Chunks récupérés avec succès' })
+  @ApiResponse({ status: 404, description: 'Document non trouvé' })
+  findByDocument(@Param('id') id: string) {
     return this.chunksService.findByDocument(id);
   }
 
@@ -100,9 +107,14 @@ export class ChunksController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Supprimer un chunk' })
-  @ApiResponse({ status: 200, description: 'Chunk supprimé avec succès.' })
-  @ApiResponse({ status: 404, description: 'Chunk non trouvé.' })
-  remove(@Param('id', ParseIntPipe) id: number) {
+  @ApiParam({
+    name: 'id',
+    description: 'ID du chunk à supprimer',
+    example: '01234567890123456789012345678901',
+  })
+  @ApiResponse({ status: 200, description: 'Chunk supprimé avec succès' })
+  @ApiResponse({ status: 404, description: 'Chunk non trouvé' })
+  remove(@Param('id') id: string) {
     return this.chunksService.remove(id);
   }
 }

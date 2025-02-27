@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
+import { Prisma, Project } from '@prisma/client';
+import { UpdateDocumentDto } from './dto/update-document.dto';
 
 @Injectable()
 export class DocumentsService {
@@ -36,7 +38,7 @@ export class DocumentsService {
     });
   }
 
-  async findAllByOrganization(organizationId: number) {
+  async findAllByOrganization(organizationId: string) {
     // Récupérer tous les projets de l'organisation
     const projects = await this.prisma.project.findMany({
       where: { organizationId },
@@ -58,7 +60,7 @@ export class DocumentsService {
     });
   }
 
-  async findOne(id: number, organizationId: number) {
+  async findOne(id: string, organizationId: string) {
     const document = await this.prisma.document.findUnique({
       where: { id },
       include: {
@@ -74,15 +76,21 @@ export class DocumentsService {
       throw new NotFoundException('Document non trouvé');
     }
 
+    // Vérifier si le document a un projet associé
+    if (!document.project) {
+      throw new NotFoundException('Projet associé au document non trouvé');
+    }
+
     // Vérifier si le document appartient à l'organisation
-    if (document.project.organizationId !== organizationId) {
+    const project = document.project as Project & { organizationId: string };
+    if (project.organizationId !== organizationId) {
       throw new ForbiddenException('Accès non autorisé à ce document');
     }
 
     return document;
   }
 
-  async findByProject(projectId: number, organizationId: number) {
+  async findByProject(projectId: string, organizationId: string) {
     // Vérifier si le projet existe et appartient à l'organisation
     await this.checkProjectAccess(projectId, organizationId);
 
@@ -94,7 +102,7 @@ export class DocumentsService {
     });
   }
 
-  async remove(id: number, organizationId: number) {
+  async remove(id: string, organizationId: string) {
     // Vérifier si le document existe et appartient à l'organisation
     await this.findOne(id, organizationId);
 
@@ -103,14 +111,17 @@ export class DocumentsService {
         where: { id },
       });
     } catch (error) {
-      if (error.code === 'P2025') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
         throw new NotFoundException('Document non trouvé');
       }
       throw error;
     }
   }
 
-  async checkProjectAccess(projectId: number, organizationId: number) {
+  async checkProjectAccess(projectId: string, organizationId: string) {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
       include: {
@@ -122,10 +133,38 @@ export class DocumentsService {
       throw new NotFoundException('Projet non trouvé');
     }
 
-    if (project.organizationId !== organizationId) {
+    const projectWithOrg = project as Project & { organizationId: string };
+    if (projectWithOrg.organizationId !== organizationId) {
       throw new ForbiddenException('Accès non autorisé à ce projet');
     }
 
     return project;
+  }
+
+  async update(
+    id: string,
+    updateData: UpdateDocumentDto,
+    organizationId: string,
+  ) {
+    // Vérifier si le document existe et appartient à l'organisation
+    await this.findOne(id, organizationId);
+
+    try {
+      return await this.prisma.document.update({
+        where: { id },
+        data: updateData,
+        include: {
+          project: true,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException('Document non trouvé');
+      }
+      throw error;
+    }
   }
 }

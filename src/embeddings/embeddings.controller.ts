@@ -7,7 +7,7 @@ import {
   Delete,
   ParseIntPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { EmbeddingsService } from './embeddings.service';
 import { CreateEmbeddingDto } from './dto/create-embedding.dto';
 import { ApiProperty } from '@nestjs/swagger';
@@ -126,20 +126,27 @@ export class EmbeddingsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer un embedding par son ID' })
-  @ApiResponse({ status: 200, description: 'Embedding récupéré avec succès.' })
-  @ApiResponse({ status: 404, description: 'Embedding non trouvé.' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  @ApiParam({
+    name: 'id',
+    description: "ID de l'embedding à récupérer",
+    example: '01234567890123456789012345678901',
+  })
+  @ApiResponse({ status: 200, description: 'Embedding récupéré avec succès' })
+  @ApiResponse({ status: 404, description: 'Embedding non trouvé' })
+  findOne(@Param('id') id: string) {
     return this.embeddingsService.findOne(id);
   }
 
   @Get('chunk/:id')
   @ApiOperation({ summary: "Récupérer tous les embeddings d'un chunk" })
-  @ApiResponse({
-    status: 200,
-    description: 'Liste des embeddings récupérée avec succès.',
+  @ApiParam({
+    name: 'id',
+    description: 'ID du chunk',
+    example: '01234567890123456789012345678901',
   })
-  @ApiResponse({ status: 404, description: 'Chunk non trouvé.' })
-  findByChunk(@Param('id', ParseIntPipe) id: number) {
+  @ApiResponse({ status: 200, description: 'Embeddings récupérés avec succès' })
+  @ApiResponse({ status: 404, description: 'Chunk non trouvé' })
+  findByChunk(@Param('id') id: string) {
     return this.embeddingsService.findByChunk(id);
   }
 
@@ -188,9 +195,14 @@ export class EmbeddingsController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Supprimer un embedding' })
-  @ApiResponse({ status: 200, description: 'Embedding supprimé avec succès.' })
-  @ApiResponse({ status: 404, description: 'Embedding non trouvé.' })
-  remove(@Param('id', ParseIntPipe) id: number) {
+  @ApiParam({
+    name: 'id',
+    description: "ID de l'embedding à supprimer",
+    example: '01234567890123456789012345678901',
+  })
+  @ApiResponse({ status: 200, description: 'Embedding supprimé avec succès' })
+  @ApiResponse({ status: 404, description: 'Embedding non trouvé' })
+  remove(@Param('id') id: string) {
     return this.embeddingsService.remove(id);
   }
 }

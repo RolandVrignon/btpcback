@@ -4,6 +4,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateChunkDto } from './dto/create-chunk.dto';
 import { Prisma } from '@prisma/client';
 
+// Interface pour les erreurs Prisma
+interface PrismaError {
+  code: string;
+  meta?: Record<string, unknown>;
+  message: string;
+}
+
 @Injectable()
 export class ChunksService {
   constructor(private prisma: PrismaService) {}
@@ -60,7 +67,7 @@ export class ChunksService {
     });
   }
 
-  async findOne(id: number) {
+  async findOne(id: string) {
     const chunk = await this.prisma.chunk.findUnique({
       where: { id },
       include: {
@@ -76,7 +83,7 @@ export class ChunksService {
     return chunk;
   }
 
-  async findByDocument(documentId: number) {
+  async findByDocument(documentId: string) {
     const document = await this.prisma.document.findUnique({
       where: { id: documentId },
     });
@@ -107,13 +114,13 @@ export class ChunksService {
     return results;
   }
 
-  async remove(id: number) {
+  async remove(id: string) {
     try {
       return await this.prisma.chunk.delete({
         where: { id },
       });
     } catch (error) {
-      if (error.code === 'P2025') {
+      if ((error as PrismaError).code === 'P2025') {
         throw new NotFoundException('Chunk non trouvé');
       }
       throw error;

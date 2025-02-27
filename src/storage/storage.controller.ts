@@ -1,5 +1,5 @@
 import { Controller, Post, Body, Get } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
 import { StorageService } from './storage.service';
 import { PresignedUrlDto } from './dto/presigned-url.dto';
 import { PresignedUrlResponseDto } from './dto/presigned-url-response.dto';
@@ -7,8 +7,16 @@ import { BucketListResponseDto } from './dto/bucket-list-response.dto';
 import { CreateBucketResponseDto } from './dto/create-bucket-response.dto';
 import { DownloadFileDto } from './dto/download-file.dto';
 import { DownloadFileResponseDto } from './dto/download-file-response.dto';
+import { RootObjectsResponseDto } from './dto/root-objects-response.dto';
+import { Organization } from '../decorators/organization.decorator';
+import { OrganizationEntity } from '../types/index';
 
 @ApiTags('storage')
+@ApiHeader({
+  name: 'x-api-key',
+  description: "Clé API pour l'authentification",
+  required: true,
+})
 @Controller('storage')
 export class StorageController {
   constructor(private readonly storageService: StorageService) {}
@@ -22,10 +30,22 @@ export class StorageController {
     description: 'URL présignée générée avec succès',
     type: PresignedUrlResponseDto,
   })
+  @ApiResponse({
+    status: 404,
+    description: 'Projet non trouvé',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès non autorisé à ce projet',
+  })
   createPresignedUrl(
     @Body() presignedUrlDto: PresignedUrlDto,
+    @Organization() organization: OrganizationEntity,
   ): Promise<PresignedUrlResponseDto> {
-    return this.storageService.createPresignedUrl(presignedUrlDto);
+    return this.storageService.createPresignedUrl(
+      presignedUrlDto,
+      organization.id,
+    );
   }
 
   @Post('download')
@@ -39,7 +59,11 @@ export class StorageController {
   })
   @ApiResponse({
     status: 404,
-    description: "Le fichier demandé n'existe pas",
+    description: "Le fichier demandé n'existe pas ou le projet n'existe pas",
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès non autorisé à ce projet',
   })
   @ApiResponse({
     status: 500,
@@ -47,8 +71,9 @@ export class StorageController {
   })
   getDownloadUrl(
     @Body() downloadFileDto: DownloadFileDto,
+    @Organization() organization: OrganizationEntity,
   ): Promise<DownloadFileResponseDto> {
-    return this.storageService.getDownloadUrl(downloadFileDto);
+    return this.storageService.getDownloadUrl(downloadFileDto, organization.id);
   }
 
   @Get('buckets')
@@ -62,6 +87,19 @@ export class StorageController {
   })
   listBuckets(): Promise<BucketListResponseDto> {
     return this.storageService.listBuckets();
+  }
+
+  @Get('objects')
+  @ApiOperation({
+    summary: 'Lister tous les objets à la racine du bucket S3 par défaut',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des objets récupérée avec succès',
+    type: RootObjectsResponseDto,
+  })
+  listRootObjects(): Promise<RootObjectsResponseDto> {
+    return this.storageService.listRootObjects();
   }
 
   @Post('bucket')

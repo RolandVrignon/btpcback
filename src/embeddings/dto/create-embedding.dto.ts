@@ -46,9 +46,9 @@ export class CreateEmbeddingDto {
 
   @ApiProperty({
     description: "L'ID du chunk auquel l'embedding est associé",
-    example: 1,
+    example: '01234567890123456789012345678901',
   })
-  @IsNumber()
+  @IsString()
   @IsNotEmpty()
-  chunkId: number;
+  chunkId: string;
 }

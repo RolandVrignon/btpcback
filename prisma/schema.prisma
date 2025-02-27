@@ -40,7 +40,7 @@ enum OrganizationScope {
 }
 
 model Organization {
-  id        Int               @id @default(autoincrement())
+  id        String            @id @default(uuid())
   name      String            @unique
   scope     OrganizationScope @default(REGULAR)
   apikeys   Apikey[]
@@ -50,9 +50,9 @@ model Organization {
 }
 
 model Apikey {
-  id             Int          @id @default(autoincrement())
+  id             String       @id @default(uuid())
   key            String       @unique
-  organizationId Int
+  organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -61,13 +61,13 @@ model Apikey {
 }
 
 model Project {
-  id             Int          @id @default(autoincrement())
+  id             String       @id @default(uuid())
   name           String
   salesforce_id  String?
   ai_address     String?
   status         ProjectStatus @default(DRAFT)
   tags           ProjectTag[]
-  organizationId Int
+  organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   documents      Document[]
   createdAt      DateTime     @default(now())
@@ -77,12 +77,12 @@ model Project {
 }
 
 model Document {
-  id        Int         @id @default(autoincrement())
+  id        String      @id @default(uuid())
   filename  String
   path      String
   mimetype  String
   size      Int
-  projectId Int
+  projectId String
   project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   chunks    Chunk[]
   createdAt DateTime    @default(now())
@@ -92,10 +92,10 @@ model Document {
 }
 
 model Chunk {
-  id         Int         @id @default(autoincrement())
+  id         String      @id @default(uuid())
   text       String
   page       Int?
-  documentId Int
+  documentId String
   document   Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
   embeddings Embedding[]
   createdAt  DateTime    @default(now())
@@ -106,15 +106,15 @@ model Chunk {
 }
 
 model Embedding {
-  id         Int      @id @default(autoincrement())
-  vector     Unsupported("vector(1536)")
-  modelName  String
+  id           String    @id @default(uuid())
+  vector       Unsupported("vector(1536)")
+  modelName    String
   modelVersion String
-  dimensions Int
-  chunkId    Int
-  chunk      Chunk    @relation(fields: [chunkId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  dimensions   Int
+  chunkId      String
+  chunk        Chunk     @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([chunkId])
   @@index([vector], map: "embedding_vector_idx")

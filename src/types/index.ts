@@ -5,7 +5,7 @@ import { Request } from 'express';
  * Interfaces liées aux organisations
  */
 export interface OrganizationEntity {
-  id: number;
+  id: string;
   name: string;
   scope: OrganizationScope;
   createdAt: Date;
@@ -16,13 +16,13 @@ export interface OrganizationEntity {
  * Interfaces liées aux projets
  */
 export interface ProjectEntity {
-  id: number;
+  id: string;
   name: string;
   salesforce_id?: string;
   ai_address?: string;
   status: ProjectStatus;
   tags: ProjectTag[];
-  organizationId: number;
+  organizationId: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,9 +31,9 @@ export interface ProjectEntity {
  * Interfaces liées aux clés API
  */
 export interface ApikeyEntity {
-  id: number;
+  id: string;
   key: string;
-  organizationId: number;
+  organizationId: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,12 +42,12 @@ export interface ApikeyEntity {
  * Interfaces liées aux documents
  */
 export interface DocumentEntity {
-  id: number;
+  id: string;
   filename: string;
   path: string;
   mimetype: string;
   size: number;
-  projectId: number;
+  projectId: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -56,10 +56,10 @@ export interface DocumentEntity {
  * Interfaces liées aux chunks
  */
 export interface ChunkEntity {
-  id: number;
+  id: string;
   text: string;
   page?: number;
-  documentId: number;
+  documentId: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -68,12 +68,12 @@ export interface ChunkEntity {
  * Interfaces liées aux embeddings
  */
 export interface EmbeddingEntity {
-  id: number;
+  id: string;
   vector: number[];
   modelName: string;
   modelVersion: string;
   dimensions: number;
-  chunkId: number;
+  chunkId: string;
   createdAt: Date;
   updatedAt: Date;
 }

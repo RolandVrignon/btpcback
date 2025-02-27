@@ -36,9 +36,9 @@ export class CreateDocumentDto {
 
   @ApiProperty({
     description: "L'ID du projet auquel le document appartient",
-    example: 1,
+    example: '01234567890123456789012345678901',
   })
-  @IsNumber()
+  @IsString()
   @IsNotEmpty()
-  projectId: number;
+  projectId: string;
 }

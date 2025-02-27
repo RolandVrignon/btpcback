@@ -3,6 +3,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateApiDto } from './dto/create-api.dto';
 import { randomBytes } from 'crypto';
 
+// Interface pour les erreurs Prisma
+interface PrismaError {
+  code: string;
+  meta?: Record<string, unknown>;
+  message: string;
+}
+
 @Injectable()
 export class ApisService {
   constructor(private prisma: PrismaService) {}
@@ -36,7 +43,7 @@ export class ApisService {
     });
   }
 
-  async findOne(id: number) {
+  async findOne(id: string) {
     const api = await this.prisma.apikey.findUnique({
       where: { id },
       include: {
@@ -51,13 +58,13 @@ export class ApisService {
     return api;
   }
 
-  async remove(id: number) {
+  async remove(id: string) {
     try {
       return await this.prisma.apikey.delete({
         where: { id },
       });
     } catch (error) {
-      if (error.code === 'P2025') {
+      if ((error as PrismaError).code === 'P2025') {
         throw new NotFoundException('API non trouvée');
       }
       throw error;
