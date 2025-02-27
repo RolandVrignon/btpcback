@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
-import { Prisma, Project, DocumentStatus } from '@prisma/client';
+import { Prisma, Project, DocumentStatus, AI_Provider } from '@prisma/client';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -21,6 +21,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { ChunksService } from '../chunks/chunks.service';
 import { EmbeddingsService } from '../embeddings/embeddings.service';
+import { UsageService } from '../usage/usage.service';
 import { openai } from '@ai-sdk/openai';
 import { embed } from 'ai';
 import * as fs from 'fs';
@@ -39,6 +40,7 @@ export class DocumentsService {
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
+    private usageService: UsageService,
   ) {
     this.s3Client = new S3Client({
       region: this.configService.get<string>('AWS_REGION', 'eu-west-3'),
@@ -269,7 +271,7 @@ export class DocumentsService {
       // Lancer le traitement du document en arrière-plan seulement pour PDF ou DOCX
       const fileExt = path.extname(dto.fileName).toLowerCase();
       if (fileExt === '.pdf' || fileExt === '.docx' || fileExt === '.doc') {
-        void this.processDocumentAsync(document.id);
+        void this.processDocumentAsync(document.id, project.id);
       }
 
       return document;
@@ -295,7 +297,10 @@ export class DocumentsService {
    * 8. Mettre à jour le statut du document à READY
    * @param documentId ID du document à traiter
    */
-  private async processDocumentAsync(documentId: string): Promise<void> {
+  private async processDocumentAsync(
+    documentId: string,
+    projectId: string,
+  ): Promise<void> {
     try {
       // Mettre à jour le statut du document à PROCESSING
       await this.updateDocumentStatus(documentId, 'INDEXING');
@@ -339,11 +344,15 @@ export class DocumentsService {
       );
 
       // Étape 6: Vectoriser et créer les embeddings
-      await this.createEmbeddingsForChunks(createdChunks);
+      await this.createEmbeddingsForChunks(createdChunks, projectId);
 
       // Étape 7: Rafting - Extraire les informations importantes avec Gemini
       await this.updateDocumentStatus(documentId, 'RAFTING');
-      await this.extractDocumentInfoWithGemini(extractedText, documentId);
+      await this.extractDocumentInfoWithGemini(
+        extractedText,
+        documentId,
+        projectId,
+      );
 
       // Mettre à jour le statut du document à READY
       await this.updateDocumentStatus(documentId, 'READY');
@@ -368,6 +377,7 @@ export class DocumentsService {
   private async extractDocumentInfoWithGemini(
     text: string,
     documentId: string,
+    projectId: string,
   ): Promise<void> {
     try {
       // Récupérer la clé API Gemini
@@ -429,14 +439,24 @@ export class DocumentsService {
       // Configurer le modèle Gemini
       process.env.GOOGLE_API_KEY = apiKey;
 
+      const model = 'gemini-1.5-pro';
+
       // Générer la réponse avec Gemini
       const { text: result, usage } = await generateText({
-        model: google('gemini-1.5-pro'),
+        model: google(model),
         prompt: prompt,
         temperature: 0.8,
       });
 
       console.log('usage:', usage);
+
+      await this.usageService.logUsage(
+        AI_Provider.GEMINI,
+        model,
+        usage,
+        projectId,
+        'TEXT_TO_TEXT',
+      );
 
       const responseText = result.toString();
       console.log('responseText:', responseText);
@@ -483,6 +503,7 @@ export class DocumentsService {
    */
   private async createEmbeddingsForChunks(
     chunks: Array<{ id: string; text: string }>,
+    projectId: string,
   ): Promise<void> {
     // Service pour créer les embeddings
     const embeddingsService = new EmbeddingsService(this.prisma);
@@ -524,6 +545,15 @@ export class DocumentsService {
               chunkId: chunk.id,
               usage: usage.tokens,
             });
+
+            // Enregistrer l'utilisation du modèle
+            await this.usageService.logUsage(
+              AI_Provider.OPENAI,
+              model,
+              { totalTokens: usage.tokens },
+              projectId,
+              'EMBEDDING',
+            );
 
             // Incrémenter le compteur de succès
             successCount++;
@@ -625,14 +655,11 @@ export class DocumentsService {
       );
     }
 
-    // Créer un objet de mise à jour explicite
-    const updateData = {
-      status: status,
-    };
-
     return await this.prisma.document.update({
       where: { id: documentId },
-      data: updateData,
+      data: {
+        status,
+      },
       include: {
         project: true,
       },
@@ -918,7 +945,7 @@ export class DocumentsService {
     }
 
     return {
-      metadata: document.ai_metadata,
+      metadata: document.ai_metadata as Array<{ key: string; value: string }>,
     };
   }
 }

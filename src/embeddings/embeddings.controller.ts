@@ -7,7 +7,13 @@ import {
   Delete,
   Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { EmbeddingsService } from './embeddings.service';
 import { CreateEmbeddingDto } from './dto/create-embedding.dto';
 import { ApiProperty } from '@nestjs/swagger';
@@ -131,11 +137,12 @@ export class EmbeddingsController {
   @Post('search')
   @ApiOperation({
     summary: 'Rechercher des embeddings similaires',
-    description: 'Recherche les chunks les plus similaires à un vecteur donné en utilisant la distance euclidienne'
+    description:
+      'Recherche les chunks les plus similaires à un vecteur donné en utilisant la distance euclidienne',
   })
   @ApiResponse({
     status: 200,
-    description: 'Résultats de la recherche vectorielle.'
+    description: 'Résultats de la recherche vectorielle.',
   })
   searchSimilar(@Body() searchDto: VectorSearchDto) {
     return this.embeddingsService.searchSimilar(
@@ -150,11 +157,12 @@ export class EmbeddingsController {
   @Post('search/dot-product')
   @ApiOperation({
     summary: 'Rechercher des embeddings similaires avec le produit scalaire',
-    description: 'Recherche les chunks les plus similaires à un vecteur donné en utilisant le produit scalaire (dot product)'
+    description:
+      'Recherche les chunks les plus similaires à un vecteur donné en utilisant le produit scalaire (dot product)',
   })
   @ApiResponse({
     status: 200,
-    description: 'Résultats de la recherche vectorielle par produit scalaire.'
+    description: 'Résultats de la recherche vectorielle par produit scalaire.',
   })
   searchSimilarDotProduct(@Body() searchDto: VectorSearchDto) {
     return this.embeddingsService.searchSimilarDotProduct(
@@ -168,11 +176,12 @@ export class EmbeddingsController {
   @Post('search/hybrid')
   @ApiOperation({
     summary: 'Recherche hybride (vectorielle + full-text)',
-    description: 'Combine la recherche vectorielle et la recherche full-text pour des résultats plus pertinents'
+    description:
+      'Combine la recherche vectorielle et la recherche full-text pour des résultats plus pertinents',
   })
   @ApiResponse({
     status: 200,
-    description: 'Résultats de la recherche hybride.'
+    description: 'Résultats de la recherche hybride.',
   })
   searchHybrid(@Body() searchDto: HybridSearchDto) {
     return this.embeddingsService.searchHybrid(

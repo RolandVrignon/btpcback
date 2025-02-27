@@ -8,6 +8,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { ChunksModule } from './chunks/chunks.module';
 import { EmbeddingsModule } from './embeddings/embeddings.module';
 import { StorageModule } from './storage/storage.module';
+import { UsageModule } from './usage/usage.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { StorageModule } from './storage/storage.module';
     ChunksModule,
     EmbeddingsModule,
     StorageModule,
+    UsageModule,
   ],
 })
 export class AppModule {}

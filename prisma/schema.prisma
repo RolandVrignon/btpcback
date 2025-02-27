@@ -48,6 +48,25 @@ enum OrganizationScope {
   REGULAR
 }
 
+enum UsageType {
+  TEXT_TO_TEXT
+  EMBEDDING
+}
+
+enum AI_Provider {
+  NOT_SPECIFIED
+  GEMINI
+  OPENAI
+  COHERE
+  ANTHROPIC
+  GROK
+  LLAMA
+  TOGETHERAI
+  MISTRAL
+  FIREWORKS
+  DEEPSEEK
+}
+
 model Organization {
   id        String            @id @default(uuid())
   name      String            @unique
@@ -79,6 +98,7 @@ model Project {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   documents      Document[]
+  usages         Usage[]
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -131,4 +151,22 @@ model Embedding {
   @@index([chunkId])
   @@index([vector], map: "embedding_vector_idx")
   @@unique([chunkId, modelName, modelVersion], name: "unique_chunk_model")
+}
+
+model Usage {
+  id               String    @id @default(uuid())
+  provider         AI_Provider @default(NOT_SPECIFIED)
+  modelName        String
+  promptTokens     Int?
+  completionTokens Int?
+  totalTokens      Int?
+  type             UsageType
+  projectId        String
+  project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([projectId])
+  @@index([modelName])
+  @@index([type])
 }
