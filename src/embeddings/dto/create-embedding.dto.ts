@@ -11,12 +11,12 @@ import { Type } from 'class-transformer';
 
 export class CreateEmbeddingDto {
   @ApiProperty({
-    description: "Le vecteur d'embedding (tableau de nombres)",
+    description: "Le vecteur d'embedding (tableau de floats)",
     example: [0.1, 0.2, 0.3, 0.4, 0.5],
   })
   @IsArray()
   @ArrayMinSize(1)
-  @IsNumber({}, { each: true })
+  @IsNumber({ allowInfinity: false, allowNaN: false }, { each: true })
   @Type(() => Number)
   vector: number[];
 
@@ -51,4 +51,12 @@ export class CreateEmbeddingDto {
   @IsString()
   @IsNotEmpty()
   chunkId: string;
+
+  @ApiProperty({
+    description: "Nombre de Tokens utilisés pour générer l'embedding",
+    example: 10,
+  })
+  @IsNumber()
+  @Min(0)
+  usage: number;
 }

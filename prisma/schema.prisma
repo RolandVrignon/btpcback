@@ -5,7 +5,7 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
 }
 
@@ -40,7 +40,7 @@ enum DocumentStatus {
   RAFTING
   PROCESSING
   READY
-  ERROR
+  END
 }
 
 enum OrganizationScope {
@@ -117,7 +117,7 @@ model Chunk {
 
 model Embedding {
   id           String    @id @default(uuid())
-  vector       Unsupported("vector(1536)")
+  vector       Unsupported("vector(1536)")?
   modelName    String
   modelVersion String
   dimensions   Int
@@ -125,6 +125,7 @@ model Embedding {
   chunk        Chunk     @relation(fields: [chunkId], references: [id], onDelete: Cascade)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  usage        Int       @default(0)
 
   @@index([chunkId])
   @@index([vector], map: "embedding_vector_idx")

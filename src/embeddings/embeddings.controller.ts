@@ -5,9 +5,9 @@ import {
   Body,
   Param,
   Delete,
-  ParseIntPipe,
+  Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { EmbeddingsService } from './embeddings.service';
 import { CreateEmbeddingDto } from './dto/create-embedding.dto';
 import { ApiProperty } from '@nestjs/swagger';
@@ -18,6 +18,8 @@ import {
   IsOptional,
   IsString,
   IsNotEmpty,
+  Min,
+  Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -35,7 +37,7 @@ class VectorSearchDto {
 
   @ApiProperty({
     description: 'Nom du modèle à utiliser pour la recherche',
-    example: 'openai/text-embedding-ada-002',
+    example: 'text-embedding-3-small',
   })
   @IsString()
   @IsNotEmpty()
@@ -58,27 +60,39 @@ class VectorSearchDto {
   @IsOptional()
   @Type(() => Number)
   limit?: number;
+
+  @ApiProperty({
+    description: 'Seuil de distance maximale (optionnel)',
+    example: 0.3,
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  threshold?: number;
 }
 
-// Créer un DTO pour la recherche full-text
-class TextSearchDto {
+// DTO pour la recherche hybride
+class HybridSearchDto extends VectorSearchDto {
   @ApiProperty({
-    description: 'Le texte à rechercher',
-    example: 'construction écologique',
+    description: 'Requête textuelle pour la recherche hybride',
+    example: 'isolation thermique',
   })
   @IsString()
   @IsNotEmpty()
   query: string;
 
   @ApiProperty({
-    description: 'Nombre maximum de résultats à retourner',
-    example: 10,
+    description: 'Poids de la recherche vectorielle (0-1)',
+    example: 0.7,
     required: false,
   })
   @IsNumber()
   @IsOptional()
+  @Min(0)
+  @Max(1)
   @Type(() => Number)
-  limit?: number;
+  vectorWeight?: number;
 }
 
 @ApiTags('embeddings')
@@ -114,62 +128,14 @@ export class EmbeddingsController {
     return this.embeddingsService.createMany(createEmbeddingDtos);
   }
 
-  @Get()
-  @ApiOperation({ summary: 'Récupérer tous les embeddings' })
-  @ApiResponse({
-    status: 200,
-    description: 'Liste des embeddings récupérée avec succès.',
-  })
-  findAll() {
-    return this.embeddingsService.findAll();
-  }
-
-  @Get(':id')
-  @ApiOperation({ summary: 'Récupérer un embedding par son ID' })
-  @ApiParam({
-    name: 'id',
-    description: "ID de l'embedding à récupérer",
-    example: '01234567890123456789012345678901',
-  })
-  @ApiResponse({ status: 200, description: 'Embedding récupéré avec succès' })
-  @ApiResponse({ status: 404, description: 'Embedding non trouvé' })
-  findOne(@Param('id') id: string) {
-    return this.embeddingsService.findOne(id);
-  }
-
-  @Get('chunk/:id')
-  @ApiOperation({ summary: "Récupérer tous les embeddings d'un chunk" })
-  @ApiParam({
-    name: 'id',
-    description: 'ID du chunk',
-    example: '01234567890123456789012345678901',
-  })
-  @ApiResponse({ status: 200, description: 'Embeddings récupérés avec succès' })
-  @ApiResponse({ status: 404, description: 'Chunk non trouvé' })
-  findByChunk(@Param('id') id: string) {
-    return this.embeddingsService.findByChunk(id);
-  }
-
-  @Get('model/:modelName/:modelVersion')
-  @ApiOperation({
-    summary: "Récupérer tous les embeddings d'un modèle spécifique",
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Liste des embeddings récupérée avec succès.',
-  })
-  findByModel(
-    @Param('modelName') modelName: string,
-    @Param('modelVersion') modelVersion: string,
-  ) {
-    return this.embeddingsService.findByModel(modelName, modelVersion);
-  }
-
   @Post('search')
-  @ApiOperation({ summary: 'Rechercher des embeddings similaires' })
+  @ApiOperation({
+    summary: 'Rechercher des embeddings similaires',
+    description: 'Recherche les chunks les plus similaires à un vecteur donné en utilisant la distance euclidienne'
+  })
   @ApiResponse({
     status: 200,
-    description: 'Résultats de recherche récupérés avec succès.',
+    description: 'Résultats de la recherche vectorielle.'
   })
   searchSimilar(@Body() searchDto: VectorSearchDto) {
     return this.embeddingsService.searchSimilar(
@@ -177,31 +143,83 @@ export class EmbeddingsController {
       searchDto.modelName,
       searchDto.modelVersion,
       searchDto.limit,
+      searchDto.threshold,
     );
   }
 
-  @Post('search/text')
-  @ApiOperation({ summary: 'Rechercher des embeddings par texte' })
+  @Post('search/dot-product')
+  @ApiOperation({
+    summary: 'Rechercher des embeddings similaires avec le produit scalaire',
+    description: 'Recherche les chunks les plus similaires à un vecteur donné en utilisant le produit scalaire (dot product)'
+  })
   @ApiResponse({
     status: 200,
-    description: 'Résultats de recherche récupérés avec succès.',
+    description: 'Résultats de la recherche vectorielle par produit scalaire.'
   })
-  searchFullText(@Body() searchDto: TextSearchDto) {
-    return this.embeddingsService.searchFullText(
-      searchDto.query,
+  searchSimilarDotProduct(@Body() searchDto: VectorSearchDto) {
+    return this.embeddingsService.searchSimilarDotProduct(
+      searchDto.vector,
+      searchDto.modelName,
+      searchDto.modelVersion,
       searchDto.limit,
     );
   }
 
+  @Post('search/hybrid')
+  @ApiOperation({
+    summary: 'Recherche hybride (vectorielle + full-text)',
+    description: 'Combine la recherche vectorielle et la recherche full-text pour des résultats plus pertinents'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Résultats de la recherche hybride.'
+  })
+  searchHybrid(@Body() searchDto: HybridSearchDto) {
+    return this.embeddingsService.searchHybrid(
+      searchDto.vector,
+      searchDto.query,
+      searchDto.modelName,
+      searchDto.modelVersion,
+      searchDto.limit,
+      searchDto.vectorWeight,
+    );
+  }
+
+  @Get('by-chunk/:chunkId')
+  @ApiOperation({ summary: 'Récupérer les embeddings par chunk' })
+  @ApiParam({ name: 'chunkId', description: "L'ID du chunk" })
+  @ApiResponse({
+    status: 200,
+    description: 'Les embeddings associés au chunk.',
+  })
+  @ApiResponse({ status: 404, description: 'Chunk non trouvé.' })
+  findByChunk(@Param('chunkId') chunkId: string) {
+    return this.embeddingsService.findByChunk(chunkId);
+  }
+
+  @Get('by-model')
+  @ApiOperation({ summary: 'Récupérer les embeddings par modèle' })
+  @ApiQuery({ name: 'modelName', description: 'Nom du modèle' })
+  @ApiQuery({ name: 'modelVersion', description: 'Version du modèle' })
+  @ApiResponse({
+    status: 200,
+    description: 'Les embeddings associés au modèle.',
+  })
+  findByModel(
+    @Query('modelName') modelName: string,
+    @Query('modelVersion') modelVersion: string,
+  ) {
+    return this.embeddingsService.findByModel(modelName, modelVersion);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Supprimer un embedding' })
-  @ApiParam({
-    name: 'id',
-    description: "ID de l'embedding à supprimer",
-    example: '01234567890123456789012345678901',
+  @ApiParam({ name: 'id', description: "L'ID de l'embedding" })
+  @ApiResponse({
+    status: 200,
+    description: 'Embedding supprimé avec succès.',
   })
-  @ApiResponse({ status: 200, description: 'Embedding supprimé avec succès' })
-  @ApiResponse({ status: 404, description: 'Embedding non trouvé' })
+  @ApiResponse({ status: 404, description: 'Embedding non trouvé.' })
   remove(@Param('id') id: string) {
     return this.embeddingsService.remove(id);
   }

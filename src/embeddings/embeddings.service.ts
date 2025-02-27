@@ -15,6 +15,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmbeddingDto } from './dto/create-embedding.dto';
 import { Prisma } from '@prisma/client';
+import * as crypto from 'crypto';
 
 // Interface pour les erreurs Prisma
 interface PrismaError {
@@ -40,15 +41,41 @@ export class EmbeddingsService {
     }
 
     try {
-      // Utiliser $executeRaw pour insérer directement dans la base de données
-      // car le type vector n'est pas directement supporté par l'API Prisma standard
+      // Générer un UUID côté application
+      const uuid = crypto.randomUUID();
+      console.log('uuid:', uuid);
+
+      // Note: Nous utilisons des requêtes SQL brutes car le type 'vector' de pgvector
+      // est défini comme 'Unsupported' dans le schéma Prisma.
+      //
+      // Si vous souhaitez utiliser l'API Prisma standard, vous devriez:
+      // 1. Modifier le schéma Prisma pour utiliser un type compatible (comme String ou Json)
+      // 2. Convertir le vecteur en JSON avant de le stocker
+      // 3. Ajouter des fonctions de conversion dans votre application
+      //
+      // Exemple avec l'API Prisma standard (nécessite modification du schéma):
+      // return await this.prisma.embedding.create({
+      //   data: {
+      //     id: uuid,
+      //     vector: JSON.stringify(createEmbeddingDto.vector), // Conversion nécessaire
+      //     modelName: createEmbeddingDto.modelName,
+      //     modelVersion: createEmbeddingDto.modelVersion,
+      //     dimensions: createEmbeddingDto.dimensions,
+      //     chunkId: createEmbeddingDto.chunkId,
+      //   },
+      // });
+
+      // Avec la requête SQL brute, nous pouvons utiliser directement le type vector de pgvector
+      console.log('Store embedding in Database');
+
       await this.prisma.$executeRaw`
-        INSERT INTO "Embedding" ("vector", "modelName", "modelVersion", "dimensions", "chunkId", "createdAt", "updatedAt")
-        VALUES (${createEmbeddingDto.vector}::vector, ${createEmbeddingDto.modelName}, ${createEmbeddingDto.modelVersion}, ${createEmbeddingDto.dimensions}, ${createEmbeddingDto.chunkId}, NOW(), NOW())
+        INSERT INTO "Embedding" ("id", "vector", "modelName", "modelVersion", "dimensions", "chunkId", "createdAt", "updatedAt", "usage")
+        VALUES (${uuid}, ${createEmbeddingDto.vector}::vector, ${createEmbeddingDto.modelName}, ${createEmbeddingDto.modelVersion}, ${createEmbeddingDto.dimensions}, ${createEmbeddingDto.chunkId}, NOW(), NOW(), ${createEmbeddingDto.usage})
       `;
 
-      return { success: true, message: 'Embedding créé avec succès' };
+      return { success: true, message: 'Embedding créé avec succès', id: uuid };
     } catch (error) {
+      console.log('Store embedding in Database error');
       if ((error as PrismaError).code === '23505') {
         // Code PostgreSQL pour violation de contrainte unique
         throw new ConflictException(
@@ -78,9 +105,12 @@ export class EmbeddingsService {
       const createdEmbeddings = await Promise.all(
         createEmbeddingDtos.map(async (dto) => {
           try {
+            // Générer un UUID côté application
+            const uuid = crypto.randomUUID();
+
             return await this.prisma.$executeRaw`
-              INSERT INTO "Embedding" ("vector", "modelName", "modelVersion", "dimensions", "chunkId", "createdAt", "updatedAt")
-              VALUES (${dto.vector}::vector, ${dto.modelName}, ${dto.modelVersion}, ${dto.dimensions}, ${dto.chunkId}, NOW(), NOW())
+              INSERT INTO "Embedding" ("id", "vector", "modelName", "modelVersion", "dimensions", "chunkId", "createdAt", "updatedAt")
+              VALUES (${uuid}, ${dto.vector}::vector, ${dto.modelName}, ${dto.modelVersion}, ${dto.dimensions}, ${dto.chunkId}, NOW(), NOW())
             `;
           } catch (error) {
             // Ignorer les erreurs de duplication
@@ -172,7 +202,73 @@ export class EmbeddingsService {
     `;
   }
 
+  /**
+   * Recherche les embeddings les plus similaires à un vecteur donné
+   * @param vector Le vecteur de recherche
+   * @param modelName Nom du modèle d'embedding
+   * @param modelVersion Version du modèle
+   * @param limit Nombre maximum de résultats à retourner (défaut: 10)
+   * @param threshold Seuil de distance maximale (optionnel)
+   * @returns Les chunks les plus similaires avec leur score de similarité
+   */
   async searchSimilar(
+    vector: number[],
+    modelName: string,
+    modelVersion: string,
+    limit: number = 10,
+    threshold?: number,
+  ) {
+    // Convertir le tableau de nombres en vecteur pgvector
+    const vectorString = `[${vector.join(',')}]`;
+
+    // Construire la requête de base
+    let query = Prisma.sql`
+      SELECT e.id, e."chunkId", e."modelName", e."modelVersion", c.text, c.page, c."documentId", d.filename,
+             e.vector <=> ${Prisma.raw(vectorString)}::vector AS distance
+      FROM "Embedding" e
+      JOIN "Chunk" c ON e."chunkId" = c.id
+      JOIN "Document" d ON c."documentId" = d.id
+      WHERE e."modelName" = ${modelName} AND e."modelVersion" = ${modelVersion}
+    `;
+
+    // Ajouter un filtre de seuil si spécifié
+    if (threshold !== undefined) {
+      query = Prisma.sql`
+        ${query} AND (e.vector <=> ${Prisma.raw(vectorString)}::vector) < ${threshold}
+      `;
+    }
+
+    // Ajouter le tri et la limite
+    query = Prisma.sql`
+      ${query} ORDER BY distance LIMIT ${limit}
+    `;
+
+    // Exécuter la requête
+    const results = await this.prisma.$queryRaw(query);
+
+    // Formater les résultats pour inclure plus d'informations
+    return (results as any[]).map((result) => ({
+      id: result.id,
+      chunkId: result.chunkId,
+      text: result.text,
+      page: result.page,
+      documentId: result.documentId,
+      documentName: result.filename,
+      distance: result.distance,
+      similarity: 1 - result.distance, // Convertir la distance en score de similarité (0-1)
+    }));
+  }
+
+  /**
+   * Recherche les embeddings les plus similaires en utilisant l'opérateur de produit scalaire (dot product)
+   * Utile pour certains cas d'usage où la similarité cosinus est préférable
+   * @param vector Le vecteur de recherche
+   * @param modelName Nom du modèle d'embedding
+   * @param modelVersion Version du modèle
+   * @param limit Nombre maximum de résultats à retourner (défaut: 10)
+   * @returns Les chunks les plus similaires avec leur score de similarité
+   */
+  async searchSimilarDotProduct(
     vector: number[],
     modelName: string,
     modelVersion: string,
@@ -181,14 +277,68 @@ export class EmbeddingsService {
     // Convertir le tableau de nombres en vecteur pgvector
     const vectorString = `[${vector.join(',')}]`;
 
-    // Exécuter une requête SQL brute pour la recherche de similarité
+    // Utiliser le produit scalaire (dot product) au lieu de la distance euclidienne
     const results = await this.prisma.$queryRaw`
-      SELECT e.id, e."chunkId", e."modelName", e."modelVersion", c.text, c.page, c."documentId",
-             e.vector <=> ${Prisma.raw(vectorString)}::vector AS distance
+      SELECT e.id, e."chunkId", e."modelName", e."modelVersion", c.text, c.page, c."documentId", d.filename,
+             (e.vector <#> ${Prisma.raw(vectorString)}::vector) * -1 AS similarity
       FROM "Embedding" e
       JOIN "Chunk" c ON e."chunkId" = c.id
+      JOIN "Document" d ON c."documentId" = d.id
       WHERE e."modelName" = ${modelName} AND e."modelVersion" = ${modelVersion}
-      ORDER BY distance
+      ORDER BY similarity DESC
+      LIMIT ${limit}
+    `;
+
+    // Formater les résultats
+    return results;
+  }
+
+  /**
+   * Recherche hybride combinant la recherche vectorielle et la recherche full-text
+   * @param vector Le vecteur de recherche
+   * @param query La requête textuelle
+   * @param modelName Nom du modèle d'embedding
+   * @param modelVersion Version du modèle
+   * @param limit Nombre maximum de résultats à retourner (défaut: 10)
+   * @param vectorWeight Poids de la recherche vectorielle (0-1, défaut: 0.7)
+   * @returns Les chunks les plus pertinents avec leur score combiné
+   */
+  async searchHybrid(
+    vector: number[],
+    query: string,
+    modelName: string,
+    modelVersion: string,
+    limit: number = 10,
+    vectorWeight: number = 0.7,
+  ) {
+    // Vérifier que le poids est valide
+    if (vectorWeight < 0 || vectorWeight > 1) {
+      throw new Error('Le poids vectoriel doit être compris entre 0 et 1');
+    }
+
+    const textWeight = 1 - vectorWeight;
+    const vectorString = `[${vector.join(',')}]`;
+
+    // Requête hybride combinant la recherche vectorielle et la recherche full-text
+    const results = await this.prisma.$queryRaw`
+      SELECT
+        e.id,
+        e."chunkId",
+        c.text,
+        c.page,
+        c."documentId",
+        d.filename,
+        (e.vector <=> ${Prisma.raw(vectorString)}::vector) AS vector_distance,
+        ts_rank(to_tsvector('french', c.text), plainto_tsquery('french', ${query})) AS text_rank,
+        (${vectorWeight} * (1 - (e.vector <=> ${Prisma.raw(vectorString)}::vector)) +
+         ${textWeight} * ts_rank(to_tsvector('french', c.text), plainto_tsquery('french', ${query}))) AS combined_score
+      FROM "Embedding" e
+      JOIN "Chunk" c ON e."chunkId" = c.id
+      JOIN "Document" d ON c."documentId" = d.id
+      WHERE e."modelName" = ${modelName}
+        AND e."modelVersion" = ${modelVersion}
+        AND to_tsvector('french', c.text) @@ plainto_tsquery('french', ${query})
+      ORDER BY combined_score DESC
       LIMIT ${limit}
     `;
 

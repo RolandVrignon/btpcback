@@ -7,10 +7,17 @@ CREATE TYPE "ProjectStatus" AS ENUM ('DRAFT', 'IN_PROGRESS', 'PENDING_REVIEW', '
 -- CreateEnum
 CREATE TYPE "ProjectTag" AS ENUM ('RESIDENTIAL', 'COMMERCIAL', 'INDUSTRIAL', 'RENOVATION', 'NEW_CONSTRUCTION', 'URGENT', 'ECO_FRIENDLY', 'HISTORIC');
 
+-- CreateEnum
+CREATE TYPE "DocumentStatus" AS ENUM ('NOT_STARTED', 'INDEXING', 'RAFTING', 'PROCESSING', 'READY', 'ERROR');
+
+-- CreateEnum
+CREATE TYPE "OrganizationScope" AS ENUM ('ADMIN', 'REGULAR');
+
 -- CreateTable
 CREATE TABLE "Organization" (
-    "id" SERIAL NOT NULL,
+    "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "scope" "OrganizationScope" NOT NULL DEFAULT 'REGULAR',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -19,9 +26,9 @@ CREATE TABLE "Organization" (
 
 -- CreateTable
 CREATE TABLE "Apikey" (
-    "id" SERIAL NOT NULL,
+    "id" TEXT NOT NULL,
     "key" TEXT NOT NULL,
-    "organizationId" INTEGER NOT NULL,
+    "organizationId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -30,13 +37,13 @@ CREATE TABLE "Apikey" (
 
 -- CreateTable
 CREATE TABLE "Project" (
-    "id" SERIAL NOT NULL,
+    "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "salesforce_id" TEXT,
     "ai_address" TEXT,
     "status" "ProjectStatus" NOT NULL DEFAULT 'DRAFT',
     "tags" "ProjectTag"[],
-    "organizationId" INTEGER NOT NULL,
+    "organizationId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -45,12 +52,13 @@ CREATE TABLE "Project" (
 
 -- CreateTable
 CREATE TABLE "Document" (
-    "id" SERIAL NOT NULL,
+    "id" TEXT NOT NULL,
     "filename" TEXT NOT NULL,
     "path" TEXT NOT NULL,
     "mimetype" TEXT NOT NULL,
     "size" INTEGER NOT NULL,
-    "projectId" INTEGER NOT NULL,
+    "status" "DocumentStatus" NOT NULL DEFAULT 'NOT_STARTED',
+    "projectId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -59,10 +67,10 @@ CREATE TABLE "Document" (
 
 -- CreateTable
 CREATE TABLE "Chunk" (
-    "id" SERIAL NOT NULL,
+    "id" TEXT NOT NULL,
     "text" TEXT NOT NULL,
     "page" INTEGER,
-    "documentId" INTEGER NOT NULL,
+    "documentId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -71,12 +79,12 @@ CREATE TABLE "Chunk" (
 
 -- CreateTable
 CREATE TABLE "Embedding" (
-    "id" SERIAL NOT NULL,
-    "vector" vector(1536) NOT NULL,
+    "id" TEXT NOT NULL,
+    "vector" vector(1536),
     "modelName" TEXT NOT NULL,
     "modelVersion" TEXT NOT NULL,
     "dimensions" INTEGER NOT NULL,
-    "chunkId" INTEGER NOT NULL,
+    "chunkId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -114,16 +122,16 @@ CREATE INDEX "embedding_vector_idx" ON "Embedding"("vector");
 CREATE UNIQUE INDEX "Embedding_chunkId_modelName_modelVersion_key" ON "Embedding"("chunkId", "modelName", "modelVersion");
 
 -- AddForeignKey
-ALTER TABLE "Apikey" ADD CONSTRAINT "Apikey_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Apikey" ADD CONSTRAINT "Apikey_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Project" ADD CONSTRAINT "Project_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Project" ADD CONSTRAINT "Project_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Document" ADD CONSTRAINT "Document_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Document" ADD CONSTRAINT "Document_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Chunk" ADD CONSTRAINT "Chunk_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "Document"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Chunk" ADD CONSTRAINT "Chunk_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "Document"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Embedding" ADD CONSTRAINT "Embedding_chunkId_fkey" FOREIGN KEY ("chunkId") REFERENCES "Chunk"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Embedding" ADD CONSTRAINT "Embedding_chunkId_fkey" FOREIGN KEY ("chunkId") REFERENCES "Chunk"("id") ON DELETE CASCADE ON UPDATE CASCADE;

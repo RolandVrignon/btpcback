@@ -19,6 +19,17 @@ import { ViewDocumentDto } from './dto/view-document.dto';
 import { ViewDocumentResponseDto } from './dto/view-document-response.dto';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { ChunksService } from '../chunks/chunks.service';
+import { EmbeddingsService } from '../embeddings/embeddings.service';
+import { openai } from '@ai-sdk/openai';
+import { embed } from 'ai';
+import * as fs from 'fs';
+import * as path from 'path';
+import { Readable } from 'stream';
+import { finished } from 'stream/promises';
+import * as util from 'util';
+import { exec } from 'child_process';
+import { rm } from 'fs/promises';
 
 @Injectable()
 export class DocumentsService {
@@ -270,52 +281,140 @@ export class DocumentsService {
   }
 
   /**
-   * Simule le traitement asynchrone d'un document en passant par différents statuts
+   * Traite un document de manière asynchrone en suivant les étapes:
+   * 1. Téléchargement du document depuis S3
+   * 2. Conversion si nécessaire (docx -> pdf)
+   * 3. Extraction du texte
+   * 4. Chunking du texte
+   * 5. Création des chunks dans la base de données
+   * 6. Vectorisation et création des embeddings
    * @param documentId ID du document à traiter
    */
   private async processDocumentAsync(documentId: string): Promise<void> {
-    // Définir la séquence des statuts et les délais entre chaque changement
-    const statusSequence: Array<{
-      status: 'PROCESSING' | 'INDEXING' | 'RAFTING' | 'READY';
-      delay: number;
-    }> = [
-      { status: 'PROCESSING', delay: 2000 },
-      { status: 'INDEXING', delay: 3000 },
-      { status: 'RAFTING', delay: 3000 },
-      { status: 'READY', delay: 0 },
-    ];
+    try {
+      // Mettre à jour le statut du document à PROCESSING
+      await this.updateDocumentStatus(documentId, 'PROCESSING');
 
-    // Fonction pour mettre à jour le statut avec un délai
-    const updateWithDelay = async (
-      status: 'PROCESSING' | 'INDEXING' | 'RAFTING' | 'READY',
-      delay: number,
-    ): Promise<void> => {
-      await new Promise<void>((resolve) => {
-        setTimeout(() => {
-          this.prisma.document
-            .update({
-              where: { id: documentId },
-              data: { status },
-            })
-            .then(() => {
-              console.log(
-                `Document ${documentId} mis à jour avec le statut: ${status}`,
-              );
-              resolve();
-            })
-            .catch((error) => {
-              console.error(
-                `Erreur lors de la mise à jour du statut: ${error}`,
-              );
-              resolve();
-            });
-        }, delay);
+      // Récupérer les informations du document
+      const document = await this.prisma.document.findUnique({
+        where: { id: documentId },
       });
-    };
 
-    // Exécuter la séquence de mises à jour
-    for (const step of statusSequence) {
-      await updateWithDelay(step.status, step.delay);
+      if (!document) {
+        throw new NotFoundException(
+          `Document avec l'ID ${documentId} non trouvé`,
+        );
+      }
+
+      // Étape 1: Télécharger le document depuis S3
+      const tempDir = `/tmp/document-processing/${documentId}`;
+      const tempFilePath = await this.downloadDocumentFromS3(
+        document.path,
+        tempDir,
+      );
+
+      console.log('tempFilePath:', tempFilePath);
+
+      // Étape 2: Convertir le document si nécessaire
+      const pdfFilePath = await this.convertToPdfIfNeeded(tempFilePath);
+      console.log('pdfFilePath:', pdfFilePath);
+
+      // Étape 3: Extraire le texte du PDF
+      await this.updateDocumentStatus(documentId, 'INDEXING');
+      const extractedText = await this.extractTextFromPdf(pdfFilePath);
+      console.log('extractedText:', extractedText);
+
+      // Étape 4: Chunker le texte
+      const chunks = this.chunkText(extractedText, 1000);
+      console.log('chunks:', chunks);
+      // Étape 5: Créer les chunks dans la base de données
+      await this.updateDocumentStatus(documentId, 'RAFTING');
+      const createdChunks = await this.createChunksInDatabase(
+        chunks,
+        documentId,
+      );
+
+      // Étape 6: Vectoriser et créer les embeddings
+      await this.createEmbeddingsForChunks(createdChunks);
+
+      // Mettre à jour le statut du document à READY
+      await this.updateDocumentStatus(documentId, 'READY');
+
+      // Nettoyer les fichiers temporaires
+      await this.cleanupTempFiles(tempDir);
+    } catch (error) {
+      console.error(
+        `Erreur lors du traitement du document ${documentId}:`,
+        error,
+      );
+      // En cas d'erreur, mettre à jour le statut du document à END
+      await this.updateDocumentStatus(documentId, 'END');
+    }
+  }
+
+  /**
+   * Crée des embeddings pour une liste de chunks
+   */
+  private async createEmbeddingsForChunks(
+    chunks: Array<{ id: string; text: string }>,
+  ): Promise<void> {
+    // Service pour créer les embeddings
+    const embeddingsService = new EmbeddingsService(this.prisma);
+
+    // Récupérer la clé API OpenAI
+    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    if (!apiKey) {
+      throw new Error("La clé API OpenAI n'est pas configurée");
+    }
+
+    // Configurer le client OpenAI avec la clé API
+    process.env.OPENAI_API_KEY = apiKey;
+    const model = 'text-embedding-3-small';
+
+    // Configurer le modèle d'embedding
+    const embeddingModel = openai.embedding(model);
+
+    // Générer et créer les embeddings pour chaque chunk individuellement
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Traiter les chunks en parallèle, mais créer chaque embedding dès qu'il est généré
+      await Promise.all(
+        chunks.map(async (chunk) => {
+          try {
+            // Générer l'embedding avec le SDK AI de Vercel
+            const { embedding: embeddingVector, usage } = await embed({
+              model: embeddingModel,
+              value: chunk.text,
+            });
+
+            // Créer l'embedding dans la base de données immédiatement
+            await embeddingsService.create({
+              vector: embeddingVector,
+              modelName: model,
+              modelVersion: 'v1',
+              dimensions: embeddingVector.length,
+              chunkId: chunk.id,
+              usage: usage.tokens,
+            });
+
+            // Incrémenter le compteur de succès
+            successCount++;
+          } catch (error) {
+            console.error(
+              `Erreur lors de la génération ou création de l'embedding pour le chunk ${chunk.id}:`,
+              error,
+            );
+            errorCount++;
+          }
+        }),
+      );
+
+      console.log(`${successCount} embeddings créés avec succès`);
+      console.log(`${errorCount} embeddings ont échoué`);
+    } catch (error) {
+      console.error(`Erreur lors de la création des embeddings:`, error);
     }
   }
 
@@ -382,7 +481,7 @@ export class DocumentsService {
         return 'Le document est en cours de résumé';
       case 'READY':
         return 'Le document est prêt à être utilisé';
-      case 'ERROR':
+      case 'END':
         return 'Une erreur est survenue lors du traitement du document';
       default:
         return 'Statut inconnu';
@@ -400,12 +499,14 @@ export class DocumentsService {
       );
     }
 
-    // Utiliser une conversion de type sûre pour le statut
-    const documentStatus = status as unknown as DocumentStatus;
+    // Créer un objet de mise à jour explicite
+    const updateData = {
+      status: status,
+    };
 
     return await this.prisma.document.update({
       where: { id: documentId },
-      data: { status: documentStatus },
+      data: updateData,
       include: {
         project: true,
       },
@@ -459,6 +560,186 @@ export class DocumentsService {
         );
       }
       throw error;
+    }
+  }
+
+  /**
+   * Télécharge un document depuis S3 et le stocke dans un répertoire temporaire
+   * @param s3Path Chemin du document dans S3
+   * @param tempDir Répertoire temporaire où stocker le document
+   * @returns Chemin du fichier téléchargé
+   */
+  private async downloadDocumentFromS3(
+    s3Path: string,
+    tempDir: string,
+  ): Promise<string> {
+    // Créer le répertoire temporaire s'il n'existe pas
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    // Récupérer le nom du fichier à partir du chemin S3
+    const fileName = path.basename(s3Path);
+    const tempFilePath = path.join(tempDir, fileName);
+
+    // Télécharger le fichier depuis S3
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: s3Path,
+    });
+
+    const response = await this.s3Client.send(command);
+
+    // Écrire le contenu dans un fichier temporaire
+    const writeStream = fs.createWriteStream(tempFilePath);
+    const readStream = Readable.from(response.Body as any);
+
+    await finished(readStream.pipe(writeStream));
+
+    return tempFilePath;
+  }
+
+  /**
+   * Convertit un document en PDF si nécessaire (pour les fichiers docx)
+   * @param filePath Chemin du fichier à convertir
+   * @returns Chemin du fichier PDF (soit le même si c'était déjà un PDF, soit le nouveau)
+   */
+  private async convertToPdfIfNeeded(filePath: string): Promise<string> {
+    const fileExt = path.extname(filePath).toLowerCase();
+
+    // Si c'est déjà un PDF, retourner le chemin tel quel
+    if (fileExt === '.pdf') {
+      return filePath;
+    }
+
+    // Si c'est un docx, le convertir en PDF
+    if (fileExt === '.docx' || fileExt === '.doc') {
+      const outputPath = filePath.replace(/\.(docx|doc)$/i, '.pdf');
+
+      // Utiliser LibreOffice pour convertir le document
+      const execPromise = util.promisify(exec);
+      const command = `libreoffice --headless --convert-to pdf --outdir "${path.dirname(filePath)}" "${filePath}"`;
+
+      try {
+        await execPromise(command);
+        return outputPath;
+      } catch (error) {
+        console.error('Erreur lors de la conversion du document:', error);
+        throw new Error(
+          `Échec de la conversion du document: ${(error as Error).message}`,
+        );
+      }
+    }
+
+    // Pour les autres types de fichiers, lever une erreur
+    throw new Error(`Type de fichier non pris en charge: ${fileExt}`);
+  }
+
+  /**
+   * Extrait le texte d'un fichier PDF
+   * @param pdfPath Chemin du fichier PDF
+   * @returns Texte extrait du PDF
+   */
+  private async extractTextFromPdf(pdfPath: string): Promise<string> {
+    const execPromise = util.promisify(exec);
+    const outputPath = pdfPath.replace(/\.pdf$/i, '.txt');
+
+    // Utiliser pdftotext avec l'option -layout pour préserver la mise en page
+    const command = `pdftotext -layout "${pdfPath}" "${outputPath}"`;
+
+    try {
+      await execPromise(command);
+
+      // Lire le fichier texte généré
+      const extractedText = fs.readFileSync(outputPath, 'utf8');
+
+      return extractedText;
+    } catch (error) {
+      console.error("Erreur lors de l'extraction du texte:", error);
+      throw new Error(
+        `Échec de l'extraction du texte: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  /**
+   * Découpe un texte en chunks de taille spécifiée
+   * @param text Texte à découper
+   * @param chunkSize Taille maximale de chaque chunk en caractères
+   * @returns Tableau de chunks
+   */
+  private chunkText(text: string, chunkSize: number): string[] {
+    const chunks: string[] = [];
+
+    // Diviser le texte en paragraphes
+    const paragraphs = text.split(/\n\s*\n/);
+
+    let currentChunk = '';
+
+    for (const paragraph of paragraphs) {
+      // Si le paragraphe est plus grand que la taille de chunk, le diviser
+      if (paragraph.length > chunkSize) {
+        // Ajouter le chunk courant s'il n'est pas vide
+        if (currentChunk) {
+          chunks.push(currentChunk);
+          currentChunk = '';
+        }
+
+        // Diviser le paragraphe en chunks de taille fixe
+        let i = 0;
+        while (i < paragraph.length) {
+          chunks.push(paragraph.substring(i, i + chunkSize));
+          i += chunkSize;
+        }
+      } else if (currentChunk.length + paragraph.length + 2 > chunkSize) {
+        // Si ajouter ce paragraphe dépasse la taille du chunk, créer un nouveau chunk
+        chunks.push(currentChunk);
+        currentChunk = paragraph;
+      } else {
+        // Sinon, ajouter le paragraphe au chunk courant
+        if (currentChunk) {
+          currentChunk += '\n\n';
+        }
+        currentChunk += paragraph;
+      }
+    }
+
+    // Ajouter le dernier chunk s'il n'est pas vide
+    if (currentChunk) {
+      chunks.push(currentChunk);
+    }
+
+    return chunks;
+  }
+
+  /**
+   * Crée les chunks dans la base de données
+   * @param textChunks Tableau de chunks de texte
+   * @param documentId ID du document associé
+   * @returns Tableau des chunks créés
+   */
+  private async createChunksInDatabase(
+    textChunks: string[],
+    documentId: string,
+  ) {
+    // Créer les DTOs pour les chunks
+    const chunkDtos = textChunks.map((text) => ({
+      text,
+      documentId,
+    }));
+
+    // Utiliser le service Chunks pour créer les chunks en batch
+    const chunksService = new ChunksService(this.prisma);
+    return await chunksService.createMany(chunkDtos);
+  }
+
+  /**
+   * Nettoie les fichiers temporaires
+   * @param tempDir Répertoire temporaire à nettoyer
+   */
+  private async cleanupTempFiles(tempDir: string) {
+    if (fs.existsSync(tempDir)) {
+      await rm(tempDir, { recursive: true, force: true });
     }
   }
 }
