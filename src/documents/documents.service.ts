@@ -868,4 +868,57 @@ export class DocumentsService {
       await rm(tempDir, { recursive: true, force: true });
     }
   }
+
+  /**
+   * Récupère les métadonnées AI d'un document
+   * @param projectId ID du projet
+   * @param fileName Nom du fichier
+   * @param organizationId ID de l'organisation
+   * @returns Les métadonnées AI du document
+   * @throws NotFoundException si le document n'est pas trouvé
+   * @throws ForbiddenException si le document n'appartient pas à l'organisation
+   */
+  async getDocumentMetadata(
+    projectId: string,
+    fileName: string,
+    organizationId: string,
+  ) {
+    // Vérifier si le projet existe et appartient à l'organisation
+    await this.checkProjectAccess(projectId, organizationId);
+
+    // Construire le chemin du fichier sur S3
+    const filePath = `ct-toolbox/${projectId}/${fileName}`;
+
+    // Rechercher le document dans la base de données
+    const document = await this.prisma.document.findFirst({
+      where: {
+        projectId,
+        filename: fileName,
+        path: filePath,
+      },
+      select: {
+        id: true,
+        filename: true,
+        status: true,
+        ai_metadata: true,
+      },
+    });
+
+    if (!document) {
+      throw new NotFoundException(
+        `Document avec le nom ${fileName} non trouvé dans le projet ${projectId}`,
+      );
+    }
+
+    // Vérifier si les métadonnées AI existent
+    if (!document.ai_metadata) {
+      throw new NotFoundException(
+        `Aucune métadonnée AI disponible pour ce document. Le document pourrait être en cours de traitement ou n'a pas encore été analysé.`,
+      );
+    }
+
+    return {
+      metadata: document.ai_metadata,
+    };
+  }
 }

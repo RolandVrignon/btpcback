@@ -32,6 +32,8 @@ import { MonitorDocumentDto } from './dto/monitor-document.dto';
 import { ApiKeyGuard } from '../common/guards/api-key.guard';
 import { ViewDocumentDto } from './dto/view-document.dto';
 import { ViewDocumentResponseDto } from './dto/view-document-response.dto';
+import { GetDocumentMetadataDto } from './dto/get-document-metadata.dto';
+import { DocumentMetadataResponseDto } from './dto/document-metadata-response.dto';
 
 @ApiTags('documents')
 @ApiHeader({
@@ -251,5 +253,31 @@ export class DocumentsController {
     @Organization() organization: OrganizationEntity,
   ) {
     return this.documentsService.getViewUrl(viewDocumentDto, organization.id);
+  }
+
+  @Post('metadata')
+  @UseGuards(ApiKeyGuard)
+  @ApiOperation({
+    summary: "Récupérer les métadonnées AI d'un document",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Métadonnées AI récupérées avec succès',
+    type: DocumentMetadataResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Document ou projet non trouvé' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès non autorisé au document ou au projet',
+  })
+  async getDocumentMetadata(
+    @Body() getDocumentMetadataDto: GetDocumentMetadataDto,
+    @Organization() organization: OrganizationEntity,
+  ) {
+    return this.documentsService.getDocumentMetadata(
+      getDocumentMetadataDto.projectId,
+      getDocumentMetadataDto.fileName,
+      organization.id,
+    );
   }
 }
