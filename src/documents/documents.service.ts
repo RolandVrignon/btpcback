@@ -266,8 +266,11 @@ export class DocumentsService {
         },
       });
 
-      // Lancer le traitement du document en arrière-plan
-      this.processDocumentAsync(document.id);
+      // Lancer le traitement du document en arrière-plan seulement pour PDF ou DOCX
+      const fileExt = path.extname(dto.fileName).toLowerCase();
+      if (fileExt === '.pdf' || fileExt === '.docx' || fileExt === '.doc') {
+        void this.processDocumentAsync(document.id);
+      }
 
       return document;
     } catch (error) {
@@ -288,12 +291,14 @@ export class DocumentsService {
    * 4. Chunking du texte
    * 5. Création des chunks dans la base de données
    * 6. Vectorisation et création des embeddings
+   * 7. Rafting - Extraire les informations importantes avec Gemini
+   * 8. Mettre à jour le statut du document à READY
    * @param documentId ID du document à traiter
    */
   private async processDocumentAsync(documentId: string): Promise<void> {
     try {
       // Mettre à jour le statut du document à PROCESSING
-      await this.updateDocumentStatus(documentId, 'PROCESSING');
+      await this.updateDocumentStatus(documentId, 'INDEXING');
 
       // Récupérer les informations du document
       const document = await this.prisma.document.findUnique({
@@ -320,15 +325,14 @@ export class DocumentsService {
       console.log('pdfFilePath:', pdfFilePath);
 
       // Étape 3: Extraire le texte du PDF
-      await this.updateDocumentStatus(documentId, 'INDEXING');
       const extractedText = await this.extractTextFromPdf(pdfFilePath);
       console.log('extractedText:', extractedText);
 
       // Étape 4: Chunker le texte
       const chunks = this.chunkText(extractedText, 1000);
       console.log('chunks:', chunks);
+
       // Étape 5: Créer les chunks dans la base de données
-      await this.updateDocumentStatus(documentId, 'RAFTING');
       const createdChunks = await this.createChunksInDatabase(
         chunks,
         documentId,
@@ -336,6 +340,10 @@ export class DocumentsService {
 
       // Étape 6: Vectoriser et créer les embeddings
       await this.createEmbeddingsForChunks(createdChunks);
+
+      // Étape 7: Rafting - Extraire les informations importantes avec Gemini
+      await this.updateDocumentStatus(documentId, 'RAFTING');
+      await this.extractDocumentInfoWithGemini(extractedText, documentId);
 
       // Mettre à jour le statut du document à READY
       await this.updateDocumentStatus(documentId, 'READY');
@@ -349,6 +357,124 @@ export class DocumentsService {
       );
       // En cas d'erreur, mettre à jour le statut du document à END
       await this.updateDocumentStatus(documentId, 'END');
+    }
+  }
+
+  /**
+   * Extrait les informations importantes d'un document en utilisant Gemini
+   * @param text Texte du document
+   * @param documentId ID du document
+   */
+  private async extractDocumentInfoWithGemini(
+    text: string,
+    documentId: string,
+  ): Promise<void> {
+    try {
+      // Récupérer la clé API Gemini
+      const apiKey = this.configService.get<string>(
+        'GOOGLE_GENERATIVE_AI_API_KEY',
+      );
+      if (!apiKey) {
+        throw new Error("La clé API Gemini n'est pas configurée");
+      }
+
+      console.log(
+        'Extraction des informations avec Gemini pour le document:',
+        documentId,
+      );
+
+      // Limiter la taille du texte si nécessaire pour respecter les limites de Gemini
+      const maxLength = 30000; // Ajuster selon les limites de l'API Gemini
+      const truncatedText =
+        text.length > maxLength ? text.substring(0, maxLength) : text;
+
+      // Préparer le prompt pour Gemini
+      const prompt = `
+      Analyse le document suivant et extrait les informations importantes au format JSON.
+      A toi de juger de l'importance de chaque information.
+      Réponds uniquement avec un objet JSON valide sans aucun texte supplémentaire.
+
+      Chaque information doit être présentée sous forme d'objet JSON :
+      {
+        "key": "", // Nom de la clé
+        "value": "", // Valeur de la clé
+      }
+
+      Renvoie un tableau d'objets JSON.
+
+      Exemple de réponse:
+      [
+        {
+          "key": "Titre du document",
+          "value": "Résumé du contenu"
+        },
+        {
+          "key": "Auteur(s)",
+          "value": "John Doe"
+        }
+        [...]
+      ]
+
+      Ne renvoie que le tableau d'objets JSON, rien d'autre.
+
+      Document:
+
+      ${truncatedText}
+      `;
+
+      // Utiliser le SDK AI de Google pour communiquer avec Gemini
+      const { google } = await import('@ai-sdk/google');
+      const { generateText } = await import('ai');
+
+      // Configurer le modèle Gemini
+      process.env.GOOGLE_API_KEY = apiKey;
+
+      // Générer la réponse avec Gemini
+      const { text: result, usage } = await generateText({
+        model: google('gemini-1.5-pro'),
+        prompt: prompt,
+        temperature: 0.8,
+      });
+
+      console.log('usage:', usage);
+
+      const responseText = result.toString();
+      console.log('responseText:', responseText);
+      const cleanedResponse = responseText.replace(/```json|```/g, '').trim();
+
+      // Parser le JSON
+      let documentInfo: Array<{
+        key: string;
+        value: string;
+      }>;
+
+      try {
+        documentInfo = JSON.parse(cleanedResponse) as Array<{
+          key: string;
+          value: string;
+        }>;
+      } catch (parseError) {
+        console.error('Erreur lors du parsing de la réponse JSON:', parseError);
+        throw new Error("La réponse de Gemini n'est pas un JSON valide");
+      }
+
+      console.log('Informations extraites:', documentInfo);
+
+      // Stocker les informations dans la base de données
+      await this.prisma.document.update({
+        where: { id: documentId },
+        data: {
+          ai_metadata: documentInfo,
+        },
+      });
+
+      console.log('Informations du document enregistrées avec succès');
+    } catch (error) {
+      console.error(
+        "Erreur lors de l'extraction des informations avec Gemini:",
+        error,
+      );
+      // Ne pas propager l'erreur pour ne pas interrompre le processus global
     }
   }
 
