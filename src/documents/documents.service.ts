@@ -15,6 +15,10 @@ import {
   S3ServiceException,
 } from '@aws-sdk/client-s3';
 import { ConfirmUploadDto } from './dto/confirm-upload.dto';
+import { ViewDocumentDto } from './dto/view-document.dto';
+import { ViewDocumentResponseDto } from './dto/view-document-response.dto';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 @Injectable()
 export class DocumentsService {
@@ -251,6 +255,9 @@ export class DocumentsService {
         },
       });
 
+      // Lancer le traitement du document en arrière-plan
+      this.processDocumentAsync(document.id);
+
       return document;
     } catch (error) {
       if (error instanceof S3ServiceException) {
@@ -259,6 +266,126 @@ export class DocumentsService {
         );
       }
       throw error;
+    }
+  }
+
+  /**
+   * Simule le traitement asynchrone d'un document en passant par différents statuts
+   * @param documentId ID du document à traiter
+   */
+  private async processDocumentAsync(documentId: string): Promise<void> {
+    // Définir la séquence des statuts et les délais entre chaque changement
+    const statusSequence: Array<{
+      status: 'PROCESSING' | 'INDEXING' | 'RAFTING' | 'READY';
+      delay: number;
+    }> = [
+      { status: 'PROCESSING', delay: 2000 },
+      { status: 'INDEXING', delay: 3000 },
+      { status: 'RAFTING', delay: 3000 },
+      { status: 'READY', delay: 0 },
+    ];
+
+    // Fonction pour mettre à jour le statut avec un délai
+    const updateWithDelay = async (
+      status: 'PROCESSING' | 'INDEXING' | 'RAFTING' | 'READY',
+      delay: number,
+    ): Promise<void> => {
+      await new Promise<void>((resolve) => {
+        setTimeout(() => {
+          this.prisma.document
+            .update({
+              where: { id: documentId },
+              data: { status },
+            })
+            .then(() => {
+              console.log(
+                `Document ${documentId} mis à jour avec le statut: ${status}`,
+              );
+              resolve();
+            })
+            .catch((error) => {
+              console.error(
+                `Erreur lors de la mise à jour du statut: ${error}`,
+              );
+              resolve();
+            });
+        }, delay);
+      });
+    };
+
+    // Exécuter la séquence de mises à jour
+    for (const step of statusSequence) {
+      await updateWithDelay(step.status, step.delay);
+    }
+  }
+
+  /**
+   * Récupère le statut actuel d'un document
+   * @param documentId ID du document
+   * @param projectId ID du projet
+   * @param organizationId ID de l'organisation
+   * @returns Le document avec son statut actuel
+   */
+  async monitorDocumentStatus(
+    documentId: string,
+    projectId: string,
+    organizationId: string,
+  ) {
+    // Vérifier si le projet existe et appartient à l'organisation
+    await this.checkProjectAccess(projectId, organizationId);
+
+    // Récupérer le document
+    const document = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      select: {
+        id: true,
+        filename: true,
+        status: true,
+        projectId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!document) {
+      throw new NotFoundException(
+        `Document avec l'ID ${documentId} non trouvé`,
+      );
+    }
+
+    if (document.projectId !== projectId) {
+      throw new ForbiddenException(
+        "Ce document n'appartient pas au projet spécifié",
+      );
+    }
+
+    return {
+      ...document,
+      message: this.getStatusMessage(document.status),
+    };
+  }
+
+  /**
+   * Génère un message explicatif basé sur le statut du document
+   * @param status Statut du document
+   * @returns Message explicatif
+   */
+  private getStatusMessage(status: DocumentStatus): string {
+    switch (status) {
+      case 'NOT_STARTED':
+        return 'Le document est en attente de traitement';
+      case 'PROCESSING':
+        return 'Le document est en cours de traitement';
+      case 'INDEXING':
+        return 'Le document est en cours de vectorisation';
+      case 'RAFTING':
+        return 'Le document est en cours de résumé';
+      case 'READY':
+        return 'Le document est prêt à être utilisé';
+      case 'ERROR':
+        return 'Une erreur est survenue lors du traitement du document';
+      default:
+        return 'Statut inconnu';
     }
   }
 
@@ -273,14 +400,65 @@ export class DocumentsService {
       );
     }
 
+    // Utiliser une conversion de type sûre pour le statut
+    const documentStatus = status as unknown as DocumentStatus;
+
     return await this.prisma.document.update({
       where: { id: documentId },
-      data: {
-        status: status,
-      },
+      data: { status: documentStatus },
       include: {
         project: true,
       },
     });
+  }
+
+  /**
+   * Génère une URL présignée pour consulter un document
+   * @param dto Informations sur le document à consulter
+   * @param organizationId ID de l'organisation qui fait la demande
+   * @returns URL présignée pour consulter le document
+   * @throws NotFoundException si le projet n'existe pas ou si le fichier n'existe pas
+   * @throws ForbiddenException si le projet n'appartient pas à l'organisation
+   */
+  async getViewUrl(
+    dto: ViewDocumentDto,
+    organizationId: string,
+  ): Promise<ViewDocumentResponseDto> {
+    // Vérifier si le projet existe et appartient à l'organisation
+    await this.checkProjectAccess(dto.projectId, organizationId);
+
+    // Construire le chemin du fichier sur S3
+    const filePath = `ct-toolbox/${dto.projectId}/${dto.fileName}`;
+
+    try {
+      // Vérifier si le fichier existe sur S3
+      const headObjectCommand = new HeadObjectCommand({
+        Bucket: this.bucketName,
+        Key: filePath,
+      });
+
+      await this.s3Client.send(headObjectCommand);
+
+      // Générer l'URL présignée pour consulter le document
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: filePath,
+      });
+
+      const expiresIn = 3600; // 1 heure
+      const url = await getSignedUrl(this.s3Client, command, { expiresIn });
+
+      return {
+        url,
+        expiresIn,
+      };
+    } catch (error) {
+      if (error instanceof S3ServiceException) {
+        throw new NotFoundException(
+          `Fichier non trouvé sur S3: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+        );
+      }
+      throw error;
+    }
   }
 }

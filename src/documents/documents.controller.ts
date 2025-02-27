@@ -8,6 +8,7 @@ import {
   UseInterceptors,
   UploadedFile,
   Patch,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -27,6 +28,10 @@ import { UpdateDocumentDto } from './dto/update-document.dto';
 import { ConfirmUploadDto } from './dto/confirm-upload.dto';
 import { OrganizationEntity } from '../types';
 import { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
+import { MonitorDocumentDto } from './dto/monitor-document.dto';
+import { ApiKeyGuard } from '../common/guards/api-key.guard';
+import { ViewDocumentDto } from './dto/view-document.dto';
+import { ViewDocumentResponseDto } from './dto/view-document-response.dto';
 
 @ApiTags('documents')
 @ApiHeader({
@@ -201,5 +206,50 @@ export class DocumentsController {
       id,
       updateStatusDto.status,
     );
+  }
+
+  @Post('monitor')
+  @UseGuards(ApiKeyGuard)
+  @ApiOperation({ summary: "Surveiller le statut d'un document" })
+  @ApiResponse({
+    status: 200,
+    description: 'Statut du document récupéré avec succès',
+  })
+  @ApiResponse({ status: 404, description: 'Document ou projet non trouvé' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès non autorisé au document ou au projet',
+  })
+  async monitorDocument(
+    @Body() monitorDocumentDto: MonitorDocumentDto,
+    @Organization() organization: OrganizationEntity,
+  ) {
+    return this.documentsService.monitorDocumentStatus(
+      monitorDocumentDto.documentId,
+      monitorDocumentDto.projectId,
+      organization.id,
+    );
+  }
+
+  @Post('view')
+  @UseGuards(ApiKeyGuard)
+  @ApiOperation({
+    summary: 'Générer une URL présignée pour consulter un document',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'URL présignée générée avec succès',
+    type: ViewDocumentResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Document ou projet non trouvé' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès non autorisé au document ou au projet',
+  })
+  async getViewUrl(
+    @Body() viewDocumentDto: ViewDocumentDto,
+    @Organization() organization: OrganizationEntity,
+  ) {
+    return this.documentsService.getViewUrl(viewDocumentDto, organization.id);
   }
 }
