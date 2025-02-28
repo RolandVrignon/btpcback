@@ -6,10 +6,23 @@ import {
   IsString,
   ArrayMinSize,
   Min,
+  IsUUID,
+  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { AI_Provider } from '@prisma/client';
 
 export class CreateEmbeddingDto {
+  @ApiProperty({
+    description:
+      "Le fournisseur du modèle d'IA utilisé pour générer l'embedding",
+    example: 'OPENAI',
+    enum: AI_Provider,
+  })
+  @IsEnum(AI_Provider)
+  @IsNotEmpty()
+  provider: AI_Provider;
+
   @ApiProperty({
     description: "Le vecteur d'embedding (tableau de floats)",
     example: [0.1, 0.2, 0.3, 0.4, 0.5],
@@ -59,4 +72,12 @@ export class CreateEmbeddingDto {
   @IsNumber()
   @Min(0)
   usage: number;
+
+  @ApiProperty({
+    description: "L'ID du projet auquel l'embedding est associé",
+    example: '01234567890123456789012345678901',
+  })
+  @IsUUID()
+  @IsNotEmpty()
+  projectId: string;
 }

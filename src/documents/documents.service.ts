@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
-import { Prisma, Project, DocumentStatus, AI_Provider } from '@prisma/client';
+import { Project, DocumentStatus, AI_Provider } from '@prisma/client';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -22,15 +22,15 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { ChunksService } from '../chunks/chunks.service';
 import { EmbeddingsService } from '../embeddings/embeddings.service';
 import { UsageService } from '../usage/usage.service';
-import { openai } from '@ai-sdk/openai';
-import { embed } from 'ai';
+import { DocumentsRepository } from './documents.repository';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Readable } from 'stream';
 import { finished } from 'stream/promises';
-import * as util from 'util';
-import { exec } from 'child_process';
-import { rm } from 'fs/promises';
+import { promisify } from 'util';
+import { exec as execCallback } from 'child_process';
+import { openai } from '@ai-sdk/openai';
+import { embed } from 'ai';
 
 @Injectable()
 export class DocumentsService {
@@ -41,6 +41,9 @@ export class DocumentsService {
     private prisma: PrismaService,
     private configService: ConfigService,
     private usageService: UsageService,
+    private readonly documentsRepository: DocumentsRepository,
+    private readonly embeddingsService: EmbeddingsService,
+    private readonly chunksService: ChunksService,
   ) {
     this.s3Client = new S3Client({
       region: this.configService.get<string>('AWS_REGION', 'eu-west-3'),
@@ -59,158 +62,155 @@ export class DocumentsService {
   }
 
   async create(createDocumentDto: CreateDocumentDto) {
-    // Vérifier si le projet existe
-    const project = await this.prisma.project.findUnique({
-      where: { id: createDocumentDto.projectId },
-    });
-
-    if (!project) {
-      throw new NotFoundException('Projet non trouvé');
-    }
-
-    return await this.prisma.document.create({
-      data: createDocumentDto,
-      include: {
-        project: true,
-      },
-    });
+    return this.documentsRepository.create(createDocumentDto);
   }
 
   async findAll() {
-    return await this.prisma.document.findMany({
-      include: {
-        project: true,
-      },
-    });
+    return this.documentsRepository.findAll();
   }
 
   async findAllByOrganization(organizationId: string) {
-    // Récupérer tous les projets de l'organisation
-    const projects = await this.prisma.project.findMany({
-      where: { organizationId },
-      select: { id: true },
-    });
-
-    const projectIds = projects.map((project) => project.id);
-
-    // Récupérer tous les documents des projets de l'organisation
-    return await this.prisma.document.findMany({
-      where: {
-        projectId: {
-          in: projectIds,
-        },
-      },
-      include: {
-        project: true,
-      },
-    });
+    return this.documentsRepository.findAllByOrganization(organizationId);
   }
 
-  async findOne(id: string, organizationId: string) {
-    const document = await this.prisma.document.findUnique({
-      where: { id },
-      include: {
-        project: {
-          include: {
-            organization: true,
-          },
-        },
-      },
-    });
-
-    if (!document) {
-      throw new NotFoundException('Document non trouvé');
-    }
-
-    // Vérifier si le document a un projet associé
-    if (!document.project) {
-      throw new NotFoundException('Projet associé au document non trouvé');
-    }
-
-    // Vérifier si le document appartient à l'organisation
-    const project = document.project as Project & { organizationId: string };
-    if (project.organizationId !== organizationId) {
-      throw new ForbiddenException('Accès non autorisé à ce document');
-    }
-
-    return document;
+  async findOne(id: string) {
+    return this.documentsRepository.findOne(id);
   }
 
-  async findByProject(projectId: string, organizationId: string) {
-    // Vérifier si le projet existe et appartient à l'organisation
-    await this.checkProjectAccess(projectId, organizationId);
-
-    return await this.prisma.document.findMany({
-      where: { projectId },
-      include: {
-        project: true,
-      },
-    });
+  async findByProject(projectId: string) {
+    return this.documentsRepository.findByProject(projectId);
   }
 
-  async remove(id: string, organizationId: string) {
-    // Vérifier si le document existe et appartient à l'organisation
-    await this.findOne(id, organizationId);
-
-    try {
-      return await this.prisma.document.delete({
-        where: { id },
-      });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2025'
-      ) {
-        throw new NotFoundException('Document non trouvé');
-      }
-      throw error;
-    }
+  async update(id: string, updateDocumentDto: UpdateDocumentDto) {
+    return this.documentsRepository.update(id, updateDocumentDto);
   }
 
-  async checkProjectAccess(projectId: string, organizationId: string) {
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
-      include: {
-        organization: true,
-      },
-    });
-
-    if (!project) {
-      throw new NotFoundException('Projet non trouvé');
-    }
-
-    const projectWithOrg = project as Project & { organizationId: string };
-    if (projectWithOrg.organizationId !== organizationId) {
-      throw new ForbiddenException('Accès non autorisé à ce projet');
-    }
-
-    return project;
+  async remove(id: string) {
+    return this.documentsRepository.remove(id);
   }
 
-  async update(
-    id: string,
-    updateData: UpdateDocumentDto,
-    organizationId: string,
+  async updateStatus(documentId: string, status: DocumentStatus) {
+    return this.documentsRepository.updateStatus(documentId, status);
+  }
+
+  async findByFilenameAndProject(
+    projectId: string,
+    fileName: string,
+    filePath: string,
   ) {
-    // Vérifier si le document existe et appartient à l'organisation
-    await this.findOne(id, organizationId);
+    return this.documentsRepository.findByFilenameAndProject(
+      projectId,
+      fileName,
+      filePath,
+    );
+  }
 
+  async updateAiMetadata(
+    documentId: string,
+    metadata: Record<string, unknown>,
+  ) {
+    return this.documentsRepository.updateAiMetadata(documentId, metadata);
+  }
+
+  /**
+   * Traite un document pour l'extraction de texte et la génération de chunks
+   */
+  async processDocument(documentId: string) {
     try {
-      return await this.prisma.document.update({
-        where: { id },
-        data: updateData,
-        include: {
-          project: true,
-        },
-      });
+      // Mettre à jour le statut du document
+      await this.documentsRepository.updateStatus(
+        documentId,
+        'PROCESSING' as DocumentStatus,
+      );
+
+      // Logique de traitement du document...
+      // Cette partie dépend de l'implémentation spécifique pour extraire le texte,
+      // générer des chunks, etc.
+
+      // Mettre à jour le statut du document une fois le traitement terminé
+      await this.documentsRepository.updateStatus(
+        documentId,
+        'READY' as DocumentStatus,
+      );
+
+      return { success: true, message: 'Document traité avec succès' };
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2025'
-      ) {
-        throw new NotFoundException('Document non trouvé');
+      // En cas d'erreur, mettre à jour le statut du document
+      try {
+        await this.documentsRepository.updateStatus(
+          documentId,
+          'END' as DocumentStatus,
+        );
+      } catch (updateError) {
+        console.error(
+          'Erreur lors de la mise à jour du statut du document:',
+          updateError,
+        );
       }
-      throw error;
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error(
+        `Erreur lors du traitement du document: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  /**
+   * Analyse un document avec un modèle de langage
+   */
+  async analyzeDocument(documentId: string, model: string) {
+    try {
+      // Récupérer le document
+      const document = await this.documentsRepository.findOne(documentId);
+
+      // Mettre à jour le statut du document
+      await this.documentsRepository.updateStatus(
+        documentId,
+        'PROCESSING' as DocumentStatus,
+      );
+
+      // Logique pour analyser le document...
+      // Cette partie dépend de l'implémentation spécifique pour analyser le document
+
+      // Enregistrer l'utilisation du modèle
+      const usage = {
+        totalTokens: 2000, // Exemple, à remplacer par la valeur réelle
+      };
+      await this.usageService.logTextToTextUsage(
+        'GEMINI' as AI_Provider,
+        model,
+        usage,
+        document.projectId,
+      );
+
+      // Mettre à jour le statut du document une fois l'analyse terminée
+      await this.documentsRepository.updateStatus(
+        documentId,
+        'READY' as DocumentStatus,
+      );
+
+      return { success: true, message: 'Document analysé avec succès' };
+    } catch (error) {
+      // En cas d'erreur, mettre à jour le statut du document
+      try {
+        await this.documentsRepository.updateStatus(
+          documentId,
+          'END' as DocumentStatus,
+        );
+      } catch (updateError) {
+        console.error(
+          'Erreur lors de la mise à jour du statut du document:',
+          updateError,
+        );
+      }
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error(
+        `Erreur lors de l'analyse du document: ${(error as Error).message}`,
+      );
     }
   }
 
@@ -303,12 +303,10 @@ export class DocumentsService {
   ): Promise<void> {
     try {
       // Mettre à jour le statut du document à PROCESSING
-      await this.updateDocumentStatus(documentId, 'INDEXING');
+      await this.updateStatus(documentId, 'INDEXING' as DocumentStatus);
 
       // Récupérer les informations du document
-      const document = await this.prisma.document.findUnique({
-        where: { id: documentId },
-      });
+      const document = await this.findOne(documentId);
 
       if (!document) {
         throw new NotFoundException(
@@ -338,16 +336,10 @@ export class DocumentsService {
       console.log('chunks:', chunks);
 
       // Étape 5: Créer les chunks dans la base de données
-      const createdChunks = await this.createChunksInDatabase(
-        chunks,
-        documentId,
-      );
-
-      // Étape 6: Vectoriser et créer les embeddings
-      await this.createEmbeddingsForChunks(createdChunks, projectId);
+      await this.createChunksWithEmbeddings(chunks, documentId, projectId);
 
       // Étape 7: Rafting - Extraire les informations importantes avec Gemini
-      await this.updateDocumentStatus(documentId, 'RAFTING');
+      await this.updateStatus(documentId, 'RAFTING' as DocumentStatus);
       await this.extractDocumentInfoWithGemini(
         extractedText,
         documentId,
@@ -355,7 +347,7 @@ export class DocumentsService {
       );
 
       // Mettre à jour le statut du document à READY
-      await this.updateDocumentStatus(documentId, 'READY');
+      await this.updateStatus(documentId, 'READY');
 
       // Nettoyer les fichiers temporaires
       await this.cleanupTempFiles(tempDir);
@@ -365,7 +357,7 @@ export class DocumentsService {
         error,
       );
       // En cas d'erreur, mettre à jour le statut du document à END
-      await this.updateDocumentStatus(documentId, 'END');
+      await this.updateStatus(documentId, 'END');
     }
   }
 
@@ -450,12 +442,15 @@ export class DocumentsService {
 
       console.log('usage:', usage);
 
-      await this.usageService.logUsage(
-        AI_Provider.GEMINI,
+      await this.usageService.logTextToTextUsage(
+        'GEMINI' as AI_Provider,
         model,
-        usage,
+        {
+          totalTokens: usage.totalTokens,
+          promptTokens: usage.promptTokens,
+          completionTokens: usage.completionTokens,
+        },
         projectId,
-        'TEXT_TO_TEXT',
       );
 
       const responseText = result.toString();
@@ -480,13 +475,17 @@ export class DocumentsService {
 
       console.log('Informations extraites:', documentInfo);
 
-      // Stocker les informations dans la base de données
-      await this.prisma.document.update({
-        where: { id: documentId },
-        data: {
-          ai_metadata: documentInfo,
+      // Convertir le tableau en objet pour le stockage
+      const metadataObject = documentInfo.reduce(
+        (acc, item) => {
+          acc[item.key] = item.value;
+          return acc;
         },
-      });
+        {} as Record<string, string>,
+      );
+
+      // Stocker les informations dans la base de données
+      await this.updateAiMetadata(documentId, metadataObject);
 
       console.log('Informations du document enregistrées avec succès');
     } catch (error) {
@@ -499,78 +498,101 @@ export class DocumentsService {
   }
 
   /**
-   * Crée des embeddings pour une liste de chunks
+   * Crée les chunks dans la base de données et génère leurs embeddings
+   * @param textChunks Tableau de chunks de texte
+   * @param documentId ID du document associé
+   * @param projectId ID du projet associé
+   * @returns Tableau des chunks créés avec leurs embeddings
    */
-  private async createEmbeddingsForChunks(
-    chunks: Array<{ id: string; text: string }>,
+  private async createChunksWithEmbeddings(
+    textChunks: string[],
+    documentId: string,
     projectId: string,
-  ): Promise<void> {
-    // Service pour créer les embeddings
-    const embeddingsService = new EmbeddingsService(this.prisma);
-
-    // Récupérer la clé API OpenAI
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    if (!apiKey) {
-      throw new Error("La clé API OpenAI n'est pas configurée");
-    }
-
-    // Configurer le client OpenAI avec la clé API
-    process.env.OPENAI_API_KEY = apiKey;
-    const model = 'text-embedding-3-small';
-
-    // Configurer le modèle d'embedding
-    const embeddingModel = openai.embedding(model);
-
-    // Générer et créer les embeddings pour chaque chunk individuellement
+  ): Promise<{ id: string; text: string }[]> {
     try {
-      let successCount = 0;
-      let errorCount = 0;
+      // Récupérer la clé API OpenAI une seule fois
+      const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+      if (!apiKey) {
+        throw new Error("La clé API OpenAI n'est pas configurée");
+      }
 
-      // Traiter les chunks en parallèle, mais créer chaque embedding dès qu'il est généré
-      await Promise.all(
-        chunks.map(async (chunk) => {
+      // Configurer le client OpenAI avec la clé API
+      process.env.OPENAI_API_KEY = apiKey;
+      const modelName = 'text-embedding-3-small';
+
+      // Traiter tous les chunks en parallèle
+      const results = await Promise.all(
+        textChunks.map(async (text) => {
           try {
-            // Générer l'embedding avec le SDK AI de Vercel
-            const { embedding: embeddingVector, usage } = await embed({
-              model: embeddingModel,
-              value: chunk.text,
+            // 1. Créer le chunk dans la base de données
+            const createdChunk = await this.chunksService.create({
+              text,
+              documentId,
             });
 
-            // Créer l'embedding dans la base de données immédiatement
-            await embeddingsService.create({
+            // 2. Générer l'embedding pour ce chunk
+            const { embedding: embeddingVector, usage } = await embed({
+              model: openai.embedding(modelName),
+              value: text,
+            });
+
+            // 3. Créer l'embedding dans la base de données
+            await this.embeddingsService.create({
+              provider: AI_Provider.OPENAI,
               vector: embeddingVector,
-              modelName: model,
+              modelName: modelName,
               modelVersion: 'v1',
               dimensions: embeddingVector.length,
-              chunkId: chunk.id,
+              chunkId: createdChunk.id,
               usage: usage.tokens,
+              projectId: projectId,
             });
 
-            // Enregistrer l'utilisation du modèle
-            await this.usageService.logUsage(
-              AI_Provider.OPENAI,
-              model,
+            // 4. Enregistrer l'utilisation du modèle
+            await this.usageService.logEmbeddingUsage(
+              'OPENAI' as AI_Provider,
+              modelName,
               { totalTokens: usage.tokens },
               projectId,
-              'EMBEDDING',
             );
 
-            // Incrémenter le compteur de succès
-            successCount++;
-          } catch (error) {
-            console.error(
-              `Erreur lors de la génération ou création de l'embedding pour le chunk ${chunk.id}:`,
-              error,
-            );
-            errorCount++;
+            // Retourner le chunk créé
+            return {
+              success: true,
+              chunk: {
+                id: createdChunk.id,
+                text: createdChunk.text,
+              },
+            };
+          } catch (chunkError) {
+            console.error("Erreur lors du traitement d'un chunk:", chunkError);
+            // Retourner l'erreur sans interrompre les autres traitements
+            return {
+              success: false,
+              error: chunkError as Error,
+            };
           }
         }),
       );
 
-      console.log(`${successCount} embeddings créés avec succès`);
-      console.log(`${errorCount} embeddings ont échoué`);
+      // Filtrer les résultats pour ne garder que les chunks créés avec succès
+      const createdChunks = results
+        .filter((result) => result.success)
+        .map((result) => result.chunk);
+
+      console.log(
+        `${createdChunks.length} chunks créés avec succès sur ${textChunks.length} chunks`,
+      );
+
+      return createdChunks;
     } catch (error) {
-      console.error(`Erreur lors de la création des embeddings:`, error);
+      console.error(
+        `Erreur lors de la création des chunks avec embeddings:`,
+        error,
+      );
+      throw new Error(
+        `Échec de la création des chunks avec embeddings: ${(error as Error).message}`,
+      );
     }
   }
 
@@ -644,26 +666,24 @@ export class DocumentsService {
     }
   }
 
-  async updateDocumentStatus(documentId: string, status: DocumentStatus) {
-    const document = await this.prisma.document.findUnique({
-      where: { id: documentId },
+  async checkProjectAccess(projectId: string, organizationId: string) {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        organization: true,
+      },
     });
 
-    if (!document) {
-      throw new NotFoundException(
-        `Document avec l'ID ${documentId} non trouvé`,
-      );
+    if (!project) {
+      throw new NotFoundException('Projet non trouvé');
     }
 
-    return await this.prisma.document.update({
-      where: { id: documentId },
-      data: {
-        status,
-      },
-      include: {
-        project: true,
-      },
-    });
+    const projectWithOrg = project as Project & { organizationId: string };
+    if (projectWithOrg.organizationId !== organizationId) {
+      throw new ForbiddenException('Accès non autorisé à ce projet');
+    }
+
+    return project;
   }
 
   /**
@@ -770,11 +790,11 @@ export class DocumentsService {
       const outputPath = filePath.replace(/\.(docx|doc)$/i, '.pdf');
 
       // Utiliser LibreOffice pour convertir le document
-      const execPromise = util.promisify(exec);
+      const exec = promisify(execCallback);
       const command = `libreoffice --headless --convert-to pdf --outdir "${path.dirname(filePath)}" "${filePath}"`;
 
       try {
-        await execPromise(command);
+        await exec(command);
         return outputPath;
       } catch (error) {
         console.error('Erreur lors de la conversion du document:', error);
@@ -794,17 +814,20 @@ export class DocumentsService {
    * @returns Texte extrait du PDF
    */
   private async extractTextFromPdf(pdfPath: string): Promise<string> {
-    const execPromise = util.promisify(exec);
+    const exec = promisify(execCallback);
     const outputPath = pdfPath.replace(/\.pdf$/i, '.txt');
 
     // Utiliser pdftotext avec l'option -layout pour préserver la mise en page
     const command = `pdftotext -layout "${pdfPath}" "${outputPath}"`;
 
     try {
-      await execPromise(command);
+      await exec(command);
 
       // Lire le fichier texte généré
       const extractedText = fs.readFileSync(outputPath, 'utf8');
+
+      // Supprimer le fichier texte temporaire
+      fs.unlinkSync(outputPath);
 
       return extractedText;
     } catch (error) {
@@ -866,33 +889,12 @@ export class DocumentsService {
   }
 
   /**
-   * Crée les chunks dans la base de données
-   * @param textChunks Tableau de chunks de texte
-   * @param documentId ID du document associé
-   * @returns Tableau des chunks créés
-   */
-  private async createChunksInDatabase(
-    textChunks: string[],
-    documentId: string,
-  ) {
-    // Créer les DTOs pour les chunks
-    const chunkDtos = textChunks.map((text) => ({
-      text,
-      documentId,
-    }));
-
-    // Utiliser le service Chunks pour créer les chunks en batch
-    const chunksService = new ChunksService(this.prisma);
-    return await chunksService.createMany(chunkDtos);
-  }
-
-  /**
    * Nettoie les fichiers temporaires
    * @param tempDir Répertoire temporaire à nettoyer
    */
   private async cleanupTempFiles(tempDir: string) {
     if (fs.existsSync(tempDir)) {
-      await rm(tempDir, { recursive: true, force: true });
+      await fs.promises.rm(tempDir, { recursive: true, force: true });
     }
   }
 

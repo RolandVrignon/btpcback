@@ -1,92 +1,41 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Injectable } from '@nestjs/common';
 import { CreateApikeyDto } from './dto/create-apikey.dto';
-import { randomBytes } from 'crypto';
-import { Prisma } from '@prisma/client';
+import { UpdateApikeyDto } from './dto/update-apikey.dto';
+import { ApikeysRepository } from './apikeys.repository';
 
 @Injectable()
 export class ApikeysService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly apikeysRepository: ApikeysRepository) {}
 
   async create(createApikeyDto: CreateApikeyDto) {
-    // Vérifier si l'organisation existe
-    const organization = await this.prisma.organization.findUnique({
-      where: { id: createApikeyDto.organizationId },
-    });
-
-    if (!organization) {
-      throw new NotFoundException('Organisation non trouvée');
-    }
-
-    // Générer une clé API unique
-    const apiKey = this.generateApiKey();
-
-    return await this.prisma.apikey.create({
-      data: {
-        key: apiKey,
-        organizationId: createApikeyDto.organizationId,
-      },
-    });
+    return this.apikeysRepository.create(createApikeyDto);
   }
 
   async findAll() {
-    return await this.prisma.apikey.findMany({
-      include: {
-        organization: true,
-      },
-    });
+    return this.apikeysRepository.findAll();
   }
 
   async findByOrganization(organizationId: string) {
-    return await this.prisma.apikey.findMany({
-      where: { organizationId },
-      include: {
-        organization: true,
-      },
-    });
+    return this.apikeysRepository.findAllByOrganization(organizationId);
   }
 
-  async findOne(id: string, organizationId: string) {
-    const apikey = await this.prisma.apikey.findUnique({
-      where: { id },
-      include: {
-        organization: true,
-      },
-    });
+  async findOne(id: string) {
+    return this.apikeysRepository.findOne(id);
+  }
 
-    if (!apikey) {
-      throw new NotFoundException('Clé API non trouvée');
-    }
+  async validateApiKey(key: string) {
+    return this.apikeysRepository.validateApiKey(key);
+  }
 
-    // Vérifier si l'utilisateur a accès à cette clé API
-    if (apikey.organizationId !== organizationId) {
-      throw new ForbiddenException('Accès non autorisé à cette clé API');
-    }
-
-    return apikey;
+  async update(id: string, updateApikeyDto: UpdateApikeyDto) {
+    return this.apikeysRepository.update(id, updateApikeyDto);
   }
 
   async remove(id: string) {
-    try {
-      return await this.prisma.apikey.delete({
-        where: { id },
-      });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2025'
-      ) {
-        throw new NotFoundException('Clé API non trouvée');
-      }
-      throw error;
-    }
+    return this.apikeysRepository.remove(id);
   }
 
-  private generateApiKey(): string {
-    return randomBytes(32).toString('hex');
+  async deactivate(id: string) {
+    return this.apikeysRepository.deactivate(id);
   }
 }

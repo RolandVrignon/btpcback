@@ -10,10 +10,13 @@ import {
   AdminApiKeyMiddleware,
   ApiKeyMiddleware,
 } from '../middleware/api-key.middleware';
+import { OrganizationsRepository } from './organizations.repository';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
+  imports: [PrismaModule],
   controllers: [OrganizationsController],
-  providers: [OrganizationsService],
+  providers: [OrganizationsService, OrganizationsRepository],
   exports: [OrganizationsService],
 })
 export class OrganizationsModule implements NestModule {

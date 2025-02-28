@@ -39,7 +39,11 @@ export class ProjectsController {
     @Body() createProjectDto: CreateProjectDto,
     @Organization() organization: OrganizationEntity,
   ) {
-    return this.projectsService.create(createProjectDto, organization.id);
+    const projectWithOrg = {
+      ...createProjectDto,
+      organizationId: organization.id,
+    };
+    return this.projectsService.create(projectWithOrg);
   }
 
   @Get()
@@ -50,7 +54,7 @@ export class ProjectsController {
   })
   @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
   findAll(@Organization() organization: OrganizationEntity) {
-    return this.projectsService.findByOrganization(organization.id);
+    return this.projectsService.findAllByOrganization(organization.id);
   }
 
   @Get(':id')
@@ -66,9 +70,9 @@ export class ProjectsController {
   @ApiResponse({ status: 403, description: 'Accès non autorisé à ce projet.' })
   findOne(
     @Param('id') id: string,
-    @Organization() organization: OrganizationEntity,
+    @Organization() _organization: OrganizationEntity,
   ) {
-    return this.projectsService.findOne(id, organization.id);
+    return this.projectsService.findOne(id);
   }
 
   @Get('organization/:id')
@@ -92,11 +96,10 @@ export class ProjectsController {
     @Param('id') id: string,
     @Organization() organization: OrganizationEntity,
   ) {
-    // Vérifier que l'utilisateur demande ses propres projets
-    if (id !== organization.id) {
-      return this.projectsService.findByOrganization(organization.id);
+    if (id === 'me') {
+      return this.projectsService.findAllByOrganization(organization.id);
     }
-    return this.projectsService.findByOrganization(id);
+    return this.projectsService.findAllByOrganization(id);
   }
 
   @Patch(':id')
@@ -113,9 +116,9 @@ export class ProjectsController {
   update(
     @Param('id') id: string,
     @Body() updateProjectDto: UpdateProjectDto,
-    @Organization() organization: OrganizationEntity,
+    @Organization() _organization: OrganizationEntity,
   ) {
-    return this.projectsService.update(id, updateProjectDto, organization.id);
+    return this.projectsService.update(id, updateProjectDto);
   }
 
   @Delete(':id')
@@ -131,8 +134,8 @@ export class ProjectsController {
   @ApiResponse({ status: 403, description: 'Accès non autorisé à ce projet.' })
   remove(
     @Param('id') id: string,
-    @Organization() organization: OrganizationEntity,
+    @Organization() _organization: OrganizationEntity,
   ) {
-    return this.projectsService.remove(id, organization.id);
+    return this.projectsService.remove(id);
   }
 }

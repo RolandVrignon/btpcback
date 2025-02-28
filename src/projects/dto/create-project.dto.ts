@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsEnum, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsArray, IsUUID } from 'class-validator';
 
 export enum ProjectStatus {
   DRAFT = 'DRAFT',
@@ -60,4 +60,14 @@ export class CreateProjectDto {
   @IsArray()
   @IsOptional()
   tags?: ProjectTag[];
+
+  @ApiProperty({
+    description:
+      "L'ID de l'organisation à laquelle appartient le projet (automatiquement déterminé par l'API key)",
+    example: '01234567890123456789012345678901',
+    required: false,
+  })
+  @IsUUID()
+  @IsOptional()
+  organizationId?: string;
 }

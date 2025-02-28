@@ -1,8 +1,15 @@
 import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiHeader,
+  ApiParam,
+} from '@nestjs/swagger';
 import { ApikeysService } from './apikeys.service';
 import { CreateApikeyDto } from './dto/create-apikey.dto';
 import { Organization } from '../decorators/organization.decorator';
+import { OrganizationEntity } from '../types';
 
 @ApiTags('apikeys')
 @ApiHeader({
@@ -42,6 +49,11 @@ export class ApikeysController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer une clé API par son ID' })
+  @ApiParam({
+    name: 'id',
+    description: 'ID de la clé API à récupérer',
+    example: '01234567890123456789012345678901',
+  })
   @ApiResponse({ status: 200, description: 'Clé API récupérée avec succès.' })
   @ApiResponse({ status: 404, description: 'Clé API non trouvée.' })
   @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
@@ -49,8 +61,11 @@ export class ApikeysController {
     status: 403,
     description: 'Accès non autorisé à cette clé API.',
   })
-  findOne(@Param('id') id: string, @Organization() organization) {
-    return this.apikeysService.findOne(id, organization.id);
+  findOne(
+    @Param('id') id: string,
+    @Organization() organization: OrganizationEntity,
+  ) {
+    return this.apikeysService.findOne(id);
   }
 
   @Delete(':id')

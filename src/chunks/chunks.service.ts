@@ -1,129 +1,163 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { CreateChunkDto } from './dto/create-chunk.dto';
-import { Prisma } from '@prisma/client';
-
-// Interface pour les erreurs Prisma
-interface PrismaError {
-  code: string;
-  meta?: Record<string, unknown>;
-  message: string;
-}
+import { UpdateChunkDto } from './dto/update-chunk.dto';
+import { ChunksRepository } from './chunks.repository';
 
 @Injectable()
 export class ChunksService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly chunksRepository: ChunksRepository) {}
 
   async create(createChunkDto: CreateChunkDto) {
-    // Vérifier si le document existe
-    const document = await this.prisma.document.findUnique({
-      where: { id: createChunkDto.documentId },
-    });
-
-    if (!document) {
-      throw new NotFoundException('Document non trouvé');
-    }
-
-    return await this.prisma.chunk.create({
-      data: createChunkDto,
-      include: {
-        document: true,
-      },
-    });
+    return this.chunksRepository.create(createChunkDto);
   }
 
   async createMany(createChunkDtos: CreateChunkDto[]) {
-    // Vérifier si tous les documents existent
-    const documentIds = [
-      ...new Set(createChunkDtos.map((dto) => dto.documentId)),
-    ];
-    const documents = await this.prisma.document.findMany({
-      where: { id: { in: documentIds } },
-    });
-
-    if (documents.length !== documentIds.length) {
-      throw new NotFoundException('Un ou plusieurs documents non trouvés');
-    }
-
-    // Créer les chunks en batch
-    const createdChunks = await this.prisma.$transaction(
-      createChunkDtos.map((dto) =>
-        this.prisma.chunk.create({
-          data: dto,
-        }),
-      ),
-    );
-
-    return createdChunks;
+    return this.chunksRepository.createMany(createChunkDtos);
   }
 
   async findAll() {
-    return await this.prisma.chunk.findMany({
-      include: {
-        document: true,
-        embeddings: true,
-      },
-    });
+    return this.chunksRepository.findAll();
   }
 
   async findOne(id: string) {
-    const chunk = await this.prisma.chunk.findUnique({
-      where: { id },
-      include: {
-        document: true,
-        embeddings: true,
-      },
-    });
-
-    if (!chunk) {
-      throw new NotFoundException('Chunk non trouvé');
-    }
-
-    return chunk;
+    return this.chunksRepository.findOne(id);
   }
 
   async findByDocument(documentId: string) {
-    const document = await this.prisma.document.findUnique({
-      where: { id: documentId },
-    });
-
-    if (!document) {
-      throw new NotFoundException('Document non trouvé');
-    }
-
-    return await this.prisma.chunk.findMany({
-      where: { documentId },
-      include: {
-        embeddings: true,
-      },
-    });
+    return this.chunksRepository.findByDocument(documentId);
   }
 
-  async searchFullText(query: string, limit: number = 10) {
-    // Exécuter une requête SQL brute pour la recherche full-text
-    const results = await this.prisma.$queryRaw`
-      SELECT c.id, c.text, c.page, c."documentId",
-             ts_rank(to_tsvector('french', c.text), plainto_tsquery('french', ${Prisma.raw(query)})) AS rank
-      FROM "Chunk" c
-      WHERE to_tsvector('french', c.text) @@ plainto_tsquery('french', ${Prisma.raw(query)})
-      ORDER BY rank DESC
-      LIMIT ${Prisma.raw(String(limit))}
-    `;
-
-    return results;
+  async update(id: string, updateChunkDto: UpdateChunkDto) {
+    return this.chunksRepository.update(id, updateChunkDto);
   }
 
   async remove(id: string) {
+    return this.chunksRepository.remove(id);
+  }
+
+  /**
+   * Recherche dans le texte des chunks
+   * @param query Texte à rechercher
+   * @param limit Nombre maximum de résultats à retourner
+   * @returns Les chunks correspondant à la recherche
+   */
+  async searchFullText(query: string, limit: number = 10) {
+    // Déléguer la recherche au repository des embeddings qui contient la logique de recherche
+    // Si vous n'avez pas de repository d'embeddings avec cette méthode, vous devrez l'implémenter ici
+    // ou dans le repository des chunks
     try {
-      return await this.prisma.chunk.delete({
-        where: { id },
+      // Exemple d'implémentation simple
+      return await this.chunksRepository.findMany({
+        where: {
+          text: {
+            contains: query,
+            mode: 'insensitive',
+          },
+        },
+        take: limit,
+        include: {
+          document: true,
+        },
       });
-    } catch (error) {
-      if ((error as PrismaError).code === 'P2025') {
-        throw new NotFoundException('Chunk non trouvé');
-      }
-      throw error;
+    } catch (error: unknown) {
+      throw new Error(
+        `Erreur lors de la recherche de texte: ${(error as Error).message}`,
+      );
     }
+  }
+
+  /**
+   * Génère des chunks à partir d'un texte
+   */
+  async generateChunksFromText(
+    text: string,
+    documentId: string,
+    options: {
+      chunkSize?: number;
+      chunkOverlap?: number;
+      separator?: string;
+    } = {},
+  ) {
+    try {
+      // Vérifier si le document existe
+      // Cette vérification est déjà faite dans le repository lors de la création des chunks
+
+      // Paramètres par défaut
+      const chunkSize = options.chunkSize || 1000;
+      const chunkOverlap = options.chunkOverlap || 200;
+      const separator = options.separator || '\n';
+
+      // Diviser le texte en chunks
+      const chunks = this.splitTextIntoChunks(
+        text,
+        chunkSize,
+        chunkOverlap,
+        separator,
+      );
+
+      // Créer les chunks dans la base de données
+      const chunkDtos = chunks.map((chunkText, index) => ({
+        text: chunkText,
+        documentId,
+        page: 1, // Par défaut, page 1 si non spécifié
+        order: index,
+      }));
+
+      return await this.chunksRepository.createMany(chunkDtos);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error(
+        `Erreur lors de la génération des chunks: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  /**
+   * Divise un texte en chunks avec chevauchement
+   */
+  private splitTextIntoChunks(
+    text: string,
+    chunkSize: number,
+    chunkOverlap: number,
+    separator: string,
+  ): string[] {
+    // Diviser le texte en segments basés sur le séparateur
+    const segments = text.split(separator);
+    const chunks: string[] = [];
+    let currentChunk = '';
+
+    for (const segment of segments) {
+      // Si l'ajout du segment dépasse la taille du chunk
+      if (
+        currentChunk.length + segment.length + separator.length > chunkSize &&
+        currentChunk.length > 0
+      ) {
+        // Ajouter le chunk actuel à la liste
+        chunks.push(currentChunk);
+
+        // Commencer un nouveau chunk avec chevauchement
+        const words = currentChunk.split(' ');
+        const overlapWords = words.slice(
+          Math.max(0, words.length - chunkOverlap / 10),
+        );
+        currentChunk = overlapWords.join(' ') + separator + segment;
+      } else {
+        // Ajouter le segment au chunk actuel
+        if (currentChunk.length > 0) {
+          currentChunk += separator;
+        }
+        currentChunk += segment;
+      }
+    }
+
+    // Ajouter le dernier chunk s'il n'est pas vide
+    if (currentChunk.length > 0) {
+      chunks.push(currentChunk);
+    }
+
+    return chunks;
   }
 }

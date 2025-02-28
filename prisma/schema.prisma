@@ -90,7 +90,7 @@ model Apikey {
 
 model Project {
   id             String       @id @default(uuid())
-  name           String
+  name           String       @default("New Project")
   salesforce_id  String?
   ai_address     String?
   status         ProjectStatus @default(DRAFT)

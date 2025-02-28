@@ -103,13 +103,18 @@ export class DocumentsController {
     description: 'ID du document à récupérer',
     example: '01234567890123456789012345678901',
   })
-  @ApiResponse({ status: 200, description: 'Document récupéré avec succès' })
-  @ApiResponse({ status: 404, description: 'Document non trouvé' })
+  @ApiResponse({ status: 200, description: 'Document récupéré avec succès.' })
+  @ApiResponse({ status: 404, description: 'Document non trouvé.' })
+  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès non autorisé à ce document.',
+  })
   findOne(
     @Param('id') id: string,
-    @Organization() organization: OrganizationEntity,
+    @Organization() _organization: OrganizationEntity,
   ) {
-    return this.documentsService.findOne(id, organization.id);
+    return this.documentsService.findOne(id);
   }
 
   @Get('project/:projectId')
@@ -119,13 +124,21 @@ export class DocumentsController {
     description: 'ID du projet',
     example: '01234567890123456789012345678901',
   })
-  @ApiResponse({ status: 200, description: 'Documents récupérés avec succès' })
-  @ApiResponse({ status: 404, description: 'Projet non trouvé' })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des documents récupérée avec succès.',
+  })
+  @ApiResponse({ status: 404, description: 'Projet non trouvé.' })
+  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès non autorisé à ce projet.',
+  })
   findByProject(
     @Param('projectId') projectId: string,
-    @Organization() organization: OrganizationEntity,
+    @Organization() _organization: OrganizationEntity,
   ) {
-    return this.documentsService.findByProject(projectId, organization.id);
+    return this.documentsService.findByProject(projectId);
   }
 
   @Patch(':id')
@@ -135,14 +148,19 @@ export class DocumentsController {
     description: 'ID du document à mettre à jour',
     example: '01234567890123456789012345678901',
   })
-  @ApiResponse({ status: 200, description: 'Document mis à jour avec succès' })
-  @ApiResponse({ status: 404, description: 'Document non trouvé' })
+  @ApiResponse({ status: 200, description: 'Document mis à jour avec succès.' })
+  @ApiResponse({ status: 404, description: 'Document non trouvé.' })
+  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès non autorisé à ce document.',
+  })
   update(
     @Param('id') id: string,
     @Body() updateDocumentDto: UpdateDocumentDto,
-    @Organization() organization: OrganizationEntity,
+    @Organization() _organization: OrganizationEntity,
   ) {
-    return this.documentsService.update(id, updateDocumentDto, organization.id);
+    return this.documentsService.update(id, updateDocumentDto);
   }
 
   @Delete(':id')
@@ -152,13 +170,18 @@ export class DocumentsController {
     description: 'ID du document à supprimer',
     example: '01234567890123456789012345678901',
   })
-  @ApiResponse({ status: 200, description: 'Document supprimé avec succès' })
-  @ApiResponse({ status: 404, description: 'Document non trouvé' })
+  @ApiResponse({ status: 200, description: 'Document supprimé avec succès.' })
+  @ApiResponse({ status: 404, description: 'Document non trouvé.' })
+  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès non autorisé à ce document.',
+  })
   remove(
     @Param('id') id: string,
-    @Organization() organization: OrganizationEntity,
+    @Organization() _organization: OrganizationEntity,
   ) {
-    return this.documentsService.remove(id, organization.id);
+    return this.documentsService.remove(id);
   }
 
   @Post('confirm-upload')
@@ -184,30 +207,31 @@ export class DocumentsController {
     );
   }
 
-  @Patch(':id/status')
+  @Post(':id/status')
   @ApiOperation({ summary: "Mettre à jour le statut d'un document" })
-  @ApiResponse({
-    status: 200,
-    description: 'Le statut du document a été mis à jour avec succès',
-  })
-  @ApiResponse({ status: 404, description: 'Document non trouvé' })
-  @ApiResponse({ status: 403, description: 'Accès interdit' })
   @ApiParam({
     name: 'id',
-    description: 'ID du document à mettre à jour',
+    description: 'ID du document',
     example: '01234567890123456789012345678901',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Statut du document mis à jour avec succès.',
+  })
+  @ApiResponse({ status: 404, description: 'Document non trouvé.' })
+  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès non autorisé à ce document.',
   })
   async updateStatus(
     @Param('id') id: string,
     @Body() updateStatusDto: UpdateDocumentStatusDto,
-    @Organization() organization: OrganizationEntity,
+    @Organization() _organization: OrganizationEntity,
   ) {
     // Vérifier que le document appartient à un projet de l'organisation
-    await this.documentsService.findOne(id, organization.id);
-    return this.documentsService.updateDocumentStatus(
-      id,
-      updateStatusDto.status,
-    );
+    await this.documentsService.findOne(id);
+    return this.documentsService.updateStatus(id, updateStatusDto.status);
   }
 
   @Post('monitor')

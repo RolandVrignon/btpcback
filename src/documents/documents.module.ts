@@ -4,16 +4,23 @@ import { DocumentsController } from './documents.controller';
 import { MulterModule } from '@nestjs/platform-express';
 import { ApiKeyMiddleware } from '../middleware/api-key.middleware';
 import { UsageModule } from '../usage/usage.module';
+import { DocumentsRepository } from './documents.repository';
+import { PrismaModule } from '../prisma/prisma.module';
+import { EmbeddingsModule } from '../embeddings/embeddings.module';
+import { ChunksModule } from '../chunks/chunks.module';
 
 @Module({
   imports: [
     MulterModule.register({
       dest: './uploads',
     }),
+    PrismaModule,
     UsageModule,
+    EmbeddingsModule,
+    ChunksModule,
   ],
   controllers: [DocumentsController],
-  providers: [DocumentsService],
+  providers: [DocumentsService, DocumentsRepository],
   exports: [DocumentsService],
 })
 export class DocumentsModule implements NestModule {
