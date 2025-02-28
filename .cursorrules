@@ -47,24 +47,62 @@ Node version 20.13.0
 
 ---
 
-**Instructions for Cursor Rules:**
+## Module Architecture
 
-1. **Structure Analysis:**
-   - Identify and map out the architecture of the NestJS backend, paying attention to the separation of modules, services, and controllers.
-   - Verify that the code organization adheres to TypeScript standards and the use of barrel imports.
+Each module in the system must maintain a consistent structure with:
 
-2. **Standards Validation:**
-   - Ensure all files conform to the defined conventions (relative imports, comments in English, proper error handling, etc.).
-   - Check the implementation of RESTful best practices and the SOLID principles.
+1. **Service File** (`*.service.ts`):
+   - Contains business logic
+   - Implements specific use cases
+   - Interacts with the repository for data operations
 
-3. **Workflow and Dependency Management:**
-   - Review the workflow setup, specifically the usage of pnpm and the distinction between production and development dependencies.
-   - Verify the consistency of Prisma integration for managing the PostgreSQL database.
+2. **Controller File** (`*.controller.ts`):
+   - Handles incoming HTTP requests
+   - Defines API routes with Swagger documentation
+   - Delegates processing to appropriate services
 
-4. **Security & Authentication:**
-   - Confirm that the API Token-based authentication mechanism is implemented securely and correctly.
+3. **Repository File** (`*.repository.ts`):
+   - Encapsulates all database interactions
+   - Uses Prisma for CRUD operations
+   - Isolates data access logic from the rest of the application
 
-5. **API Documentation & Testing:**
-   - Ensure a **Swagger interface** is implemented and correctly documents all API endpoints.
-   - Verify that **mocks for services and controllers** are available for testing.
-   - Check that unit tests are provided and cover the core functionalities of the backend.
+4. **Entities Files** (`*.interface.ts`):
+   - Define common data structures used across the module
+   - Provide type definitions for domain objects
+   - Located at the root of the module
+
+5. **Utils Directory** (`utils/`):
+   - Contains helper functions and utilities specific to the module
+   - Implements reusable logic that doesn't belong in services
+   - Houses module-specific constants and configurations
+
+## Organizational Principles
+
+- **Separation of Concerns**: Each file has a distinct and well-defined role
+- **Cohesion**: Related functionalities are grouped in the same module
+- **Low Coupling**: Modules interact through well-defined interfaces
+- **Testability**: Structure facilitates unit and integration testing
+- **Reusability**: Common patterns are extracted into utilities and entities
+
+## Module Structure Example
+
+```
+src/
+└── users/
+    ├── users.controller.ts
+    ├── users.service.ts
+    ├── users.repository.ts
+    ├── user.interface.ts
+    ├── users.module.ts
+    ├── dto/
+    │   ├── create-user.dto.ts
+    │   ├── update-user.dto.ts
+    │   └── index.ts
+    ├── utils/
+    │   ├── user-validators.util.ts
+    │   ├── user-formatters.util.ts
+    │   └── index.ts
+    └── index.ts
+```
+
+This enhanced architecture provides a comprehensive structure for each module, ensuring proper organization of code while maintaining the benefits of the three-layer architecture (controller, service, repository) for maintainability, scalability, and testability, all while adhering to SOLID principles.
