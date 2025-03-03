@@ -131,34 +131,37 @@ export class DocumentsService {
 
       // Étape 1: Télécharger le document depuis S3
       const document = await this.findOne(documentId);
-      const tempFilePath = await this.downloadDocumentFromS3(
-        document.path,
-        tempDir,
-      );
+      const tempFilePath = path.join(tempDir, document.filename);
+      // Utiliser le service S3 pour télécharger le fichier
+      await this.downloadFile(document.path, tempFilePath);
       console.log('tempFilePath:', tempFilePath);
 
       // Étape 2: Convertir le document si nécessaire
       const pdfFilePath = await this.convertToPdfIfNeeded(tempFilePath);
       console.log('pdfFilePath:', pdfFilePath);
 
-      // Étape 3: Extraire le texte du PDF
-      const extractedText = await this.extractTextFromPdf(pdfFilePath);
-      console.log('extractedText:', extractedText);
+      // Étape 3: Extraire le texte du PDF par page
+      const pageTexts = await this.extractTextFromPdf(pdfFilePath);
+      console.log('Nombre de pages extraites:', pageTexts.length);
 
-      // Étape 4: Chunker le texte
-      const chunks = this.chunkText(extractedText, 1000);
-      console.log('chunks:', chunks);
+      // Étape 4: Chunker le texte en préservant l'information de page
+      const chunks = this.chunkText(pageTexts, 1000);
+      console.log('Nombre de chunks créés:', chunks.length);
 
-      // Étape 5: Créer les chunks dans la base de données
+      // Étape 5: Créer les chunks dans la base de données avec leur numéro de page
       await this.createChunksWithEmbeddings(chunks, documentId, projectId);
 
       // Étape 6: Rafting - Extraire les informations importantes avec Gemini
       await this.updateStatus(documentId, 'RAFTING' as DocumentStatus);
 
       // Concaténer tous les textes des pages pour l'analyse globale
-      const fullText = extractedText.map((pt) => pt.text).join('\n\n');
+      const extractedText = pageTexts.map((pt) => pt.text).join('\n\n');
 
-      await this.extractDocumentInfoWithGemini(fullText, documentId, projectId);
+      await this.extractDocumentInfoWithGemini(
+        extractedText,
+        documentId,
+        projectId,
+      );
 
       // Mettre à jour le statut du document à READY
       await this.updateStatus(documentId, 'READY');
@@ -358,11 +361,11 @@ export class DocumentsService {
 
       // Étape 7: Rafting - Extraire les informations importantes avec Gemini
       await this.updateStatus(documentId, 'RAFTING' as DocumentStatus);
-
-      // Concaténer tous les textes des pages pour l'analyse globale
-      const fullText = extractedText.map((pt) => pt.text).join('\n\n');
-
-      await this.extractDocumentInfoWithGemini(fullText, documentId, projectId);
+      await this.extractDocumentInfoWithGemini(
+        extractedText,
+        documentId,
+        projectId,
+      );
 
       // Mettre à jour le statut du document à READY
       await this.updateStatus(documentId, 'READY');
@@ -525,7 +528,9 @@ export class DocumentsService {
     });
 
     if (!document) {
-      throw new NotFoundException(`Document non trouvé`);
+      throw new NotFoundException(
+        `Document avec l'ID ${documentId} non trouvé`,
+      );
     }
 
     if (document.projectId !== projectId) {
@@ -716,55 +721,53 @@ export class DocumentsService {
   ): Promise<Array<{ text: string; page: number }>> {
     const exec = promisify(execCallback);
     const tempDir = path.dirname(pdfPath);
-    const tempOutputPath = path.join(tempDir, 'temp_page.txt');
+    const baseName = path.basename(pdfPath, '.pdf');
+    const outputPattern = path.join(tempDir, `${baseName}-%d.txt`);
+
+    // Utiliser pdftotext avec l'option -f 1 -l 0 pour extraire toutes les pages
+    // et l'option -layout pour préserver la mise en page
+    // %d dans le nom de fichier de sortie sera remplacé par le numéro de page
+    const command = `pdftotext -f 1 -l 0 -layout -htmlmeta "${pdfPath}" "${outputPattern}"`;
 
     try {
-      // Obtenir le nombre total de pages du PDF
-      const pdfInfoCommand = `pdfinfo "${pdfPath}"`;
-      const { stdout: pdfInfoOutput } = await exec(pdfInfoCommand);
+      await exec(command);
 
-      // Extraire le nombre de pages à partir de la sortie de pdfinfo
-      const pagesMatch = pdfInfoOutput.match(/Pages:\s+(\d+)/);
-      if (!pagesMatch) {
-        throw new Error('Impossible de déterminer le nombre de pages du PDF');
-      }
+      // Trouver tous les fichiers texte générés
+      const files = fs.readdirSync(tempDir)
+        .filter(
+          (file) => file.startsWith(`${baseName}-`) && file.endsWith('.txt'),
+        )
+        .sort((a, b) => {
+          // Extraire les numéros de page des noms de fichiers
+          const pageA = parseInt(
+            a.replace(`${baseName}-`, '').replace('.txt', ''),
+          );
+          const pageB = parseInt(
+            b.replace(`${baseName}-`, '').replace('.txt', ''),
+          );
+          return pageA - pageB;
+        });
 
-      const totalPages = parseInt(pagesMatch[1], 10);
-      console.log(`Nombre total de pages: ${totalPages}`);
+      // Lire chaque fichier et créer un objet avec le texte et le numéro de page
+      const result = files.map((file) => {
+        const pageNum = parseInt(
+          file.replace(`${baseName}-`, '').replace('.txt', ''),
+        );
+        const filePath = path.join(tempDir, file);
+        const text = fs.readFileSync(filePath, 'utf8');
 
-      // Tableau pour stocker les résultats
-      const results: Array<{ text: string; page: number }> = [];
+        // Supprimer le fichier texte temporaire
+        fs.unlinkSync(filePath);
 
-      // Extraire le texte page par page
-      for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-        // Utiliser pdftotext avec les options -f et -l pour extraire une seule page
-        const extractCommand = `pdftotext -f ${pageNum} -l ${pageNum} -layout "${pdfPath}" "${tempOutputPath}"`;
-        await exec(extractCommand);
+        return {
+          text,
+          page: pageNum,
+        };
+      });
 
-        // Lire le contenu du fichier texte
-        if (fs.existsSync(tempOutputPath)) {
-          const pageText = fs.readFileSync(tempOutputPath, 'utf8');
-
-          // Ajouter le texte et le numéro de page au tableau de résultats
-          results.push({
-            text: pageText,
-            page: pageNum,
-          });
-
-          // Supprimer le fichier temporaire
-          fs.unlinkSync(tempOutputPath);
-        }
-      }
-
-      console.log('results:', results);
-
-      return results;
+      return result;
     } catch (error) {
       console.error("Erreur lors de l'extraction du texte:", error);
-      // Nettoyer le fichier temporaire en cas d'erreur
-      if (fs.existsSync(tempOutputPath)) {
-        fs.unlinkSync(tempOutputPath);
-      }
       throw new Error(
         `Échec de l'extraction du texte: ${(error as Error).message}`,
       );
@@ -878,9 +881,5 @@ export class DocumentsService {
     });
 
     if (!document) {
-      throw new NotFoundException(`Document non trouvé`);
-    }
-
-    return document.ai_metadata;
-  }
-}
+      throw new NotFoundException(
+        `

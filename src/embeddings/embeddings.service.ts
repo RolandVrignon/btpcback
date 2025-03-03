@@ -8,10 +8,21 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import { CreateEmbeddingDto } from './dto/create-embedding.dto';
-import { EmbeddingsRepository } from './embeddings.repository';
+import {
+  CreateEmbeddingDto,
+  CreateFromQueryDto,
+} from './dto/create-embedding.dto';
+import {
+  EmbeddingsRepository,
+  EmbeddingSearchResult,
+  DotProductSearchResult,
+  HybridSearchResult,
+  FullTextSearchResult,
+} from './embeddings.repository';
 import { UsageService } from '../usage/usage.service';
 import { AI_Provider } from '@prisma/client';
+import { openai } from '@ai-sdk/openai';
+import { embed } from 'ai';
 
 @Injectable()
 export class EmbeddingsService {
@@ -22,6 +33,27 @@ export class EmbeddingsService {
 
   async create(createEmbeddingDto: CreateEmbeddingDto) {
     return this.embeddingsRepository.create(createEmbeddingDto);
+  }
+
+  async createFromQuery(
+    createFromQueryDto: CreateFromQueryDto,
+  ): Promise<number[]> {
+    const modelName = 'text-embedding-3-small';
+
+    const { embedding, usage } = await embed({
+      model: openai.embedding(modelName),
+      value: createFromQueryDto.query,
+    });
+
+    await this.usageService.create({
+      provider: AI_Provider.OPENAI,
+      modelName: modelName,
+      totalTokens: usage.tokens,
+      type: 'EMBEDDING',
+      projectId: createFromQueryDto.projectId,
+    });
+
+    return embedding;
   }
 
   async createMany(createEmbeddingDtos: CreateEmbeddingDto[]) {
@@ -70,13 +102,15 @@ export class EmbeddingsService {
     modelVersion: string,
     limit: number = 10,
     threshold?: number,
-  ) {
+    scopeFilter?: { documentId?: string; projectId?: string },
+  ): Promise<EmbeddingSearchResult[]> {
     return this.embeddingsRepository.searchSimilar(
       vector,
       modelName,
       modelVersion,
       limit,
       threshold,
+      scopeFilter,
     );
   }
 
@@ -88,7 +122,7 @@ export class EmbeddingsService {
     modelName: string,
     modelVersion: string,
     limit: number = 10,
-  ) {
+  ): Promise<DotProductSearchResult[]> {
     return this.embeddingsRepository.searchSimilarDotProduct(
       vector,
       modelName,
@@ -107,7 +141,7 @@ export class EmbeddingsService {
     modelVersion: string,
     limit: number = 10,
     vectorWeight: number = 0.7,
-  ) {
+  ): Promise<HybridSearchResult[]> {
     return this.embeddingsRepository.searchHybrid(
       vector,
       query,
@@ -121,7 +155,10 @@ export class EmbeddingsService {
   /**
    * Recherche full-text dans les chunks
    */
-  async searchFullText(query: string, limit: number = 10) {
+  async searchFullText(
+    query: string,
+    limit: number = 10,
+  ): Promise<FullTextSearchResult[]> {
     return this.embeddingsRepository.searchFullText(query, limit);
   }
 }

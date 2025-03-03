@@ -23,6 +23,8 @@
   "dependencies": {
     "@ai-sdk/google": "^1.1.17",
     "@ai-sdk/openai": "^1.1.14",
+    "@aws-sdk/client-ec2": "^3.758.0",
+    "@aws-sdk/client-rds": "^3.758.0",
     "@aws-sdk/client-s3": "^3.750.0",
     "@aws-sdk/s3-request-presigner": "^3.750.0",
     "@nestjs/common": "^11.0.1",
@@ -39,6 +41,7 @@
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "dotenv": "^16.4.7",
     "multer": "1.4.5-lts.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",

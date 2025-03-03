@@ -5,14 +5,69 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmbeddingDto } from './dto/create-embedding.dto';
-import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
+import { Prisma } from '@prisma/client';
 
-// Interface pour les erreurs Prisma
+/**
+ * Interface pour les erreurs Prisma
+ */
 interface PrismaError {
   code: string;
   meta?: Record<string, unknown>;
   message: string;
+}
+
+/**
+ * Interface pour les résultats de recherche d'embeddings
+ */
+export interface EmbeddingSearchResult {
+  id: string;
+  chunkId: string;
+  text: string;
+  page: number;
+  documentId: string;
+  documentName: string;
+  distance: number;
+  similarity: number;
+}
+
+/**
+ * Interface pour les résultats de recherche par produit scalaire
+ */
+export interface DotProductSearchResult {
+  id: string;
+  chunkId: string;
+  text: string;
+  page: number;
+  documentId: string;
+  documentName: string;
+  similarity: number;
+}
+
+/**
+ * Interface pour les résultats de recherche hybride
+ */
+export interface HybridSearchResult {
+  id: string;
+  chunkId: string;
+  text: string;
+  page: number;
+  documentId: string;
+  documentName: string;
+  vectorDistance: number;
+  textRank: number;
+  score: number;
+}
+
+/**
+ * Interface pour les résultats de recherche full-text
+ */
+export interface FullTextSearchResult {
+  id: string;
+  text: string;
+  page: number;
+  documentId: string;
+  rank: number;
 }
 
 @Injectable()
@@ -197,46 +252,63 @@ export class EmbeddingsRepository {
     modelVersion: string,
     limit: number = 10,
     threshold?: number,
-  ) {
-    // Convertir le tableau de nombres en vecteur pgvector
-    const vectorString = `[${vector.join(',')}]`;
+    scopeFilter?: { documentId?: string; projectId?: string },
+  ): Promise<EmbeddingSearchResult[]> {
+    try {
+      // Convertir le tableau de nombres en chaîne pour la requête SQL
+      const vectorString = vector.join(',');
 
-    // Construire la requête de base
-    let query = Prisma.sql`
-      SELECT e.id, e."chunkId", e."modelName", e."modelVersion", c.text, c.page, c."documentId", d.filename,
-             e.vector <=> ${Prisma.raw(vectorString)}::vector AS distance
-      FROM "Embedding" e
-      JOIN "Chunk" c ON e."chunkId" = c.id
-      JOIN "Document" d ON c."documentId" = d.id
-      WHERE e."modelName" = ${modelName} AND e."modelVersion" = ${modelVersion}
-    `;
+      // Construire la clause WHERE de base
+      let whereClause = Prisma.sql`e."modelName" = ${modelName} AND e."modelVersion" = ${modelVersion}`;
 
-    // Ajouter un filtre de seuil si spécifié
-    if (threshold !== undefined) {
-      query = Prisma.sql`
-        ${query} AND (e.vector <=> ${Prisma.raw(vectorString)}::vector) < ${threshold}
+      // Ajouter les filtres de scope si nécessaire
+      if (scopeFilter) {
+        if (scopeFilter.documentId) {
+          // Filtrer par document
+          whereClause = Prisma.sql`${whereClause} AND c."documentId" = ${scopeFilter.documentId}`;
+        } else if (scopeFilter.projectId) {
+          // Filtrer par projet
+          whereClause = Prisma.sql`${whereClause} AND d."projectId" = ${scopeFilter.projectId}`;
+        }
+      }
+
+      // Ajouter le seuil si spécifié
+      if (threshold !== undefined) {
+        whereClause = Prisma.sql`${whereClause} AND (e.vector <=> '[${Prisma.raw(vectorString)}]'::vector) < ${threshold}`;
+      }
+
+      // Exécuter la requête avec les filtres
+      const results = await this.prisma.$queryRaw`
+        SELECT e.id, e."chunkId", e."modelName", e."modelVersion", c.text, c.page, c."documentId", d.filename,
+               e.vector <=> '[${Prisma.raw(vectorString)}]'::vector AS distance
+        FROM "Embedding" e
+        JOIN "Chunk" c ON e."chunkId" = c.id
+        JOIN "Document" d ON c."documentId" = d.id
+        WHERE ${whereClause}
+        ORDER BY distance
+        LIMIT ${limit}
       `;
+
+      console.log(
+        'Query executed successfully, results count:',
+        Array.isArray(results) ? results.length : 0,
+      );
+
+      // Formater les résultats avec un typage approprié
+      return (results as Record<string, unknown>[]).map((result) => ({
+        id: result.id as string,
+        chunkId: result.chunkId as string,
+        text: result.text as string,
+        page: result.page as number,
+        documentId: result.documentId as string,
+        documentName: result.filename as string,
+        distance: result.distance as number,
+        similarity: 1 - (result.distance as number), // Convertir la distance en score de similarité (0-1)
+      }));
+    } catch (error) {
+      console.error('Error executing vector search query:', error);
+      throw error;
     }
-
-    // Ajouter le tri et la limite
-    query = Prisma.sql`
-      ${query} ORDER BY distance LIMIT ${limit}
-    `;
-
-    // Exécuter la requête
-    const results = await this.prisma.$queryRaw(query);
-
-    // Formater les résultats pour inclure plus d'informations
-    return (results as any[]).map((result) => ({
-      id: result.id,
-      chunkId: result.chunkId,
-      text: result.text,
-      page: result.page,
-      documentId: result.documentId,
-      documentName: result.filename,
-      distance: result.distance,
-      similarity: 1 - result.distance, // Convertir la distance en score de similarité (0-1)
-    }));
   }
 
   /**
@@ -247,24 +319,37 @@ export class EmbeddingsRepository {
     modelName: string,
     modelVersion: string,
     limit: number = 10,
-  ) {
-    // Convertir le tableau de nombres en vecteur pgvector
-    const vectorString = `[${vector.join(',')}]`;
+  ): Promise<DotProductSearchResult[]> {
+    try {
+      // Convertir le tableau de nombres en chaîne pour la requête SQL
+      const vectorString = vector.join(',');
 
-    // Utiliser le produit scalaire (dot product) au lieu de la distance euclidienne
-    const results = await this.prisma.$queryRaw`
-      SELECT e.id, e."chunkId", e."modelName", e."modelVersion", c.text, c.page, c."documentId", d.filename,
-             (e.vector <#> ${Prisma.raw(vectorString)}::vector) * -1 AS similarity
-      FROM "Embedding" e
-      JOIN "Chunk" c ON e."chunkId" = c.id
-      JOIN "Document" d ON c."documentId" = d.id
-      WHERE e."modelName" = ${modelName} AND e."modelVersion" = ${modelVersion}
-      ORDER BY similarity DESC
-      LIMIT ${limit}
-    `;
+      // Utiliser $queryRaw avec des template literals pour éviter les injections SQL
+      const results = await this.prisma.$queryRaw`
+        SELECT e.id, e."chunkId", e."modelName", e."modelVersion", c.text, c.page, c."documentId", d.filename,
+               (e.vector <#> '[${Prisma.raw(vectorString)}]'::vector) * -1 AS similarity
+        FROM "Embedding" e
+        JOIN "Chunk" c ON e."chunkId" = c.id
+        JOIN "Document" d ON c."documentId" = d.id
+        WHERE e."modelName" = ${modelName} AND e."modelVersion" = ${modelVersion}
+        ORDER BY similarity DESC
+        LIMIT ${limit}
+      `;
 
-    // Formater les résultats
-    return results;
+      // Formater les résultats avec un typage approprié
+      return (results as Record<string, unknown>[]).map((result) => ({
+        id: result.id as string,
+        chunkId: result.chunkId as string,
+        text: result.text as string,
+        page: result.page as number,
+        documentId: result.documentId as string,
+        documentName: result.filename as string,
+        similarity: result.similarity as number,
+      }));
+    } catch (error) {
+      console.error('Error executing dot product search query:', error);
+      throw error;
+    }
   }
 
   /**
@@ -277,56 +362,75 @@ export class EmbeddingsRepository {
     modelVersion: string,
     limit: number = 10,
     vectorWeight: number = 0.7,
-  ) {
-    // Vérifier que le poids est valide
-    if (vectorWeight < 0 || vectorWeight > 1) {
-      throw new Error('Le poids vectoriel doit être compris entre 0 et 1');
-    }
+  ): Promise<HybridSearchResult[]> {
+    try {
+      // Convertir le tableau de nombres en chaîne pour la requête SQL
+      const vectorString = vector.join(',');
 
-    const textWeight = 1 - vectorWeight;
-    const vectorString = `[${vector.join(',')}]`;
-
-    // Requête hybride combinant la recherche vectorielle et la recherche full-text
-    const results = await this.prisma.$queryRaw`
-      SELECT
-        e.id,
-        e."chunkId",
-        c.text,
-        c.page,
-        c."documentId",
-        d.filename,
-        (e.vector <=> ${Prisma.raw(vectorString)}::vector) AS vector_distance,
-        ts_rank(to_tsvector('french', c.text), plainto_tsquery('french', ${query})) AS text_rank,
-        (${vectorWeight} * (1 - (e.vector <=> ${Prisma.raw(vectorString)}::vector)) +
-         ${textWeight} * ts_rank(to_tsvector('french', c.text), plainto_tsquery('french', ${query}))) AS combined_score
-      FROM "Embedding" e
-      JOIN "Chunk" c ON e."chunkId" = c.id
-      JOIN "Document" d ON c."documentId" = d.id
-      WHERE e."modelName" = ${modelName}
-        AND e."modelVersion" = ${modelVersion}
+      // Utiliser $queryRaw avec des template literals pour éviter les injections SQL
+      const results = await this.prisma.$queryRaw`
+        SELECT e.id, e."chunkId", e."modelName", e."modelVersion", c.text, c.page, c."documentId", d.filename,
+               (e.vector <=> '[${Prisma.raw(vectorString)}]'::vector) AS vector_distance,
+               ts_rank_cd(to_tsvector('french', c.text), plainto_tsquery('french', ${query})) AS text_rank,
+               (${vectorWeight} * (1 - (e.vector <=> '[${Prisma.raw(vectorString)}]'::vector)) +
+                (1 - ${vectorWeight}) * ts_rank_cd(to_tsvector('french', c.text), plainto_tsquery('french', ${query}))) AS hybrid_score
+        FROM "Embedding" e
+        JOIN "Chunk" c ON e."chunkId" = c.id
+        JOIN "Document" d ON c."documentId" = d.id
+        WHERE e."modelName" = ${modelName} AND e."modelVersion" = ${modelVersion}
         AND to_tsvector('french', c.text) @@ plainto_tsquery('french', ${query})
-      ORDER BY combined_score DESC
-      LIMIT ${limit}
-    `;
+        ORDER BY hybrid_score DESC
+        LIMIT ${limit}
+      `;
 
-    return results;
+      // Formater les résultats avec un typage approprié
+      return (results as Record<string, unknown>[]).map((result) => ({
+        id: result.id as string,
+        chunkId: result.chunkId as string,
+        text: result.text as string,
+        page: result.page as number,
+        documentId: result.documentId as string,
+        documentName: result.filename as string,
+        vectorDistance: result.vector_distance as number,
+        textRank: result.text_rank as number,
+        score: result.hybrid_score as number,
+      }));
+    } catch (error) {
+      console.error('Error executing hybrid search query:', error);
+      throw error;
+    }
   }
 
   /**
    * Recherche full-text dans les chunks
    */
-  async searchFullText(query: string, limit: number = 10) {
-    // Exécuter une requête SQL brute pour la recherche full-text
-    const results = await this.prisma.$queryRaw`
-      SELECT c.id, c.text, c.page, c."documentId",
-             ts_rank(to_tsvector('french', c.text), plainto_tsquery('french', ${query})) AS rank
-      FROM "Chunk" c
-      WHERE to_tsvector('french', c.text) @@ plainto_tsquery('french', ${query})
-      ORDER BY rank DESC
-      LIMIT ${limit}
-    `;
+  async searchFullText(
+    query: string,
+    limit: number = 10,
+  ): Promise<FullTextSearchResult[]> {
+    try {
+      // Exécuter une requête SQL brute pour la recherche full-text
+      const results = await this.prisma.$queryRaw`
+        SELECT c.id, c.text, c.page, c."documentId",
+               ts_rank(to_tsvector('french', c.text), plainto_tsquery('french', ${query})) AS rank
+        FROM "Chunk" c
+        WHERE to_tsvector('french', c.text) @@ plainto_tsquery('french', ${query})
+        ORDER BY rank DESC
+        LIMIT ${limit}
+      `;
 
-    return results;
+      // Formater les résultats avec un typage approprié
+      return (results as Record<string, unknown>[]).map((result) => ({
+        id: result.id as string,
+        text: result.text as string,
+        page: result.page as number,
+        documentId: result.documentId as string,
+        rank: result.rank as number,
+      }));
+    } catch (error) {
+      console.error('Error executing full-text search query:', error);
+      throw error;
+    }
   }
 
   /**
@@ -339,7 +443,10 @@ export class EmbeddingsRepository {
         SELECT id FROM "Embedding" WHERE id = ${id}
       `;
 
-      if (!embeddings || (embeddings as any[]).length === 0) {
+      if (
+        !embeddings ||
+        (embeddings as Record<string, unknown>[]).length === 0
+      ) {
         throw new NotFoundException('Embedding non trouvé');
       }
 
@@ -353,8 +460,12 @@ export class EmbeddingsRepository {
       if (error instanceof NotFoundException) {
         throw error;
       }
+
+      // Gérer l'erreur avec un typage approprié
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
       throw new Error(
-        `Erreur lors de la suppression de l'embedding: ${error.message}`,
+        `Erreur lors de la suppression de l'embedding: ${errorMessage}`,
       );
     }
   }

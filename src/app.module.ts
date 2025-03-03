@@ -9,6 +9,7 @@ import { ChunksModule } from './chunks/chunks.module';
 import { EmbeddingsModule } from './embeddings/embeddings.module';
 import { StorageModule } from './storage/storage.module';
 import { UsageModule } from './usage/usage.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { UsageModule } from './usage/usage.module';
     EmbeddingsModule,
     StorageModule,
     UsageModule,
+    SearchModule,
   ],
 })
 export class AppModule {}

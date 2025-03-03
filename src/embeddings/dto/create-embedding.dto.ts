@@ -81,3 +81,21 @@ export class CreateEmbeddingDto {
   @IsNotEmpty()
   projectId: string;
 }
+
+export class CreateFromQueryDto {
+  @ApiProperty({
+    description: "La requête à partir de laquelle l'embedding sera généré",
+    example: 'Quel est le capital de la France?',
+  })
+  @IsString()
+  @IsNotEmpty()
+  query: string;
+
+  @ApiProperty({
+    description: "L'ID du projet auquel l'embedding est associé",
+    example: '01234567890123456789012345678901',
+  })
+  @IsUUID()
+  @IsNotEmpty()
+  projectId: string;
+}
