@@ -454,6 +454,8 @@ export class DocumentsService {
               documentId,
             });
 
+            console.log('createdChunk:', createdChunk);
+
             // 2. Générer l'embedding pour ce chunk
             const { embedding: embeddingVector, usage } = await embed({
               model: openai.embedding(modelName),
@@ -469,6 +471,15 @@ export class DocumentsService {
               dimensions: embeddingVector.length,
               chunkId: createdChunk.id,
               usage: usage.tokens,
+              projectId: projectId,
+            });
+
+            // Enregistrer l'utilisation pour l'embedding
+            await this.usageService.create({
+              provider: AI_Provider.OPENAI,
+              modelName: modelName,
+              totalTokens: usage.tokens,
+              type: 'EMBEDDING',
               projectId: projectId,
             });
 
