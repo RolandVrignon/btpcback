@@ -180,29 +180,6 @@ export class EmbeddingsRepository {
   }
 
   /**
-   * Récupère un embedding par son ID
-   */
-  async findOne(id: string) {
-    // Utiliser une requête SQL brute pour récupérer un embedding spécifique
-    const results = await this.prisma.$queryRaw`
-      SELECT e.id, e."vector", e."modelName", e."modelVersion", e."dimensions", e."chunkId",
-             e."createdAt", e."updatedAt", c.id as "chunk_id", c.text as "chunk_text",
-             c.page as "chunk_page", c."documentId" as "chunk_documentId",
-             d.id as "document_id", d.filename as "document_filename", d.path as "document_path"
-      FROM "Embedding" e
-      JOIN "Chunk" c ON e."chunkId" = c.id
-      JOIN "Document" d ON c."documentId" = d.id
-      WHERE e.id = ${id}
-    `;
-
-    if (!results || (results as any[]).length === 0) {
-      throw new NotFoundException('Embedding non trouvé');
-    }
-
-    return (results as any[])[0];
-  }
-
-  /**
    * Récupère tous les embeddings d'un chunk
    */
   async findByChunk(chunkId: string) {

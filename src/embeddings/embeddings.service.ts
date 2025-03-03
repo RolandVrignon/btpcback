@@ -77,10 +77,6 @@ export class EmbeddingsService {
     return this.embeddingsRepository.findAll();
   }
 
-  async findOne(id: string) {
-    return this.embeddingsRepository.findOne(id);
-  }
-
   async findByChunk(chunkId: string) {
     return this.embeddingsRepository.findByChunk(chunkId);
   }
