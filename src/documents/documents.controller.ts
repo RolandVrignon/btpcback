@@ -110,10 +110,7 @@ export class DocumentsController {
     status: 403,
     description: 'Accès non autorisé à ce document.',
   })
-  findOne(
-    @Param('id') id: string,
-    @Organization() _organization: OrganizationEntity,
-  ) {
+  findOne(@Param('id') id: string) {
     return this.documentsService.findOne(id);
   }
 
@@ -134,10 +131,7 @@ export class DocumentsController {
     status: 403,
     description: 'Accès non autorisé à ce projet.',
   })
-  findByProject(
-    @Param('projectId') projectId: string,
-    @Organization() _organization: OrganizationEntity,
-  ) {
+  findByProject(@Param('projectId') projectId: string) {
     return this.documentsService.findByProject(projectId);
   }
 
@@ -158,7 +152,6 @@ export class DocumentsController {
   update(
     @Param('id') id: string,
     @Body() updateDocumentDto: UpdateDocumentDto,
-    @Organization() _organization: OrganizationEntity,
   ) {
     return this.documentsService.update(id, updateDocumentDto);
   }
@@ -177,10 +170,7 @@ export class DocumentsController {
     status: 403,
     description: 'Accès non autorisé à ce document.',
   })
-  remove(
-    @Param('id') id: string,
-    @Organization() _organization: OrganizationEntity,
-  ) {
+  remove(@Param('id') id: string) {
     return this.documentsService.remove(id);
   }
 
@@ -227,7 +217,6 @@ export class DocumentsController {
   async updateStatus(
     @Param('id') id: string,
     @Body() updateStatusDto: UpdateDocumentStatusDto,
-    @Organization() _organization: OrganizationEntity,
   ) {
     // Vérifier que le document appartient à un projet de l'organisation
     await this.documentsService.findOne(id);
