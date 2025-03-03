@@ -274,6 +274,8 @@ export class SearchService {
           100,
         );
 
+        console.log('searchResults:', searchResults);
+
         console.log(
           `[HYBRID SEARCH] Nombre de résultats initiaux: ${Array.isArray(searchResults) ? searchResults.length : 0}`,
         );
@@ -291,20 +293,24 @@ export class SearchService {
 
         // Récupérer l'ID du premier résultat pour l'utiliser comme référence
         const firstResult = searchResults[0] as unknown as { id: string };
-        const referenceId = firstResult?.id;
+        console.log('firstResult:', firstResult);
+        const referenceChunkId = firstResult?.id;
+        console.log('referenceChunkId:', referenceChunkId);
 
-        console.log(`[HYBRID SEARCH] ID de référence: ${referenceId}`);
+        console.log(
+          `[HYBRID SEARCH] ID du chunk de référence: ${referenceChunkId}`,
+        );
 
-        if (!referenceId) {
+        if (!referenceChunkId) {
           throw new BadRequestException(
-            'Impossible de trouver un embedding de référence',
+            'Impossible de trouver un chunk de référence',
           );
         }
 
         // Construire la requête hybride
         let query = Prisma.sql`
           SELECT c.id, c."documentId", c.text, c.page,
-                 (0.7 * (1 - (e.vector <=> (SELECT vector FROM "Embedding" WHERE id = ${referenceId})::vector)) +
+                 (0.7 * (1 - (e.vector <=> (SELECT vector FROM "Embedding" WHERE "chunkId" = ${referenceChunkId} AND "modelName" = ${this.embeddingModel} AND "modelVersion" = ${this.embeddingVersion})::vector)) +
                   0.3 * ts_rank_cd(to_tsvector('french', c.text), plainto_tsquery('french', ${params.query}))) AS score
           FROM "Chunk" c
           JOIN "Embedding" e ON c.id = e."chunkId"
