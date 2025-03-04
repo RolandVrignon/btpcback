@@ -4,6 +4,8 @@ DB_PORT = 5433
 DB_USER = postgres
 DB_PASSWORD = postgres
 DB_NAME = btpc
+API_PORT = 8080
+API_SUBDOMAIN = aec-agents-api-dev
 
 # Commandes Docker
 .PHONY: docker-start
@@ -121,6 +123,13 @@ init-with-seed:
 	@make init-db
 	@make seed-db
 
+.PHONY: expose-api
+expose-api:
+	@echo "Installation de cloudflared si nécessaire..."
+	@which cloudflared || (echo "Installation de cloudflared..." && curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb && sudo dpkg -i cloudflared.deb && rm cloudflared.deb)
+	@echo "Exposition de l'API via Cloudflare Tunnel sur le port $(API_PORT)..."
+	@cloudflared tunnel --url http://localhost:$(API_PORT)
+
 .PHONY: help
 help:
 	@echo "Commandes disponibles:"
@@ -144,6 +153,9 @@ help:
 	@echo "  make init-db             - Initialiser la base de données"
 	@echo "  make seed-db             - Créer des données de base (organisation et clé API)"
 	@echo "  make init-with-seed      - Initialiser la base de données et créer des données de base"
-
+	@echo "  make expose-api-lt       - Exposer l'API locale via localtunnel"
+	@echo "  make expose-api-lt-persistent - Exposer l'API locale via localtunnel avec reconnexion automatique"
+	@echo "  make expose-api-ngrok    - Exposer l'API locale via ngrok"
+	@echo "  make expose-api 		  - Exposer l'API locale via Cloudflare Tunnel"
 # Commande par défaut
 .DEFAULT_GOAL := help

@@ -24,7 +24,7 @@ export class ChunksRepository {
    * Crée plusieurs chunks en une seule opération
    */
   async createMany(createChunkDtos: CreateChunkDto[]) {
-    const createdChunks = [];
+    const createdChunks: Array<{ id: string; text: string }> = [];
 
     // Créer les chunks un par un pour pouvoir récupérer leurs IDs
     for (const dto of createChunkDtos) {

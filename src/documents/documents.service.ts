@@ -1109,11 +1109,32 @@ export class DocumentsService {
 
       console.log(filteredDocuments);
 
-      for (const document of documents) {
-        console.log(`Simulate n8n processing for document ${document.id}...`);
-        await new Promise((resolve) => setTimeout(resolve, 10000));
-        console.log(`Update status to READY for document ${document.id}...`);
-        await this.updateStatus(document.id, 'READY');
+      // for (const document of documents) {
+      //   console.log(`Simulate n8n processing for document ${document.id}...`);
+      //   await new Promise((resolve) => setTimeout(resolve, 10000));
+      //   console.log(`Update status to READY for document ${document.id}...`);
+      //   await this.updateStatus(document.id, 'READY');
+      // }
+
+      try {
+        const response = await fetch(
+          'https://databuildr.app.n8n.cloud/webhook-test/documate',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(filteredDocuments),
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to send data to n8n: ${response.statusText}`);
+        }
+
+        console.log('Data successfully sent to n8n webhook.');
+      } catch (error) {
+        console.error('Error sending data to n8n webhook:', error);
       }
 
       return filteredDocuments;
