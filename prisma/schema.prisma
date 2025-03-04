@@ -38,6 +38,7 @@ enum DocumentStatus {
   NOT_STARTED
   INDEXING
   RAFTING
+  PENDING
   PROCESSING
   READY
   END

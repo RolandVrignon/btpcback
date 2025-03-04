@@ -368,9 +368,12 @@ export class DocumentsService {
 
       // await this.extractDocumentInfoWithGemini(fullText, documentId, projectId);
 
-      // Mettre à jour le statut du document à READY
-      console.log(documentId, ' Mise à jour du statut du document à READY...');
-      await this.updateStatus(documentId, 'READY');
+      // Mettre à jour le statut du document à PENDING
+      console.log(
+        documentId,
+        ' Mise à jour du statut du document à PENDING...',
+      );
+      await this.updateStatus(documentId, 'PENDING');
 
       // Nettoyer les fichiers temporaires
       console.log(documentId, ' Nettoyage des fichiers temporaires...');
@@ -1105,6 +1108,13 @@ export class DocumentsService {
       }));
 
       console.log(filteredDocuments);
+
+      for (const document of documents) {
+        console.log(`Simulate n8n processing for document ${document.id}...`);
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+        console.log(`Update status to READY for document ${document.id}...`);
+        await this.updateStatus(document.id, 'READY');
+      }
 
       return filteredDocuments;
     } catch (error) {
