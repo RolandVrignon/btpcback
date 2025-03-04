@@ -9,7 +9,7 @@ export class PrismaService
   constructor() {
     /* eslint-disable @typescript-eslint/no-unsafe-call */
     super({
-      log: ['query', 'info', 'warn', 'error'],
+      log: ['info', 'warn', 'error'],
     });
   }
 

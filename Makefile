@@ -95,6 +95,11 @@ reset-db:
 	@make docker-start
 	@make prisma-migrate-reset
 
+.PHONY: clear-db
+clear-db:
+	@echo "Nettoyage de la base de données (conservation des tables Organization et ApiKey)..."
+	@pnpm ts-node src/scripts/clear-db.ts
+
 .PHONY: init-db
 init-db:
 	@echo "Initialisation de la base de données..."
@@ -135,6 +140,7 @@ help:
 	@echo "  make prettier            - Formater le code avec Prettier"
 	@echo "  make setup               - Installer les dépendances et configurer le projet"
 	@echo "  make reset-db            - Réinitialiser la base de données"
+	@echo "  make clear-db            - Nettoyer la base de données (conserver Organization et ApiKey)"
 	@echo "  make init-db             - Initialiser la base de données"
 	@echo "  make seed-db             - Créer des données de base (organisation et clé API)"
 	@echo "  make init-with-seed      - Initialiser la base de données et créer des données de base"

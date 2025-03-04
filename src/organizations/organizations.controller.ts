@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
 import { OrganizationsService } from './organizations.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
@@ -58,21 +58,5 @@ export class OrganizationsController {
   })
   findOne(@Param('id') id: string) {
     return this.organizationsService.findOne(id);
-  }
-
-  @Delete(':id')
-  @ApiOperation({ summary: 'Supprimer une organisation' })
-  @ApiResponse({
-    status: 200,
-    description: 'Organisation supprimée avec succès.',
-  })
-  @ApiResponse({ status: 404, description: 'Organisation non trouvée.' })
-  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
-  @ApiResponse({
-    status: 403,
-    description: 'Accès réservé aux administrateurs.',
-  })
-  remove(@Param('id') id: string) {
-    return this.organizationsService.remove(id);
   }
 }

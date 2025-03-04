@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -43,7 +43,7 @@ export class ApikeysController {
     description: 'Liste des clés API récupérée avec succès.',
   })
   @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
-  findAll(@Organization() organization) {
+  findAll(@Organization() organization: OrganizationEntity) {
     return this.apikeysService.findByOrganization(organization.id);
   }
 
@@ -61,23 +61,7 @@ export class ApikeysController {
     status: 403,
     description: 'Accès non autorisé à cette clé API.',
   })
-  findOne(
-    @Param('id') id: string,
-    @Organization() organization: OrganizationEntity,
-  ) {
+  findOne(@Param('id') id: string) {
     return this.apikeysService.findOne(id);
-  }
-
-  @Delete(':id')
-  @ApiOperation({ summary: 'Supprimer une clé API' })
-  @ApiResponse({ status: 200, description: 'Clé API supprimée avec succès.' })
-  @ApiResponse({ status: 404, description: 'Clé API non trouvée.' })
-  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
-  @ApiResponse({
-    status: 403,
-    description: 'Accès réservé aux administrateurs.',
-  })
-  remove(@Param('id') id: string) {
-    return this.apikeysService.remove(id);
   }
 }

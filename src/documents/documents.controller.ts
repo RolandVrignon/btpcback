@@ -4,11 +4,11 @@ import {
   Post,
   Body,
   Param,
-  Delete,
   UseInterceptors,
   UploadedFile,
   Patch,
   UseGuards,
+  NotFoundException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -34,6 +34,8 @@ import { ViewDocumentDto } from './dto/view-document.dto';
 import { ViewDocumentResponseDto } from './dto/view-document-response.dto';
 import { GetDocumentMetadataDto } from './dto/get-document-metadata.dto';
 import { DocumentMetadataResponseDto } from './dto/document-metadata-response.dto';
+import { ConfirmMultipleUploadsDto } from './dto/confirm-multiple-uploads.dto';
+import { GetDocumentByFilenameDto } from './dto/get-document-by-filename.dto';
 
 @ApiTags('documents')
 @ApiHeader({
@@ -156,24 +158,6 @@ export class DocumentsController {
     return this.documentsService.update(id, updateDocumentDto);
   }
 
-  @Delete(':id')
-  @ApiOperation({ summary: 'Supprimer un document' })
-  @ApiParam({
-    name: 'id',
-    description: 'ID du document à supprimer',
-    example: '01234567890123456789012345678901',
-  })
-  @ApiResponse({ status: 200, description: 'Document supprimé avec succès.' })
-  @ApiResponse({ status: 404, description: 'Document non trouvé.' })
-  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
-  @ApiResponse({
-    status: 403,
-    description: 'Accès non autorisé à ce document.',
-  })
-  remove(@Param('id') id: string) {
-    return this.documentsService.remove(id);
-  }
-
   @Post('confirm-upload')
   @ApiOperation({ summary: "Confirmer l'upload d'un fichier sur S3" })
   @ApiResponse({ status: 201, description: 'Document créé avec succès.' })
@@ -193,6 +177,29 @@ export class DocumentsController {
   ) {
     return this.documentsService.confirmUpload(
       confirmUploadDto,
+      organization.id,
+    );
+  }
+
+  @Post('confirm-multiple-uploads')
+  @ApiOperation({ summary: "Confirmer l'upload de plusieurs fichiers sur S3" })
+  @ApiResponse({ status: 201, description: 'Documents créés avec succès.' })
+  @ApiResponse({ status: 404, description: 'Projet ou fichier non trouvé.' })
+  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès non autorisé à ce projet.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Erreur lors de la vérification des fichiers.',
+  })
+  confirmMultipleUploads(
+    @Body() confirmMultipleUploadsDto: ConfirmMultipleUploadsDto,
+    @Organization() organization: OrganizationEntity,
+  ) {
+    return this.documentsService.confirmMultipleUploads(
+      confirmMultipleUploadsDto,
       organization.id,
     );
   }
@@ -292,5 +299,36 @@ export class DocumentsController {
       getDocumentMetadataDto.fileName,
       organization.id,
     );
+  }
+
+  @Post('find-by-filename')
+  @ApiOperation({
+    summary: "Récupérer un document par son nom de fichier et l'ID du projet",
+  })
+  @ApiResponse({ status: 200, description: 'Document trouvé.' })
+  @ApiResponse({ status: 404, description: 'Document non trouvé.' })
+  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
+  async findByFilename(
+    @Body() getDocumentByFilenameDto: GetDocumentByFilenameDto,
+    @Organization() organization: OrganizationEntity,
+  ) {
+    // Vérifier si le projet appartient à l'organisation
+    await this.documentsService.checkProjectAccess(
+      getDocumentByFilenameDto.projectId,
+      organization.id,
+    );
+
+    const document = await this.documentsService.findByProjectIdAndFileName(
+      getDocumentByFilenameDto.projectId,
+      getDocumentByFilenameDto.fileName,
+    );
+
+    if (!document) {
+      throw new NotFoundException(
+        `Document avec le nom de fichier ${getDocumentByFilenameDto.fileName} non trouvé dans le projet ${getDocumentByFilenameDto.projectId}`,
+      );
+    }
+
+    return document;
   }
 }

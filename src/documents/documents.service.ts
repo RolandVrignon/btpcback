@@ -32,6 +32,7 @@ import { exec as execCallback } from 'child_process';
 import { openai } from '@ai-sdk/openai';
 import { embed } from 'ai';
 import * as os from 'os';
+import { ConfirmMultipleUploadsDto } from './dto/confirm-multiple-uploads.dto';
 
 @Injectable()
 export class DocumentsService {
@@ -318,6 +319,10 @@ export class DocumentsService {
   ): Promise<void> {
     try {
       // Mettre à jour le statut du document à PROCESSING
+      console.log(
+        documentId,
+        ' Mise à jour du statut du document à INDEXING...',
+      );
       await this.updateStatus(documentId, 'INDEXING' as DocumentStatus);
 
       // Récupérer les informations du document
@@ -336,36 +341,42 @@ export class DocumentsService {
         tempDir,
       );
 
-      console.log('tempFilePath:', tempFilePath);
-
       // Étape 2: Convertir le document si nécessaire
+      console.log(documentId, ' Convertion du document en PDF...');
       const pdfFilePath = await this.convertToPdfIfNeeded(tempFilePath);
-      console.log('pdfFilePath:', pdfFilePath);
 
       // Étape 3: Extraire le texte du PDF
+      console.log(documentId, ' Extraction du texte du PDF...');
       const extractedText = await this.extractTextFromPdf(pdfFilePath);
-      console.log('extractedText:', extractedText);
 
       // Étape 4: Chunker le texte
+      console.log(documentId, ' Chunking du texte...');
       const chunks = this.chunkText(extractedText, 1000);
-      console.log('chunks:', chunks);
 
       // Étape 5: Créer les chunks dans la base de données
+      console.log(
+        documentId,
+        ' Création des chunks dans la base de données...',
+      );
       await this.createChunksWithEmbeddings(chunks, documentId, projectId);
 
       // Étape 7: Rafting - Extraire les informations importantes avec Gemini
-      await this.updateStatus(documentId, 'RAFTING' as DocumentStatus);
+      // await this.updateStatus(documentId, 'RAFTING' as DocumentStatus);
 
       // Concaténer tous les textes des pages pour l'analyse globale
-      const fullText = extractedText.map((pt) => pt.text).join('\n\n');
+      // const fullText = extractedText.map((pt) => pt.text).join('\n\n');
 
-      await this.extractDocumentInfoWithGemini(fullText, documentId, projectId);
+      // await this.extractDocumentInfoWithGemini(fullText, documentId, projectId);
 
       // Mettre à jour le statut du document à READY
+      console.log(documentId, ' Mise à jour du statut du document à READY...');
       await this.updateStatus(documentId, 'READY');
 
       // Nettoyer les fichiers temporaires
+      console.log(documentId, ' Nettoyage des fichiers temporaires...');
       await this.cleanupTempFiles(tempDir);
+      console.log(documentId, ' Fichiers temporaires nettoyés avec succès.');
+      console.log(documentId, ' Document processed successfully.');
     } catch (error) {
       console.error(
         `Erreur lors du traitement du document ${documentId}:`,
@@ -546,8 +557,6 @@ export class DocumentsService {
               page: chunk.page,
               documentId,
             });
-
-            console.log('createdChunk:', createdChunk);
 
             // 2. Générer l'embedding pour ce chunk
             const { embedding: embeddingVector, usage } = await embed({
@@ -834,7 +843,6 @@ export class DocumentsService {
       }
 
       const totalPages = parseInt(pagesMatch[1], 10);
-      console.log(`Nombre total de pages: ${totalPages}`);
 
       // Tableau pour stocker les résultats
       const results: Array<{ text: string; page: number }> = [];
@@ -859,8 +867,6 @@ export class DocumentsService {
           fs.unlinkSync(tempOutputPath);
         }
       }
-
-      console.log('results:', results);
 
       return results;
     } catch (error) {
@@ -986,5 +992,139 @@ export class DocumentsService {
     }
 
     return document.ai_metadata;
+  }
+
+  /**
+   * Confirme l'upload de plusieurs fichiers sur S3 et crée des documents dans la base de données
+   * @param dto Informations sur les fichiers uploadés
+   * @param organizationId ID de l'organisation qui fait la demande
+   * @returns Les documents créés
+   * @throws NotFoundException si le projet n'existe pas ou si un fichier n'est pas trouvé sur S3
+   * @throws ForbiddenException si le projet n'appartient pas à l'organisation
+   * @throws BadRequestException si une erreur survient lors de la vérification des fichiers
+   */
+  async confirmMultipleUploads(
+    dto: ConfirmMultipleUploadsDto,
+    organizationId: string,
+  ) {
+    // Vérifier si le projet existe et appartient à l'organisation
+    const project = await this.prisma.project.findFirst({
+      where: {
+        id: dto.projectId,
+        organization: {
+          id: organizationId,
+        },
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException(
+        "Projet non trouvé ou n'appartient pas à votre organisation",
+      );
+    }
+
+    try {
+      // Traiter tous les fichiers en parallèle
+      const documentPromises = dto.fileNames.map(async (fileName) => {
+        // Construire le chemin du fichier sur S3
+        const filePath = `ct-toolbox/${dto.projectId}/${fileName}`;
+
+        try {
+          // Vérifier si le fichier existe sur S3
+          const headObjectCommand = new HeadObjectCommand({
+            Bucket: this.bucketName,
+            Key: filePath,
+          });
+
+          await this.s3Client.send(headObjectCommand);
+
+          // Si le fichier existe, créer un document dans la base de données
+          const document = await this.prisma.document.create({
+            data: {
+              filename: fileName,
+              path: filePath,
+              mimetype: 'application/octet-stream', // À déterminer en fonction du nom de fichier
+              size: 0, // Taille inconnue à ce stade
+              projectId: dto.projectId,
+              status: 'NOT_STARTED', // Statut initial
+            },
+            include: {
+              project: true,
+            },
+          });
+
+          // Lancer le traitement du document en arrière-plan seulement pour PDF ou DOCX
+          const fileExt = path.extname(fileName).toLowerCase();
+          if (fileExt === '.pdf' || fileExt === '.docx' || fileExt === '.doc') {
+            // Retourner une promesse pour le traitement du document
+            return {
+              document,
+              processingPromise: this.processDocumentAsync(
+                document.id,
+                project.id,
+              )
+                .then(() => document)
+                .catch((err) => {
+                  console.error(
+                    `Erreur lors du traitement du document ${document.id}:`,
+                    err,
+                  );
+                  return document;
+                }),
+            };
+          }
+
+          return { document, processingPromise: Promise.resolve(document) };
+        } catch (error) {
+          if (error instanceof S3ServiceException) {
+            throw new BadRequestException(
+              `Fichier ${fileName} non trouvé sur S3: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+            );
+          }
+          throw error;
+        }
+      });
+
+      // Attendre que tous les documents soient créés
+      const documentsWithProcessing = await Promise.all(documentPromises);
+
+      // Attendre que tous les traitements soient terminés
+      const documents = await Promise.all(
+        documentsWithProcessing.map((item) => item.processingPromise),
+      );
+
+      // Le console.log ne s'affiche qu'une fois que tous les documents ont été complètement traités
+      console.log(
+        'Each documents have been processed in the backend and are ready for n8n.',
+      );
+
+      const filteredDocuments = documents.map(({ id, filename }) => ({
+        id,
+        name: filename,
+      }));
+
+      console.log(filteredDocuments);
+
+      return filteredDocuments;
+    } catch (error) {
+      throw new BadRequestException(
+        `Erreur lors de la confirmation des uploads: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+      );
+    }
+  }
+
+  /**
+   * Récupère un document par son nom de fichier et l'ID du projet
+   * @param projectId ID du projet
+   * @param fileName Nom du fichier
+   * @returns Le document trouvé ou null si aucun document ne correspond
+   */
+  async findByProjectIdAndFileName(projectId: string, fileName: string) {
+    return this.prisma.document.findFirst({
+      where: {
+        projectId,
+        filename: fileName,
+      },
+    });
   }
 }

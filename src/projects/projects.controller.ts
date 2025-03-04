@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Delete,
-  Patch,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -68,10 +60,7 @@ export class ProjectsController {
   @ApiResponse({ status: 404, description: 'Projet non trouvé.' })
   @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
   @ApiResponse({ status: 403, description: 'Accès non autorisé à ce projet.' })
-  findOne(
-    @Param('id') id: string,
-    @Organization() _organization: OrganizationEntity,
-  ) {
+  findOne(@Param('id') id: string) {
     return this.projectsService.findOne(id);
   }
 
@@ -113,29 +102,7 @@ export class ProjectsController {
   @ApiResponse({ status: 404, description: 'Projet non trouvé.' })
   @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
   @ApiResponse({ status: 403, description: 'Accès non autorisé à ce projet.' })
-  update(
-    @Param('id') id: string,
-    @Body() updateProjectDto: UpdateProjectDto,
-    @Organization() _organization: OrganizationEntity,
-  ) {
+  update(@Param('id') id: string, @Body() updateProjectDto: UpdateProjectDto) {
     return this.projectsService.update(id, updateProjectDto);
-  }
-
-  @Delete(':id')
-  @ApiOperation({ summary: 'Supprimer un projet' })
-  @ApiParam({
-    name: 'id',
-    description: 'ID du projet à supprimer',
-    example: '01234567890123456789012345678901',
-  })
-  @ApiResponse({ status: 200, description: 'Projet supprimé avec succès.' })
-  @ApiResponse({ status: 404, description: 'Projet non trouvé.' })
-  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
-  @ApiResponse({ status: 403, description: 'Accès non autorisé à ce projet.' })
-  remove(
-    @Param('id') id: string,
-    @Organization() _organization: OrganizationEntity,
-  ) {
-    return this.projectsService.remove(id);
   }
 }

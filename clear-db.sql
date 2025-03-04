@@ -1,0 +1,7 @@
+BEGIN TRANSACTION;
+DELETE FROM "Usage";
+DELETE FROM "Embedding";
+DELETE FROM "Chunk";
+DELETE FROM "Document";
+DELETE FROM "Project";
+COMMIT;

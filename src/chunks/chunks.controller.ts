@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Delete,
-  ParseIntPipe,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { ChunksService } from './chunks.service';
 import { CreateChunkDto } from './dto/create-chunk.dto';
@@ -103,18 +95,5 @@ export class ChunksController {
   })
   searchFullText(@Body() searchDto: TextSearchDto) {
     return this.chunksService.searchFullText(searchDto.query, searchDto.limit);
-  }
-
-  @Delete(':id')
-  @ApiOperation({ summary: 'Supprimer un chunk' })
-  @ApiParam({
-    name: 'id',
-    description: 'ID du chunk à supprimer',
-    example: '01234567890123456789012345678901',
-  })
-  @ApiResponse({ status: 200, description: 'Chunk supprimé avec succès' })
-  @ApiResponse({ status: 404, description: 'Chunk non trouvé' })
-  remove(@Param('id') id: string) {
-    return this.chunksService.remove(id);
   }
 }

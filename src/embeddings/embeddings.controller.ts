@@ -1,5 +1,5 @@
-import { Controller, Post, Body, Param, Delete } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { Controller, Post, Body } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { EmbeddingsService } from './embeddings.service';
 import { CreateEmbeddingDto } from './dto/create-embedding.dto';
 
@@ -62,16 +62,4 @@ export class EmbeddingsController {
   // ) {
   //   return this.embeddingsService.findByModel(modelName, modelVersion);
   // }
-
-  @Delete(':id')
-  @ApiOperation({ summary: 'Supprimer un embedding' })
-  @ApiParam({ name: 'id', description: "L'ID de l'embedding" })
-  @ApiResponse({
-    status: 200,
-    description: 'Embedding supprimé avec succès.',
-  })
-  @ApiResponse({ status: 404, description: 'Embedding non trouvé.' })
-  remove(@Param('id') id: string) {
-    return this.embeddingsService.remove(id);
-  }
 }
