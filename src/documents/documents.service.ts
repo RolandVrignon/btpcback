@@ -714,6 +714,7 @@ export class DocumentsService {
 
     // Construire le chemin du fichier sur S3
     const filePath = `ct-toolbox/${dto.projectId}/${dto.fileName}`;
+    console.log('filePath:', filePath);
 
     try {
       // Vérifier si le fichier existe sur S3
