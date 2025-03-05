@@ -1144,13 +1144,6 @@ export class DocumentsService {
       // Attendre que tous les documents soient créés et que le texte soit extrait
       const documentsWithText = await Promise.all(documentPromises);
 
-      console.log('documentsWithText:', documentsWithText);
-
-      console.log(
-        'documentsWithText[0].extractedTextPerPage:',
-        documentsWithText[0].extractedTextPerPage,
-      );
-
       // Préparer les données pour n8n
       const filteredDocuments = documentsWithText.map((doc) => ({
         documentId: doc.document.id,
@@ -1175,6 +1168,7 @@ export class DocumentsService {
         const payloadSizeInMB = payloadSizeInKB / 1024;
 
         // Afficher la taille du payload
+        console.log('Nombre de documents:', documentsWithText.length);
         console.log(
           `Taille du payload: ${payloadSizeInBytes} octets (${payloadSizeInKB.toFixed(2)} KB, ${payloadSizeInMB.toFixed(2)} MB)`,
         );
@@ -1195,9 +1189,11 @@ export class DocumentsService {
           body: payload, // Utiliser le payload déjà stringifié
         });
 
-        console.log('res:', res);
-
-        console.log('Data successfully sent to n8n webhook.');
+        if (res.ok) {
+          console.log('Data successfully sent to n8n webhook.');
+        } else {
+          console.error('Error sending data to n8n webhook:', res);
+        }
       } catch (error) {
         console.error('Error sending data to n8n webhook:', error);
         // Continuer le traitement même en cas d'erreur avec n8n
