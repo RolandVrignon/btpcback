@@ -164,61 +164,49 @@ export class EmbeddingsRepository {
    * Récupère tous les embeddings
    */
   async findAll() {
-    try {
-      return await this.prisma.executeWithQueue(
-        () =>
-          this.prisma.$queryRaw`
-          SELECT e.id, e."chunkId", e."modelName", e."modelVersion", e."dimensions", e."createdAt", e."updatedAt"
-          FROM "Embedding" e
-        `,
-      );
-    } catch (error) {
-      throw error;
-    }
+    return await this.prisma.executeWithQueue(
+      () =>
+        this.prisma.$queryRaw`
+        SELECT e.id, e."chunkId", e."modelName", e."modelVersion", e."dimensions", e."createdAt", e."updatedAt"
+        FROM "Embedding" e
+      `,
+    );
   }
 
   /**
-   * Récupère un embedding par son ID de chunk
+   * Récupère tous les embeddings pour un chunk spécifique
    */
   async findByChunk(chunkId: string) {
-    try {
-      const embeddings = await this.prisma.executeWithQueue(
-        () =>
-          this.prisma.$queryRaw`
-          SELECT e.id, e."chunkId", e."modelName", e."modelVersion", e."dimensions", e."createdAt", e."updatedAt"
-          FROM "Embedding" e
-          WHERE e."chunkId" = ${chunkId}
-        `,
+    const embeddings = await this.prisma.executeWithQueue(
+      () =>
+        this.prisma.$queryRaw`
+        SELECT e.id, e."chunkId", e."modelName", e."modelVersion", e."dimensions", e."createdAt", e."updatedAt"
+        FROM "Embedding" e
+        WHERE e."chunkId" = ${chunkId}
+      `,
+    );
+
+    if (!embeddings || (embeddings as unknown[]).length === 0) {
+      throw new NotFoundException(
+        `Aucun embedding trouvé pour le chunk ${chunkId}`,
       );
-
-      if (!embeddings || (embeddings as unknown[]).length === 0) {
-        throw new NotFoundException(
-          `Aucun embedding trouvé pour le chunk ${chunkId}`,
-        );
-      }
-
-      return embeddings;
-    } catch (error) {
-      throw error;
     }
+
+    return embeddings;
   }
 
   /**
    * Récupère tous les embeddings pour un modèle spécifique
    */
   async findByModel(modelName: string, modelVersion: string) {
-    try {
-      return await this.prisma.executeWithQueue(
-        () =>
-          this.prisma.$queryRaw`
-          SELECT e.id, e."chunkId", e."modelName", e."modelVersion", e."dimensions", e."createdAt", e."updatedAt"
-          FROM "Embedding" e
-          WHERE e."modelName" = ${modelName} AND e."modelVersion" = ${modelVersion}
-        `,
-      );
-    } catch (error) {
-      throw error;
-    }
+    return await this.prisma.executeWithQueue(
+      () =>
+        this.prisma.$queryRaw`
+        SELECT e.id, e."chunkId", e."modelName", e."modelVersion", e."dimensions", e."createdAt", e."updatedAt"
+        FROM "Embedding" e
+        WHERE e."modelName" = ${modelName} AND e."modelVersion" = ${modelVersion}
+      `,
+    );
   }
 
   /**
@@ -232,60 +220,56 @@ export class EmbeddingsRepository {
     threshold?: number,
     scopeFilter?: { documentId?: string; projectId?: string },
   ): Promise<EmbeddingSearchResult[]> {
-    try {
-      let query = Prisma.sql`
-        SELECT
-          e.id,
-          e."chunkId",
-          c.text,
-          c.page,
-          c."documentId",
-          d.name as "documentName",
-          (e.vector <=> ${vector}::vector) as distance,
-          (1 - (e.vector <=> ${vector}::vector)) as similarity
-        FROM "Embedding" e
-        JOIN "Chunk" c ON e."chunkId" = c.id
-        JOIN "Document" d ON c."documentId" = d.id
-        WHERE e."modelName" = ${modelName}
-        AND e."modelVersion" = ${modelVersion}
-      `;
+    let query = Prisma.sql`
+      SELECT
+        e.id,
+        e."chunkId",
+        c.text,
+        c.page,
+        c."documentId",
+        d.name as "documentName",
+        (e.vector <=> ${vector}::vector) as distance,
+        (1 - (e.vector <=> ${vector}::vector)) as similarity
+      FROM "Embedding" e
+      JOIN "Chunk" c ON e."chunkId" = c.id
+      JOIN "Document" d ON c."documentId" = d.id
+      WHERE e."modelName" = ${modelName}
+      AND e."modelVersion" = ${modelVersion}
+    `;
 
-      // Ajouter des filtres conditionnels
-      if (scopeFilter?.documentId) {
-        query = Prisma.sql`
-          ${query} AND c."documentId" = ${scopeFilter.documentId}
-        `;
-      } else if (scopeFilter?.projectId) {
-        query = Prisma.sql`
-          ${query} AND d."projectId" = ${scopeFilter.projectId}
-        `;
-      }
-
-      // Ajouter un filtre de seuil si spécifié
-      if (threshold !== undefined) {
-        query = Prisma.sql`
-          ${query} AND (1 - (e.vector <=> ${vector}::vector)) >= ${threshold}
-        `;
-      }
-
-      // Ajouter le tri et la limite
+    // Ajouter des filtres conditionnels
+    if (scopeFilter?.documentId) {
       query = Prisma.sql`
-        ${query} ORDER BY distance ASC
-        LIMIT ${limit}
+        ${query} AND c."documentId" = ${scopeFilter.documentId}
       `;
-
-      const results = await this.prisma.executeWithQueue(() =>
-        this.prisma.$queryRaw(query),
-      );
-
-      return results as EmbeddingSearchResult[];
-    } catch (error) {
-      throw error;
+    } else if (scopeFilter?.projectId) {
+      query = Prisma.sql`
+        ${query} AND d."projectId" = ${scopeFilter.projectId}
+      `;
     }
+
+    // Ajouter un filtre de seuil si spécifié
+    if (threshold !== undefined) {
+      query = Prisma.sql`
+        ${query} AND (1 - (e.vector <=> ${vector}::vector)) >= ${threshold}
+      `;
+    }
+
+    // Ajouter le tri et la limite
+    query = Prisma.sql`
+      ${query} ORDER BY distance ASC
+      LIMIT ${limit}
+    `;
+
+    const results = await this.prisma.executeWithQueue(() =>
+      this.prisma.$queryRaw(query),
+    );
+
+    return results as EmbeddingSearchResult[];
   }
 
   /**
-   * Recherche les embeddings les plus similaires en utilisant l'opérateur de produit scalaire
+   * Recherche les embeddings similaires à un vecteur donné en utilisant le produit scalaire
    */
   async searchSimilarDotProduct(
     vector: number[],
@@ -293,37 +277,33 @@ export class EmbeddingsRepository {
     modelVersion: string,
     limit: number = 10,
   ): Promise<DotProductSearchResult[]> {
-    try {
-      const query = Prisma.sql`
-        SELECT
-          e.id,
-          e."chunkId",
-          c.text,
-          c.page,
-          c."documentId",
-          d.name as "documentName",
-          (e.vector <#> ${vector}::vector) as similarity
-        FROM "Embedding" e
-        JOIN "Chunk" c ON e."chunkId" = c.id
-        JOIN "Document" d ON c."documentId" = d.id
-        WHERE e."modelName" = ${modelName}
-        AND e."modelVersion" = ${modelVersion}
-        ORDER BY similarity DESC
-        LIMIT ${limit}
-      `;
+    const query = Prisma.sql`
+      SELECT
+        e.id,
+        e."chunkId",
+        c.text,
+        c.page,
+        c."documentId",
+        d.name as "documentName",
+        (e.vector <#> ${vector}::vector) as similarity
+      FROM "Embedding" e
+      JOIN "Chunk" c ON e."chunkId" = c.id
+      JOIN "Document" d ON c."documentId" = d.id
+      WHERE e."modelName" = ${modelName}
+      AND e."modelVersion" = ${modelVersion}
+      ORDER BY similarity DESC
+      LIMIT ${limit}
+    `;
 
-      const results = await this.prisma.executeWithQueue(() =>
-        this.prisma.$queryRaw(query),
-      );
+    const results = await this.prisma.executeWithQueue(() =>
+      this.prisma.$queryRaw(query),
+    );
 
-      return results as DotProductSearchResult[];
-    } catch (error) {
-      throw error;
-    }
+    return results as DotProductSearchResult[];
   }
 
   /**
-   * Recherche hybride combinant la recherche vectorielle et la recherche full-text
+   * Recherche hybride combinant la recherche vectorielle et la recherche plein texte
    */
   async searchHybrid(
     vector: number[],
@@ -333,100 +313,88 @@ export class EmbeddingsRepository {
     limit: number = 10,
     vectorWeight: number = 0.7,
   ): Promise<HybridSearchResult[]> {
-    try {
-      const textWeight = 1 - vectorWeight;
+    const textWeight = 1 - vectorWeight;
 
-      const hybridQuery = Prisma.sql`
-        SELECT
-          e.id,
-          e."chunkId",
-          c.text,
-          c.page,
-          c."documentId",
-          d.name as "documentName",
-          (e.vector <=> ${vector}::vector) as "vectorDistance",
-          ts_rank_cd(to_tsvector('french', c.text), plainto_tsquery('french', ${query})) as "textRank",
-          (${vectorWeight} * (1 - (e.vector <=> ${vector}::vector)) +
-           ${textWeight} * ts_rank_cd(to_tsvector('french', c.text), plainto_tsquery('french', ${query}))) as score
-        FROM "Embedding" e
-        JOIN "Chunk" c ON e."chunkId" = c.id
-        JOIN "Document" d ON c."documentId" = d.id
-        WHERE e."modelName" = ${modelName}
-        AND e."modelVersion" = ${modelVersion}
-        AND to_tsvector('french', c.text) @@ plainto_tsquery('french', ${query})
-        ORDER BY score DESC
-        LIMIT ${limit}
-      `;
+    const hybridQuery = Prisma.sql`
+      SELECT
+        e.id,
+        e."chunkId",
+        c.text,
+        c.page,
+        c."documentId",
+        d.name as "documentName",
+        (e.vector <=> ${vector}::vector) as "vectorDistance",
+        ts_rank_cd(to_tsvector('french', c.text), plainto_tsquery('french', ${query})) as "textRank",
+        (${vectorWeight} * (1 - (e.vector <=> ${vector}::vector)) +
+         ${textWeight} * ts_rank_cd(to_tsvector('french', c.text), plainto_tsquery('french', ${query}))) as score
+      FROM "Embedding" e
+      JOIN "Chunk" c ON e."chunkId" = c.id
+      JOIN "Document" d ON c."documentId" = d.id
+      WHERE e."modelName" = ${modelName}
+      AND e."modelVersion" = ${modelVersion}
+      AND to_tsvector('french', c.text) @@ plainto_tsquery('french', ${query})
+      ORDER BY score DESC
+      LIMIT ${limit}
+    `;
 
-      const results = await this.prisma.executeWithQueue(() =>
-        this.prisma.$queryRaw(hybridQuery),
-      );
+    const results = await this.prisma.executeWithQueue(() =>
+      this.prisma.$queryRaw(hybridQuery),
+    );
 
-      return results as HybridSearchResult[];
-    } catch (error) {
-      throw error;
-    }
+    return results as HybridSearchResult[];
   }
 
   /**
-   * Recherche full-text dans les chunks
+   * Recherche plein texte dans les chunks
    */
   async searchFullText(
     query: string,
     limit: number = 10,
   ): Promise<FullTextSearchResult[]> {
-    try {
-      const textQuery = Prisma.sql`
-        SELECT
-          c.id,
-          c.text,
-          c.page,
-          c."documentId",
-          ts_rank_cd(to_tsvector('french', c.text), plainto_tsquery('french', ${query})) as rank
-        FROM "Chunk" c
-        WHERE to_tsvector('french', c.text) @@ plainto_tsquery('french', ${query})
-        ORDER BY rank DESC
-        LIMIT ${limit}
-      `;
+    const textQuery = Prisma.sql`
+      SELECT
+        c.id,
+        c.text,
+        c.page,
+        c."documentId",
+        ts_rank_cd(to_tsvector('french', c.text), plainto_tsquery('french', ${query})) as rank
+      FROM "Chunk" c
+      WHERE to_tsvector('french', c.text) @@ plainto_tsquery('french', ${query})
+      ORDER BY rank DESC
+      LIMIT ${limit}
+    `;
 
-      const results = await this.prisma.executeWithQueue(() =>
-        this.prisma.$queryRaw(textQuery),
-      );
+    const results = await this.prisma.executeWithQueue(() =>
+      this.prisma.$queryRaw(textQuery),
+    );
 
-      return results as FullTextSearchResult[];
-    } catch (error) {
-      throw error;
-    }
+    return results as FullTextSearchResult[];
   }
 
   /**
    * Supprime un embedding
    */
   async remove(id: string) {
-    try {
-      // Vérifier si l'embedding existe
-      const embeddings = await this.prisma.executeWithQueue(
-        () =>
-          this.prisma.$queryRaw`
-          SELECT id FROM "Embedding" WHERE id = ${id}
-        `,
-      );
+    // Vérifier si l'embedding existe
+    const embeddings = await this.prisma.executeWithQueue(
+      () =>
+        this.prisma.$queryRaw`
+        SELECT id FROM "Embedding" WHERE id = ${id}
+      `,
+    );
 
-      if (!embeddings || (embeddings as unknown[]).length === 0) {
-        throw new NotFoundException(`Embedding avec l'ID ${id} non trouvé`);
-      }
-
-      // Supprimer l'embedding
-      await this.prisma.executeWithQueue(
-        () =>
-          this.prisma.$executeRaw`
-          DELETE FROM "Embedding" WHERE id = ${id}
-        `,
-      );
-
-      return { success: true, message: 'Embedding supprimé avec succès' };
-    } catch (error) {
-      throw error;
+    if (!embeddings || (embeddings as unknown[]).length === 0) {
+      throw new NotFoundException(`Embedding avec l'ID ${id} non trouvé`);
     }
+
+    // Supprimer l'embedding
+    await this.prisma.executeWithQueue(
+      () =>
+        this.prisma.$executeRaw`
+        DELETE FROM "Embedding" WHERE id = ${id}
+      `,
+    );
+
+    return { success: true, message: 'Embedding supprimé avec succès' };
   }
 }

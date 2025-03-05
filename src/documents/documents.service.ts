@@ -554,73 +554,58 @@ export class DocumentsService {
       process.env.OPENAI_API_KEY = apiKey;
       const modelName = 'text-embedding-3-small';
 
-      // Traiter les chunks par lots pour éviter de surcharger la base de données
-      const BATCH_SIZE = 5; // Nombre de chunks à traiter en parallèle
-      const createdChunks: Array<{ id: string; text: string }> = [];
+      const createdChunks = await Promise.all(
+        textChunks.map(async (chunk) => {
+          try {
+            // 1. Créer le chunk dans la base de données
+            const createdChunk = await this.chunksService.create({
+              text: chunk.text,
+              page: chunk.page,
+              documentId,
+            });
 
-      // Diviser les chunks en lots
-      for (let i = 0; i < textChunks.length; i += BATCH_SIZE) {
-        const batch = textChunks.slice(i, i + BATCH_SIZE);
+            // 2. Générer l'embedding pour ce chunk
+            const { embedding: embeddingVector, usage } = await embed({
+              model: openai.embedding(modelName),
+              value: chunk.text,
+            });
 
-        // Traiter chaque lot en parallèle
-        const batchResults = await Promise.all(
-          batch.map(async (chunk) => {
-            try {
-              // 1. Créer le chunk dans la base de données
-              const createdChunk = await this.chunksService.create({
-                text: chunk.text,
-                page: chunk.page,
-                documentId,
-              });
+            // 3. Créer l'embedding dans la base de données
+            await this.embeddingsService.create({
+              provider: AI_Provider.OPENAI,
+              vector: embeddingVector,
+              modelName: modelName,
+              modelVersion: 'v1',
+              dimensions: embeddingVector.length,
+              chunkId: createdChunk.id,
+              usage: usage.tokens,
+              projectId: projectId,
+            });
 
-              // 2. Générer l'embedding pour ce chunk
-              const { embedding: embeddingVector, usage } = await embed({
-                model: openai.embedding(modelName),
-                value: chunk.text,
-              });
+            // Enregistrer l'utilisation pour l'embedding
+            await this.usageService.create({
+              provider: AI_Provider.OPENAI,
+              modelName: modelName,
+              totalTokens: usage.tokens,
+              type: 'EMBEDDING',
+              projectId: projectId,
+            });
 
-              // 3. Créer l'embedding dans la base de données
-              await this.embeddingsService.create({
-                provider: AI_Provider.OPENAI,
-                vector: embeddingVector,
-                modelName: modelName,
-                modelVersion: 'v1',
-                dimensions: embeddingVector.length,
-                chunkId: createdChunk.id,
-                usage: usage.tokens,
-                projectId: projectId,
-              });
+            return { id: createdChunk.id, text: createdChunk.text };
+          } catch (error) {
+            console.error(
+              `Erreur lors de la création du chunk et de l'embedding: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+            throw error;
+          }
+        }),
+      );
 
-              // Enregistrer l'utilisation pour l'embedding
-              await this.usageService.create({
-                provider: AI_Provider.OPENAI,
-                modelName: modelName,
-                totalTokens: usage.tokens,
-                type: 'EMBEDDING',
-                projectId: projectId,
-              });
-
-              return { id: createdChunk.id, text: createdChunk.text };
-            } catch (error) {
-              console.error(
-                `Erreur lors de la création du chunk et de l'embedding: ${
-                  error instanceof Error ? error.message : String(error)
-                }`,
-              );
-              throw error;
-            }
-          }),
-        );
-
-        // Ajouter les résultats du lot au tableau final
-        createdChunks.push(...batchResults);
-
-        // Attendre un court instant entre les lots pour réduire la charge
-        if (i + BATCH_SIZE < textChunks.length) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-      }
-
+      console.log(
+        `${createdChunks.length} chunks et embeddings créés avec succès.`,
+      );
       return createdChunks;
     } catch (error) {
       console.error(
@@ -906,10 +891,10 @@ export class DocumentsService {
   }
 
   /**
-   * Divise le texte en chunks de taille fixe
+   * Divise le texte en chunks de taille fixe, indépendamment des limites de page
    * @param pageTexts Tableau d'objets contenant le texte et le numéro de page
-   * @param chunkSize Taille maximale de chaque chunk
-   * @returns Tableau d'objets contenant le texte du chunk et le numéro de page
+   * @param chunkSize Taille maximale de chaque chunk en caractères
+   * @returns Tableau d'objets contenant le texte du chunk et le numéro de page où commence le chunk
    */
   private chunkText(
     pageTexts: Array<{ text: string; page: number }>,
@@ -917,52 +902,87 @@ export class DocumentsService {
   ): Array<{ text: string; page: number }> {
     const chunks: Array<{ text: string; page: number }> = [];
 
-    // Traiter chaque page séparément
+    // Concaténer tout le texte avec des informations sur la page d'origine
+    const textWithPageInfo: Array<{ text: string; page: number }> = [];
+
+    // Diviser chaque page en paragraphes et conserver l'information de page
     for (const pageData of pageTexts) {
       const { text, page } = pageData;
 
       // Diviser le texte en paragraphes
-      const paragraphs = text.split(/\n\s*\n/);
+      const paragraphs = text
+        .split(/\n\s*\n/)
+        .filter((p) => p.trim().length > 0);
 
-      let currentChunk = '';
-
+      // Ajouter chaque paragraphe avec son numéro de page
       for (const paragraph of paragraphs) {
-        // Si le paragraphe est plus grand que la taille de chunk, le diviser
-        if (paragraph.length > chunkSize) {
-          // Ajouter le chunk courant s'il n'est pas vide
-          if (currentChunk) {
-            chunks.push({ text: currentChunk, page });
-            currentChunk = '';
-          }
-
-          // Diviser le paragraphe en chunks de taille fixe
-          let i = 0;
-          while (i < paragraph.length) {
-            chunks.push({
-              text: paragraph.substring(i, i + chunkSize),
-              page,
-            });
-            i += chunkSize;
-          }
-        } else if (currentChunk.length + paragraph.length + 2 > chunkSize) {
-          // Si ajouter ce paragraphe dépasse la taille du chunk, créer un nouveau chunk
-          chunks.push({ text: currentChunk, page });
-          currentChunk = paragraph;
-        } else {
-          // Sinon, ajouter le paragraphe au chunk courant
-          if (currentChunk) {
-            currentChunk += '\n\n';
-          }
-          currentChunk += paragraph;
-        }
-      }
-
-      // Ajouter le dernier chunk s'il n'est pas vide
-      if (currentChunk) {
-        chunks.push({ text: currentChunk, page });
+        textWithPageInfo.push({ text: paragraph, page });
       }
     }
 
+    // Maintenant, créer des chunks de taille fixe
+    let currentChunk = '';
+    let currentPage =
+      textWithPageInfo.length > 0 ? textWithPageInfo[0].page : 1;
+    let paragraphIndex = 0;
+
+    while (paragraphIndex < textWithPageInfo.length) {
+      const { text, page } = textWithPageInfo[paragraphIndex];
+
+      // Si nous commençons un nouveau chunk, enregistrer la page actuelle
+      if (currentChunk.length === 0) {
+        currentPage = page;
+      }
+
+      // Si le paragraphe est plus grand que la taille de chunk, le diviser
+      if (text.length > chunkSize) {
+        // Ajouter le chunk courant s'il n'est pas vide
+        if (currentChunk) {
+          chunks.push({ text: currentChunk, page: currentPage });
+          currentChunk = '';
+        }
+
+        // Diviser le paragraphe en chunks de taille fixe
+        let i = 0;
+        while (i < text.length) {
+          const chunkText = text.substring(i, i + chunkSize);
+          // Si c'est le premier morceau du paragraphe, utiliser la page du paragraphe
+          // Sinon, continuer à utiliser la même page pour les morceaux suivants
+          chunks.push({
+            text: chunkText,
+            page,
+          });
+          i += chunkSize;
+        }
+      }
+      // Si ajouter ce paragraphe dépasse la taille du chunk, créer un nouveau chunk
+      else if (
+        currentChunk.length + text.length + (currentChunk ? 2 : 0) >
+        chunkSize
+      ) {
+        chunks.push({ text: currentChunk, page: currentPage });
+        currentChunk = text;
+        currentPage = page;
+      }
+      // Sinon, ajouter le paragraphe au chunk courant
+      else {
+        if (currentChunk) {
+          currentChunk += '\n\n';
+        }
+        currentChunk += text;
+      }
+
+      paragraphIndex++;
+    }
+
+    // Ajouter le dernier chunk s'il n'est pas vide
+    if (currentChunk) {
+      chunks.push({ text: currentChunk, page: currentPage });
+    }
+
+    console.log(
+      `Créé ${chunks.length} chunks à partir de ${pageTexts.length} pages`,
+    );
     return chunks;
   }
 
@@ -1048,7 +1068,7 @@ export class DocumentsService {
     }
 
     try {
-      // Traiter tous les fichiers en parallèle
+      // Traiter tous les fichiers en parallèle pour créer les documents et télécharger les fichiers
       const documentPromises = dto.fileNames.map(async (fileName) => {
         // Construire le chemin du fichier sur S3
         const filePath = `ct-toolbox/${dto.projectId}/${fileName}`;
@@ -1077,40 +1097,39 @@ export class DocumentsService {
             },
           });
 
-          // Lancer le traitement du document en arrière-plan seulement pour PDF ou DOCX
+          // Télécharger et extraire le texte seulement pour PDF ou DOCX
           const fileExt = path.extname(fileName).toLowerCase();
           if (fileExt === '.pdf' || fileExt === '.docx' || fileExt === '.doc') {
+            // Télécharger le document depuis S3
+            const tempDir = `/tmp/document-processing/${document.id}`;
+            const tempFilePath = await this.downloadDocumentFromS3(
+              document.path,
+              tempDir,
+            );
+
+            // Convertir le document si nécessaire
+            const pdfFilePath = await this.convertToPdfIfNeeded(tempFilePath);
+
+            // Extraire le texte du PDF
+            const extractedText = await this.extractTextFromPdf(pdfFilePath);
+
+            // Concaténer le texte de toutes les pages
+            const fullText = extractedText.map((pt) => pt.text).join('\n\n');
+
+            // Nettoyer les fichiers temporaires après extraction
+            await this.cleanupTempFiles(tempDir);
+
             return {
               document,
-              processingPromise: this.processDocumentAsync(
-                document.id,
-                project.id,
-              )
-                .then((textChunks) => {
-                  return {
-                    document,
-                    textChunks,
-                  };
-                })
-                .catch((err) => {
-                  console.error(
-                    `Erreur lors du traitement du document ${document.id}:`,
-                    err,
-                  );
-                  return {
-                    document,
-                    textChunks: [],
-                  };
-                }),
+              text: fullText,
+              extractedTextPerPage: extractedText,
             };
           }
 
           return {
             document,
-            processingPromise: Promise.resolve({
-              document,
-              textChunks: [],
-            }),
+            text: '',
+            extractedTextPerPage: [],
           };
         } catch (error) {
           if (error instanceof S3ServiceException) {
@@ -1122,64 +1141,21 @@ export class DocumentsService {
         }
       });
 
-      // Attendre que tous les documents soient créés
-      const documentsWithProcessing = await Promise.all(documentPromises);
+      // Attendre que tous les documents soient créés et que le texte soit extrait
+      const documentsWithText = await Promise.all(documentPromises);
 
-      // Attendre que tous les traitements soient terminés
-      const processedResults = await Promise.all(
-        documentsWithProcessing.map((item) => item.processingPromise),
-      );
+      console.log('documentsWithText:', documentsWithText);
 
-      // Le console.log ne s'affiche qu'une fois que tous les documents ont été complètement traités
       console.log(
-        'Each documents have been processed in the backend and are ready for n8n.',
+        'documentsWithText[0].extractedTextPerPage:',
+        documentsWithText[0].extractedTextPerPage,
       );
 
-      // Extraire les documents et leurs chunks
-      const documents = processedResults.map((result) => result.document);
-
-      // Définir le type pour les chunks enrichis
-      type EnrichedTextChunk = {
-        documentId: string;
-        documentName: string;
-        text: string;
-        page: number;
-      };
-
-      const allTextChunks = processedResults.reduce<EnrichedTextChunk[]>(
-        (acc, result) => {
-          // Associer chaque chunk au document correspondant
-          const documentChunks = result.textChunks.map<EnrichedTextChunk>(
-            (chunk) => ({
-              documentId: result.document.id,
-              documentName: result.document.filename,
-              text: chunk.text,
-              page: chunk.page,
-            }),
-          );
-          return [...acc, ...documentChunks];
-        },
-        [],
-      );
-
-      // Regrouper les chunks par document et concaténer leurs textes
-      const documentTexts = allTextChunks.reduce<Record<string, string>>(
-        (acc, chunk) => {
-          if (!acc[chunk.documentId]) {
-            acc[chunk.documentId] = '';
-          }
-          // Ajouter le texte du chunk avec un séparateur
-          acc[chunk.documentId] +=
-            (acc[chunk.documentId] ? '\n\n' : '') + chunk.text;
-          return acc;
-        },
-        {},
-      );
-
-      const filteredDocuments = documents.map((doc) => ({
-        id: doc.id,
-        name: doc.filename,
-        text: documentTexts[doc.id] || '', // Ajouter le texte concaténé
+      // Préparer les données pour n8n
+      const filteredDocuments = documentsWithText.map((doc) => ({
+        documentId: doc.document.id,
+        name: doc.document.filename,
+        text: doc.text || '',
       }));
 
       const result = {
@@ -1204,13 +1180,14 @@ export class DocumentsService {
         );
 
         const n8nWebhookUrl = this.configService.get<string>('N8N_WEBHOOK_URL');
+
         if (!n8nWebhookUrl) {
           throw new Error(
             'N8N_WEBHOOK_URL is not defined in environment variables',
           );
         }
 
-        const response = await fetch(`${n8nWebhookUrl}/documate`, {
+        const res = await fetch(`${n8nWebhookUrl}/documate`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1218,22 +1195,74 @@ export class DocumentsService {
           body: payload, // Utiliser le payload déjà stringifié
         });
 
-        if (!response.ok) {
-          throw new Error(`Failed to send data to n8n: ${response.statusText}`);
-        }
+        console.log('res:', res);
 
         console.log('Data successfully sent to n8n webhook.');
       } catch (error) {
         console.error('Error sending data to n8n webhook:', error);
+        // Continuer le traitement même en cas d'erreur avec n8n
       }
 
-      console.log(result);
+      await this.processDocumentsInBackground(documentsWithText);
+
+      console.log('End of documents processing. It is successfully.');
 
       return result;
     } catch (error) {
       throw new BadRequestException(
         `Erreur lors de la confirmation des uploads: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
       );
+    }
+  }
+
+  /**
+   * Traite les documents en arrière-plan (création des chunks et vectorisation)
+   * @param documentsWithText Documents avec leur texte extrait
+   */
+  private async processDocumentsInBackground(
+    documentsWithText: Array<{
+      document: {
+        id: string;
+        projectId: string;
+        filename: string;
+        [key: string]: any;
+      };
+      text: string;
+      extractedTextPerPage: Array<{ text: string; page: number }>;
+    }>,
+  ): Promise<void> {
+    // Traiter chaque document séquentiellement pour éviter de surcharger la base de données
+    for (const docData of documentsWithText) {
+      try {
+        const { document, extractedTextPerPage } = docData;
+
+        if (extractedTextPerPage.length === 0) {
+          continue; // Ignorer les documents sans texte extrait
+        }
+
+        // Mettre à jour le statut du document à INDEXING
+        await this.updateStatus(document.id, 'INDEXING' as DocumentStatus);
+
+        // Appliquer le chunking avec une taille fixe de 1000 caractères
+        const chunks = this.chunkText(extractedTextPerPage, 1000);
+
+        // Créer les chunks et les embeddings
+        await this.createChunksWithEmbeddings(
+          chunks,
+          document.id,
+          document.projectId,
+        );
+
+        // Mettre à jour le statut du document à PENDING
+        await this.updateStatus(document.id, 'PENDING');
+      } catch (error) {
+        console.error(
+          `Erreur lors du traitement du document ${docData.document.id}:`,
+          error,
+        );
+        // En cas d'erreur, mettre à jour le statut du document à END
+        await this.updateStatus(docData.document.id, 'END');
+      }
     }
   }
 
