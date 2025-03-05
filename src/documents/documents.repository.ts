@@ -12,82 +12,127 @@ export class DocumentsRepository {
    * Crée un nouveau document dans la base de données
    */
   async create(createDocumentDto: CreateDocumentDto) {
-    return await this.prisma.document.create({
-      data: createDocumentDto,
-      include: {
-        project: true,
-      },
-    });
+    try {
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.document.create({
+          data: createDocumentDto,
+          include: {
+            project: true,
+          },
+        }),
+      );
+    } catch (error) {
+      throw new Error(
+        `Erreur lors de la création du document: ${(error as Error).message}`,
+      );
+    }
   }
 
   /**
    * Récupère tous les documents
    */
   async findAll() {
-    return await this.prisma.document.findMany({
-      include: {
-        project: true,
-      },
-    });
+    try {
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.document.findMany({
+          include: {
+            project: true,
+          },
+        }),
+      );
+    } catch (error) {
+      throw new Error(
+        `Erreur lors de la récupération des documents: ${(error as Error).message}`,
+      );
+    }
   }
 
   /**
    * Récupère tous les documents d'une organisation
    */
   async findAllByOrganization(organizationId: string) {
-    // Récupérer tous les projets de l'organisation
-    const projects = await this.prisma.project.findMany({
-      where: { organizationId },
-      select: { id: true },
-    });
+    try {
+      // Récupérer tous les projets de l'organisation
+      const projects = await this.prisma.executeWithQueue(() =>
+        this.prisma.project.findMany({
+          where: { organizationId },
+          select: { id: true },
+        }),
+      );
 
-    const projectIds = projects.map((project) => project.id);
+      const projectIds = projects.map((project) => project.id);
 
-    // Récupérer tous les documents des projets de l'organisation
-    return await this.prisma.document.findMany({
-      where: {
-        projectId: {
-          in: projectIds,
-        },
-      },
-      include: {
-        project: true,
-      },
-    });
+      // Récupérer tous les documents des projets de l'organisation
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.document.findMany({
+          where: {
+            projectId: {
+              in: projectIds,
+            },
+          },
+          include: {
+            project: true,
+          },
+        }),
+      );
+    } catch (error) {
+      throw new Error(
+        `Erreur lors de la récupération des documents de l'organisation: ${(error as Error).message}`,
+      );
+    }
   }
 
   /**
    * Récupère un document par son ID
    */
   async findOne(id: string) {
-    const document = await this.prisma.document.findUnique({
-      where: { id },
-      include: {
-        project: {
+    try {
+      const document = await this.prisma.executeWithQueue(() =>
+        this.prisma.document.findUnique({
+          where: { id },
           include: {
-            organization: true,
+            project: {
+              include: {
+                organization: true,
+              },
+            },
           },
-        },
-      },
-    });
+        }),
+      );
 
-    if (!document) {
-      throw new NotFoundException('Document non trouvé');
+      if (!document) {
+        throw new NotFoundException('Document non trouvé');
+      }
+
+      return document;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error(
+        `Erreur lors de la récupération du document: ${(error as Error).message}`,
+      );
     }
-
-    return document;
   }
 
   /**
    * Récupère tous les documents d'un projet
    */
   async findByProject(projectId: string) {
-    return await this.prisma.document.findMany({
-      where: { projectId },
-      include: {
-        project: true,
-      },
-    });
+    try {
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.document.findMany({
+          where: { projectId },
+          include: {
+            project: true,
+          },
+        }),
+      );
+    } catch (error) {
+      throw new Error(
+        `Erreur lors de la récupération des documents du projet: ${(error as Error).message}`,
+      );
+    }
   }
 
   /**
@@ -95,13 +140,15 @@ export class DocumentsRepository {
    */
   async update(id: string, updateData: UpdateDocumentDto) {
     try {
-      return await this.prisma.document.update({
-        where: { id },
-        data: updateData,
-        include: {
-          project: true,
-        },
-      });
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.document.update({
+          where: { id },
+          data: updateData,
+          include: {
+            project: true,
+          },
+        }),
+      );
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -118,9 +165,11 @@ export class DocumentsRepository {
    */
   async remove(id: string) {
     try {
-      return await this.prisma.document.delete({
-        where: { id },
-      });
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.document.delete({
+          where: { id },
+        }),
+      );
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -136,25 +185,38 @@ export class DocumentsRepository {
    * Met à jour le statut d'un document
    */
   async updateStatus(documentId: string, status: DocumentStatus) {
-    const document = await this.prisma.document.findUnique({
-      where: { id: documentId },
-    });
+    try {
+      const document = await this.prisma.executeWithQueue(() =>
+        this.prisma.document.findUnique({
+          where: { id: documentId },
+        }),
+      );
 
-    if (!document) {
-      throw new NotFoundException(
-        `Document avec l'ID ${documentId} non trouvé`,
+      if (!document) {
+        throw new NotFoundException(
+          `Document avec l'ID ${documentId} non trouvé`,
+        );
+      }
+
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.document.update({
+          where: { id: documentId },
+          data: {
+            status: status,
+          },
+          include: {
+            project: true,
+          },
+        }),
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error(
+        `Erreur lors de la mise à jour du statut du document: ${(error as Error).message}`,
       );
     }
-
-    return await this.prisma.document.update({
-      where: { id: documentId },
-      data: {
-        status: status,
-      },
-      include: {
-        project: true,
-      },
-    });
   }
 
   /**
@@ -165,19 +227,27 @@ export class DocumentsRepository {
     fileName: string,
     filePath: string,
   ) {
-    return await this.prisma.document.findFirst({
-      where: {
-        projectId,
-        filename: fileName,
-        path: filePath,
-      },
-      select: {
-        id: true,
-        filename: true,
-        status: true,
-        ai_metadata: true,
-      },
-    });
+    try {
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.document.findFirst({
+          where: {
+            projectId,
+            filename: fileName,
+            path: filePath,
+          },
+          select: {
+            id: true,
+            filename: true,
+            status: true,
+            ai_metadata: true,
+          },
+        }),
+      );
+    } catch (error) {
+      throw new Error(
+        `Erreur lors de la recherche du document par nom de fichier: ${(error as Error).message}`,
+      );
+    }
   }
 
   /**
@@ -187,11 +257,19 @@ export class DocumentsRepository {
     documentId: string,
     metadata: Record<string, unknown>,
   ) {
-    return await this.prisma.document.update({
-      where: { id: documentId },
-      data: {
-        ai_metadata: metadata as Prisma.JsonValue,
-      },
-    });
+    try {
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.document.update({
+          where: { id: documentId },
+          data: {
+            ai_metadata: metadata as Prisma.JsonValue,
+          },
+        }),
+      );
+    } catch (error) {
+      throw new Error(
+        `Erreur lors de la mise à jour des métadonnées AI: ${(error as Error).message}`,
+      );
+    }
   }
 }

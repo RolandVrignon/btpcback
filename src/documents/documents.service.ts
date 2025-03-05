@@ -312,11 +312,12 @@ export class DocumentsService {
    * 7. Rafting - Extraire les informations importantes avec Gemini
    * 8. Mettre à jour le statut du document à READY
    * @param documentId ID du document à traiter
+   * @returns Tableau des chunks de texte avec leur numéro de page
    */
   private async processDocumentAsync(
     documentId: string,
     projectId: string,
-  ): Promise<void> {
+  ): Promise<Array<{ text: string; page: number }>> {
     try {
       // Mettre à jour le statut du document à PROCESSING
       console.log(
@@ -380,6 +381,8 @@ export class DocumentsService {
       await this.cleanupTempFiles(tempDir);
       console.log(documentId, ' Fichiers temporaires nettoyés avec succès.');
       console.log(documentId, ' Document processed successfully.');
+
+      return chunks;
     } catch (error) {
       console.error(
         `Erreur lors du traitement du document ${documentId}:`,
@@ -387,6 +390,7 @@ export class DocumentsService {
       );
       // En cas d'erreur, mettre à jour le statut du document à END
       await this.updateStatus(documentId, 'END');
+      return [];
     }
   }
 
@@ -550,63 +554,79 @@ export class DocumentsService {
       process.env.OPENAI_API_KEY = apiKey;
       const modelName = 'text-embedding-3-small';
 
-      // Traiter tous les chunks en parallèle
-      const results = await Promise.all(
-        textChunks.map(async (chunk) => {
-          try {
-            // 1. Créer le chunk dans la base de données
-            const createdChunk = await this.chunksService.create({
-              text: chunk.text,
-              page: chunk.page,
-              documentId,
-            });
+      // Traiter les chunks par lots pour éviter de surcharger la base de données
+      const BATCH_SIZE = 5; // Nombre de chunks à traiter en parallèle
+      const createdChunks: Array<{ id: string; text: string }> = [];
 
-            // 2. Générer l'embedding pour ce chunk
-            const { embedding: embeddingVector, usage } = await embed({
-              model: openai.embedding(modelName),
-              value: chunk.text,
-            });
+      // Diviser les chunks en lots
+      for (let i = 0; i < textChunks.length; i += BATCH_SIZE) {
+        const batch = textChunks.slice(i, i + BATCH_SIZE);
 
-            // 3. Créer l'embedding dans la base de données
-            await this.embeddingsService.create({
-              provider: AI_Provider.OPENAI,
-              vector: embeddingVector,
-              modelName: modelName,
-              modelVersion: 'v1',
-              dimensions: embeddingVector.length,
-              chunkId: createdChunk.id,
-              usage: usage.tokens,
-              projectId: projectId,
-            });
+        // Traiter chaque lot en parallèle
+        const batchResults = await Promise.all(
+          batch.map(async (chunk) => {
+            try {
+              // 1. Créer le chunk dans la base de données
+              const createdChunk = await this.chunksService.create({
+                text: chunk.text,
+                page: chunk.page,
+                documentId,
+              });
 
-            // Enregistrer l'utilisation pour l'embedding
-            await this.usageService.create({
-              provider: AI_Provider.OPENAI,
-              modelName: modelName,
-              totalTokens: usage.tokens,
-              type: 'EMBEDDING',
-              projectId: projectId,
-            });
+              // 2. Générer l'embedding pour ce chunk
+              const { embedding: embeddingVector, usage } = await embed({
+                model: openai.embedding(modelName),
+                value: chunk.text,
+              });
 
-            return {
-              id: createdChunk.id,
-              text: chunk.text,
-            };
-          } catch (error) {
-            console.error(
-              `Erreur lors de la création du chunk et de l'embedding:`,
-              error,
-            );
-            throw error;
-          }
-        }),
-      );
+              // 3. Créer l'embedding dans la base de données
+              await this.embeddingsService.create({
+                provider: AI_Provider.OPENAI,
+                vector: embeddingVector,
+                modelName: modelName,
+                modelVersion: 'v1',
+                dimensions: embeddingVector.length,
+                chunkId: createdChunk.id,
+                usage: usage.tokens,
+                projectId: projectId,
+              });
 
-      return results;
+              // Enregistrer l'utilisation pour l'embedding
+              await this.usageService.create({
+                provider: AI_Provider.OPENAI,
+                modelName: modelName,
+                totalTokens: usage.tokens,
+                type: 'EMBEDDING',
+                projectId: projectId,
+              });
+
+              return { id: createdChunk.id, text: createdChunk.text };
+            } catch (error) {
+              console.error(
+                `Erreur lors de la création du chunk et de l'embedding: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              );
+              throw error;
+            }
+          }),
+        );
+
+        // Ajouter les résultats du lot au tableau final
+        createdChunks.push(...batchResults);
+
+        // Attendre un court instant entre les lots pour réduire la charge
+        if (i + BATCH_SIZE < textChunks.length) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+
+      return createdChunks;
     } catch (error) {
       console.error(
-        `Erreur lors de la création des chunks et des embeddings:`,
-        error,
+        `Erreur lors de la création des chunks et embeddings: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       );
       throw error;
     }
@@ -1060,25 +1080,38 @@ export class DocumentsService {
           // Lancer le traitement du document en arrière-plan seulement pour PDF ou DOCX
           const fileExt = path.extname(fileName).toLowerCase();
           if (fileExt === '.pdf' || fileExt === '.docx' || fileExt === '.doc') {
-            // Retourner une promesse pour le traitement du document
             return {
               document,
               processingPromise: this.processDocumentAsync(
                 document.id,
                 project.id,
               )
-                .then(() => document)
+                .then((textChunks) => {
+                  return {
+                    document,
+                    textChunks,
+                  };
+                })
                 .catch((err) => {
                   console.error(
                     `Erreur lors du traitement du document ${document.id}:`,
                     err,
                   );
-                  return document;
+                  return {
+                    document,
+                    textChunks: [],
+                  };
                 }),
             };
           }
 
-          return { document, processingPromise: Promise.resolve(document) };
+          return {
+            document,
+            processingPromise: Promise.resolve({
+              document,
+              textChunks: [],
+            }),
+          };
         } catch (error) {
           if (error instanceof S3ServiceException) {
             throw new BadRequestException(
@@ -1093,7 +1126,7 @@ export class DocumentsService {
       const documentsWithProcessing = await Promise.all(documentPromises);
 
       // Attendre que tous les traitements soient terminés
-      const documents = await Promise.all(
+      const processedResults = await Promise.all(
         documentsWithProcessing.map((item) => item.processingPromise),
       );
 
@@ -1102,31 +1135,88 @@ export class DocumentsService {
         'Each documents have been processed in the backend and are ready for n8n.',
       );
 
-      const filteredDocuments = documents.map(({ id, filename }) => ({
-        id,
-        name: filename,
+      // Extraire les documents et leurs chunks
+      const documents = processedResults.map((result) => result.document);
+
+      // Définir le type pour les chunks enrichis
+      type EnrichedTextChunk = {
+        documentId: string;
+        documentName: string;
+        text: string;
+        page: number;
+      };
+
+      const allTextChunks = processedResults.reduce<EnrichedTextChunk[]>(
+        (acc, result) => {
+          // Associer chaque chunk au document correspondant
+          const documentChunks = result.textChunks.map<EnrichedTextChunk>(
+            (chunk) => ({
+              documentId: result.document.id,
+              documentName: result.document.filename,
+              text: chunk.text,
+              page: chunk.page,
+            }),
+          );
+          return [...acc, ...documentChunks];
+        },
+        [],
+      );
+
+      // Regrouper les chunks par document et concaténer leurs textes
+      const documentTexts = allTextChunks.reduce<Record<string, string>>(
+        (acc, chunk) => {
+          if (!acc[chunk.documentId]) {
+            acc[chunk.documentId] = '';
+          }
+          // Ajouter le texte du chunk avec un séparateur
+          acc[chunk.documentId] +=
+            (acc[chunk.documentId] ? '\n\n' : '') + chunk.text;
+          return acc;
+        },
+        {},
+      );
+
+      const filteredDocuments = documents.map((doc) => ({
+        id: doc.id,
+        name: doc.filename,
+        text: documentTexts[doc.id] || '', // Ajouter le texte concaténé
       }));
 
-      console.log(filteredDocuments);
-
-      // for (const document of documents) {
-      //   console.log(`Simulate n8n processing for document ${document.id}...`);
-      //   await new Promise((resolve) => setTimeout(resolve, 10000));
-      //   console.log(`Update status to READY for document ${document.id}...`);
-      //   await this.updateStatus(document.id, 'READY');
-      // }
+      const result = {
+        projectId: dto.projectId,
+        documents: filteredDocuments,
+      };
 
       try {
-        const response = await fetch(
-          'https://databuildr.app.n8n.cloud/webhook-test/documate',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(filteredDocuments),
-          },
+        // Convertir le payload en JSON
+        const payload = JSON.stringify(result);
+
+        // Calculer la taille du payload en octets
+        const payloadSizeInBytes = new TextEncoder().encode(payload).length;
+
+        // Convertir en KB et MB pour une meilleure lisibilité
+        const payloadSizeInKB = payloadSizeInBytes / 1024;
+        const payloadSizeInMB = payloadSizeInKB / 1024;
+
+        // Afficher la taille du payload
+        console.log(
+          `Taille du payload: ${payloadSizeInBytes} octets (${payloadSizeInKB.toFixed(2)} KB, ${payloadSizeInMB.toFixed(2)} MB)`,
         );
+
+        const n8nWebhookUrl = this.configService.get<string>('N8N_WEBHOOK_URL');
+        if (!n8nWebhookUrl) {
+          throw new Error(
+            'N8N_WEBHOOK_URL is not defined in environment variables',
+          );
+        }
+
+        const response = await fetch(`${n8nWebhookUrl}/documate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: payload, // Utiliser le payload déjà stringifié
+        });
 
         if (!response.ok) {
           throw new Error(`Failed to send data to n8n: ${response.statusText}`);
@@ -1137,7 +1227,9 @@ export class DocumentsService {
         console.error('Error sending data to n8n webhook:', error);
       }
 
-      return filteredDocuments;
+      console.log(result);
+
+      return result;
     } catch (error) {
       throw new BadRequestException(
         `Erreur lors de la confirmation des uploads: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,

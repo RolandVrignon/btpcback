@@ -12,12 +12,14 @@ export class ChunksRepository {
    * Crée un nouveau chunk
    */
   async create(createChunkDto: CreateChunkDto) {
-    return await this.prisma.chunk.create({
-      data: createChunkDto,
-      include: {
-        document: true,
-      },
-    });
+    return await this.prisma.executeWithQueue(() =>
+      this.prisma.chunk.create({
+        data: createChunkDto,
+        include: {
+          document: true,
+        },
+      }),
+    );
   }
 
   /**
@@ -28,13 +30,15 @@ export class ChunksRepository {
 
     // Créer les chunks un par un pour pouvoir récupérer leurs IDs
     for (const dto of createChunkDtos) {
-      const chunk = await this.prisma.chunk.create({
-        data: dto,
-        select: {
-          id: true,
-          text: true,
-        },
-      });
+      const chunk = await this.prisma.executeWithQueue(() =>
+        this.prisma.chunk.create({
+          data: dto,
+          select: {
+            id: true,
+            text: true,
+          },
+        }),
+      );
       createdChunks.push(chunk);
     }
 
@@ -45,23 +49,27 @@ export class ChunksRepository {
    * Récupère tous les chunks
    */
   async findAll() {
-    return await this.prisma.chunk.findMany({
-      include: {
-        document: true,
-      },
-    });
+    return await this.prisma.executeWithQueue(() =>
+      this.prisma.chunk.findMany({
+        include: {
+          document: true,
+        },
+      }),
+    );
   }
 
   /**
    * Récupère un chunk par son ID
    */
   async findOne(id: string) {
-    const chunk = await this.prisma.chunk.findUnique({
-      where: { id },
-      include: {
-        document: true,
-      },
-    });
+    const chunk = await this.prisma.executeWithQueue(() =>
+      this.prisma.chunk.findUnique({
+        where: { id },
+        include: {
+          document: true,
+        },
+      }),
+    );
 
     if (!chunk) {
       throw new NotFoundException(`Chunk avec l'ID ${id} non trouvé`);
@@ -74,12 +82,14 @@ export class ChunksRepository {
    * Récupère tous les chunks d'un document
    */
   async findByDocument(documentId: string) {
-    return await this.prisma.chunk.findMany({
-      where: { documentId },
-      include: {
-        document: true,
-      },
-    });
+    return await this.prisma.executeWithQueue(() =>
+      this.prisma.chunk.findMany({
+        where: { documentId },
+        include: {
+          document: true,
+        },
+      }),
+    );
   }
 
   /**
@@ -93,13 +103,15 @@ export class ChunksRepository {
     include?: Prisma.ChunkInclude;
   }) {
     const { where, take, skip, orderBy, include } = params;
-    return await this.prisma.chunk.findMany({
-      where,
-      take,
-      skip,
-      orderBy,
-      include,
-    });
+    return await this.prisma.executeWithQueue(() =>
+      this.prisma.chunk.findMany({
+        where,
+        take,
+        skip,
+        orderBy,
+        include,
+      }),
+    );
   }
 
   /**
@@ -107,13 +119,15 @@ export class ChunksRepository {
    */
   async update(id: string, updateChunkDto: UpdateChunkDto) {
     try {
-      return await this.prisma.chunk.update({
-        where: { id },
-        data: updateChunkDto,
-        include: {
-          document: true,
-        },
-      });
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.chunk.update({
+          where: { id },
+          data: updateChunkDto,
+          include: {
+            document: true,
+          },
+        }),
+      );
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -130,9 +144,11 @@ export class ChunksRepository {
    */
   async remove(id: string) {
     try {
-      return await this.prisma.chunk.delete({
-        where: { id },
-      });
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.chunk.delete({
+          where: { id },
+        }),
+      );
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

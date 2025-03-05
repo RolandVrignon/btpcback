@@ -12,11 +12,13 @@ export class OrganizationsRepository {
    */
   async create(createOrganizationDto: CreateOrganizationDto) {
     try {
-      return await this.prisma.organization.create({
-        data: {
-          ...createOrganizationDto,
-        },
-      });
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.organization.create({
+          data: {
+            ...createOrganizationDto,
+          },
+        }),
+      );
     } catch (error: unknown) {
       throw new Error(
         `Erreur lors de la création de l'organisation: ${(error as Error).message}`,
@@ -29,11 +31,13 @@ export class OrganizationsRepository {
    */
   async findAll() {
     try {
-      return await this.prisma.organization.findMany({
-        include: {
-          projects: true,
-        },
-      });
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.organization.findMany({
+          include: {
+            projects: true,
+          },
+        }),
+      );
     } catch (error: unknown) {
       throw new Error(
         `Erreur lors de la récupération des organisations: ${(error as Error).message}`,
@@ -46,12 +50,14 @@ export class OrganizationsRepository {
    */
   async findOne(id: string) {
     try {
-      const organization = await this.prisma.organization.findUnique({
-        where: { id },
-        include: {
-          projects: true,
-        },
-      });
+      const organization = await this.prisma.executeWithQueue(() =>
+        this.prisma.organization.findUnique({
+          where: { id },
+          include: {
+            projects: true,
+          },
+        }),
+      );
 
       if (!organization) {
         throw new NotFoundException(`Organisation avec l'ID ${id} non trouvée`);
@@ -74,18 +80,22 @@ export class OrganizationsRepository {
   async update(id: string, updateOrganizationDto: UpdateOrganizationDto) {
     try {
       // Vérifier si l'organisation existe
-      const existingOrganization = await this.prisma.organization.findUnique({
-        where: { id },
-      });
+      const existingOrganization = await this.prisma.executeWithQueue(() =>
+        this.prisma.organization.findUnique({
+          where: { id },
+        }),
+      );
 
       if (!existingOrganization) {
         throw new NotFoundException(`Organisation avec l'ID ${id} non trouvée`);
       }
 
-      return await this.prisma.organization.update({
-        where: { id },
-        data: updateOrganizationDto,
-      });
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.organization.update({
+          where: { id },
+          data: updateOrganizationDto,
+        }),
+      );
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -102,18 +112,22 @@ export class OrganizationsRepository {
   async remove(id: string) {
     try {
       // Vérifier si l'organisation existe
-      const existingOrganization = await this.prisma.organization.findUnique({
-        where: { id },
-      });
+      const existingOrganization = await this.prisma.executeWithQueue(() =>
+        this.prisma.organization.findUnique({
+          where: { id },
+        }),
+      );
 
       if (!existingOrganization) {
         throw new NotFoundException(`Organisation avec l'ID ${id} non trouvée`);
       }
 
       // Supprimer l'organisation
-      return await this.prisma.organization.delete({
-        where: { id },
-      });
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.organization.delete({
+          where: { id },
+        }),
+      );
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -129,10 +143,12 @@ export class OrganizationsRepository {
    */
   async exists(id: string): Promise<boolean> {
     try {
-      const organization = await this.prisma.organization.findUnique({
-        where: { id },
-        select: { id: true },
-      });
+      const organization = await this.prisma.executeWithQueue(() =>
+        this.prisma.organization.findUnique({
+          where: { id },
+          select: { id: true },
+        }),
+      );
       return !!organization;
     } catch (error: unknown) {
       throw new Error(

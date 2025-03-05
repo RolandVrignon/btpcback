@@ -17,15 +17,17 @@ export class ApikeysRepository {
       const apiKey = crypto.randomBytes(32).toString('hex');
 
       // Créer l'entrée dans la base de données
-      const createdApiKey = await this.prisma.apikey.create({
-        data: {
-          ...createApikeyDto,
-          key: apiKey,
-        },
-        include: {
-          organization: true,
-        },
-      });
+      const createdApiKey = await this.prisma.executeWithQueue(() =>
+        this.prisma.apikey.create({
+          data: {
+            ...createApikeyDto,
+            key: apiKey,
+          },
+          include: {
+            organization: true,
+          },
+        }),
+      );
 
       return createdApiKey;
     } catch (error) {
@@ -40,7 +42,9 @@ export class ApikeysRepository {
    */
   async findAll() {
     try {
-      return await this.prisma.apikey.findMany();
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.apikey.findMany(),
+      );
     } catch (error) {
       throw new Error(
         `Erreur lors de la récupération des clés API: ${error.message}`,
@@ -53,14 +57,16 @@ export class ApikeysRepository {
    */
   async findAllByOrganization(organizationId: string) {
     try {
-      return await this.prisma.apikey.findMany({
-        where: {
-          organizationId,
-        },
-        include: {
-          organization: true,
-        },
-      });
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.apikey.findMany({
+          where: {
+            organizationId,
+          },
+          include: {
+            organization: true,
+          },
+        }),
+      );
     } catch (error) {
       throw new Error(
         `Erreur lors de la récupération des clés API: ${error.message}`,
@@ -73,12 +79,14 @@ export class ApikeysRepository {
    */
   async findOne(id: string) {
     try {
-      const apiKey = await this.prisma.apikey.findUnique({
-        where: { id },
-        include: {
-          organization: true,
-        },
-      });
+      const apiKey = await this.prisma.executeWithQueue(() =>
+        this.prisma.apikey.findUnique({
+          where: { id },
+          include: {
+            organization: true,
+          },
+        }),
+      );
 
       if (!apiKey) {
         throw new NotFoundException(`Clé API avec l'ID ${id} non trouvée`);
@@ -100,14 +108,16 @@ export class ApikeysRepository {
    */
   async validateApiKey(key: string) {
     try {
-      const apiKey = await this.prisma.apikey.findFirst({
-        where: {
-          key,
-        },
-        include: {
-          organization: true,
-        },
-      });
+      const apiKey = await this.prisma.executeWithQueue(() =>
+        this.prisma.apikey.findFirst({
+          where: {
+            key,
+          },
+          include: {
+            organization: true,
+          },
+        }),
+      );
 
       if (!apiKey) {
         throw new NotFoundException('Clé API invalide');
@@ -130,22 +140,26 @@ export class ApikeysRepository {
   async update(id: string, updateApikeyDto: UpdateApikeyDto) {
     try {
       // Vérifier si la clé API existe
-      const existingApiKey = await this.prisma.apikey.findUnique({
-        where: { id },
-      });
+      const existingApiKey = await this.prisma.executeWithQueue(() =>
+        this.prisma.apikey.findUnique({
+          where: { id },
+        }),
+      );
 
       if (!existingApiKey) {
         throw new NotFoundException(`Clé API avec l'ID ${id} non trouvée`);
       }
 
       // Mettre à jour la clé API
-      return await this.prisma.apikey.update({
-        where: { id },
-        data: updateApikeyDto,
-        include: {
-          organization: true,
-        },
-      });
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.apikey.update({
+          where: { id },
+          data: updateApikeyDto,
+          include: {
+            organization: true,
+          },
+        }),
+      );
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -162,18 +176,22 @@ export class ApikeysRepository {
   async remove(id: string) {
     try {
       // Vérifier si la clé API existe
-      const existingApiKey = await this.prisma.apikey.findUnique({
-        where: { id },
-      });
+      const existingApiKey = await this.prisma.executeWithQueue(() =>
+        this.prisma.apikey.findUnique({
+          where: { id },
+        }),
+      );
 
       if (!existingApiKey) {
         throw new NotFoundException(`Clé API avec l'ID ${id} non trouvée`);
       }
 
       // Supprimer la clé API
-      return await this.prisma.apikey.delete({
-        where: { id },
-      });
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.apikey.delete({
+          where: { id },
+        }),
+      );
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -190,18 +208,22 @@ export class ApikeysRepository {
   async deactivate(id: string) {
     try {
       // Vérifier si la clé API existe
-      const existingApiKey = await this.prisma.apikey.findUnique({
-        where: { id },
-      });
+      const existingApiKey = await this.prisma.executeWithQueue(() =>
+        this.prisma.apikey.findUnique({
+          where: { id },
+        }),
+      );
 
       if (!existingApiKey) {
         throw new NotFoundException(`Clé API avec l'ID ${id} non trouvée`);
       }
 
       // Désactiver la clé API en la supprimant
-      return await this.prisma.apikey.delete({
-        where: { id },
-      });
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.apikey.delete({
+          where: { id },
+        }),
+      );
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;

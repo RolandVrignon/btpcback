@@ -13,17 +13,25 @@ export class UsageRepository {
    * @returns L'enregistrement d'utilisation créé
    */
   async create(createUsageDto: CreateUsageDto) {
-    return await this.prisma.usage.create({
-      data: createUsageDto,
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
+    try {
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.usage.create({
+          data: createUsageDto,
+          include: {
+            project: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
-        },
-      },
-    });
+        }),
+      );
+    } catch (error) {
+      throw new Error(
+        `Erreur lors de la création de l'enregistrement d'utilisation: ${(error as Error).message}`,
+      );
+    }
   }
 
   /**
@@ -33,15 +41,26 @@ export class UsageRepository {
    * @throws NotFoundException si le projet n'existe pas
    */
   async findProject(projectId: string) {
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
-    });
+    try {
+      const project = await this.prisma.executeWithQueue(() =>
+        this.prisma.project.findUnique({
+          where: { id: projectId },
+        }),
+      );
 
-    if (!project) {
-      throw new NotFoundException(`Projet avec l'ID ${projectId} non trouvé`);
+      if (!project) {
+        throw new NotFoundException(`Projet avec l'ID ${projectId} non trouvé`);
+      }
+
+      return project;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error(
+        `Erreur lors de la vérification du projet: ${(error as Error).message}`,
+      );
     }
-
-    return project;
   }
 
   /**
@@ -58,8 +77,16 @@ export class UsageRepository {
     type: UsageType;
     projectId: string;
   }) {
-    return await this.prisma.usage.create({
-      data,
-    });
+    try {
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.usage.create({
+          data,
+        }),
+      );
+    } catch (error) {
+      throw new Error(
+        `Erreur lors de la création de l'enregistrement d'utilisation brut: ${(error as Error).message}`,
+      );
+    }
   }
 }
