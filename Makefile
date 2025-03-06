@@ -55,6 +55,12 @@ prisma-db-push:
 	@echo "Application du schéma sans migration..."
 	@pnpm prisma db push
 
+.PHONY: prisma-format
+prisma-format:
+	@echo "Formatage des fichiers Prisma..."
+	@pnpm prisma format
+	@echo "Formatage des fichiers Prisma terminé"
+
 # Commandes NestJS
 .PHONY: dev
 dev:
@@ -130,6 +136,26 @@ expose-api:
 	@echo "Exposition de l'API via Cloudflare Tunnel sur le port $(API_PORT)..."
 	@cloudflared tunnel --url http://localhost:$(API_PORT)
 
+# Commandes de gestion des connexions à la base de données
+.PHONY: check-db-connections
+check-db-connections:
+	@echo "Vérification des connexions à la base de données..."
+	@chmod +x scripts/check-connections.sh
+	@./scripts/check-connections.sh
+
+.PHONY: monitor-db
+monitor-db:
+	@echo "Démarrage du moniteur de connexions à la base de données..."
+	@chmod +x scripts/monitor-connections.sh
+	@./scripts/monitor-connections.sh
+
+.PHONY: optimize-db-pool
+optimize-db-pool:
+	@echo "Optimisation du pool de connexions à la base de données..."
+	@chmod +x scripts/optimize-pool.sh
+	@./scripts/optimize-pool.sh
+
+# Mise à jour de l'aide
 .PHONY: help
 help:
 	@echo "Commandes disponibles:"
@@ -140,8 +166,9 @@ help:
 	@echo "  make prisma-studio       - Lancer Prisma Studio"
 	@echo "  make prisma-generate     - Générer le client Prisma"
 	@echo "  make prisma-migrate-dev  - Créer une nouvelle migration"
-	@echo "  make prisma-migrate-reset- Réinitialiser la base de données"
+	@echo "  make prisma-migrate-reset - Réinitialiser la base de données"
 	@echo "  make prisma-db-push      - Appliquer le schéma sans migration"
+	@echo "  make prisma-format       - Formater les fichiers Prisma"
 	@echo "  make dev                 - Lancer le serveur en mode développement"
 	@echo "  make build               - Construire l'application"
 	@echo "  make start               - Lancer le serveur en mode production"
@@ -157,5 +184,46 @@ help:
 	@echo "  make expose-api-lt-persistent - Exposer l'API locale via localtunnel avec reconnexion automatique"
 	@echo "  make expose-api-ngrok    - Exposer l'API locale via ngrok"
 	@echo "  make expose-api 		  - Exposer l'API locale via Cloudflare Tunnel"
+	@echo "  make check-db-connections - Vérifier les connexions à la base de données"
+	@echo "  make monitor-db          - Surveiller les connexions à la base de données en temps réel"
+	@echo "  make optimize-db-pool    - Optimiser le pool de connexions à la base de données"
+	@echo "  make script              - Sélectionner et exécuter un script avec explication"
+
 # Commande par défaut
 .DEFAULT_GOAL := help
+
+# Commande pour exécuter des scripts
+.PHONY: script
+script:
+	@echo "\033[1;36m=== Sélection d'un script à exécuter ===\033[0m"
+	@echo ""
+	@echo "\033[1;33mScripts de gestion de base de données:\033[0m"
+	@echo "  1) check-db-connections   - Vérifier les connexions à la base de données PostgreSQL"
+	@echo "  2) monitor-connections    - Surveiller les connexions à la base de données en temps réel"
+	@echo "  3) optimize-pool          - Optimiser le pool de connexions à la base de données"
+	@echo "  4) clear-db               - Nettoyer la base de données (conserver Organization et ApiKey)"
+	@echo ""
+	@echo "\033[1;33mScripts AWS RDS:\033[0m"
+	@echo "  5) get-rds-endpoint       - Récupérer les endpoints des instances RDS"
+	@echo "  6) create-rds-instance_back  - Créer une instance RDS pour le backend"
+	@echo "  7) create-rds-instance_front - Créer une instance RDS pour le frontend"
+	@echo "  8) configure-rds-security_back  - Configurer la sécurité RDS pour le backend"
+	@echo "  9) configure-rds-security_front - Configurer la sécurité RDS pour le frontend"
+	@echo ""
+	@echo "\033[1;33mAutres scripts:\033[0m"
+	@echo "  10) add-n8n-org           - Ajouter une organisation n8n"
+	@echo ""
+	@read -p "Entrez le numéro du script à exécuter: " script_num; \
+	case $$script_num in \
+		1) make check-db-connections ;; \
+		2) make monitor-db ;; \
+		3) make optimize-db-pool ;; \
+		4) echo "Exécution de clear-db..." && pnpm ts-node scripts/clear-db.ts ;; \
+		5) echo "Récupération des endpoints RDS..." && pnpm ts-node scripts/get-rds-endpoint.ts ;; \
+		6) echo "Création d'une instance RDS pour le backend..." && pnpm ts-node scripts/create-rds-instance_back.ts ;; \
+		7) echo "Création d'une instance RDS pour le frontend..." && pnpm ts-node scripts/create-rds-instance_front.ts ;; \
+		8) echo "Configuration de la sécurité RDS pour le backend..." && pnpm ts-node scripts/configure-rds-security_back.ts ;; \
+		9) echo "Configuration de la sécurité RDS pour le frontend..." && pnpm ts-node scripts/configure-rds-security_front.ts ;; \
+		10) echo "Ajout d'une organisation n8n..." && pnpm ts-node scripts/add-n8n-org.ts ;; \
+		*) echo "\033[1;31mOption invalide\033[0m" ;; \
+	esac

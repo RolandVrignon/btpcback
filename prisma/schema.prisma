@@ -10,8 +10,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
   extensions = [pgvector(map: "vector")]
 }
 
@@ -90,35 +90,50 @@ model Apikey {
 }
 
 model Project {
-  id             String       @id @default(uuid())
-  name           String       @default("New Project")
+  id             String        @id @default(uuid())
+  name           String        @default("New Project")
   salesforce_id  String?
   ai_address     String?
   status         ProjectStatus @default(DRAFT)
   tags           ProjectTag[]
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   documents      Document[]
   usages         Usage[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([organizationId])
 }
 
 model Document {
-  id        String         @id @default(uuid())
-  filename  String
-  path      String
-  mimetype  String
-  size      Int
-  status    DocumentStatus @default(NOT_STARTED)
-  ai_metadata  Json?
-  projectId String
-  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  chunks    Chunk[]
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id                           String         @id @default(uuid())
+  filename                     String
+  path                         String
+  mimetype                     String
+  size                         Int
+  status                       DocumentStatus @default(NOT_STARTED)
+  projectId                    String
+  project                      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  chunks                       Chunk[]
+  createdAt                    DateTime       @default(now())
+  updatedAt                    DateTime       @updatedAt
+  ai_lot_identification        String[]       @default([])
+  ai_Type_batiment             String[]       @default([])
+  ai_Type_operation            String[]       @default([])
+  ai_Type_document             String[]       @default([])
+  ai_Version_document          String[]       @default([])
+  ai_Adresse_projet            String?        @default("")
+  ai_Ville_projet              String?        @default("")
+  ai_Rue_projet                String?        @default("")
+  ai_CP_projet                 String?        @default("")
+  ai_Maitre_ouvrage            String[]       @default([])
+  ai_Architecte                String[]       @default([])
+  ai_Autres_societes           String[]       @default([])
+  ai_societe_editrice_document String[]       @default([])
+  ai_metadata                  Json?          @default("{}") @db.JsonB
+  metadata_author              String?        @default("")
+  metadata_numPages            Int?           @default(0)
 
   @@index([projectId])
 }
@@ -138,24 +153,24 @@ model Chunk {
 }
 
 model Embedding {
-  id           String    @id @default(uuid())
+  id           String                       @id @default(uuid())
   vector       Unsupported("vector(1536)")?
   modelName    String
   modelVersion String
   dimensions   Int
   chunkId      String
-  chunk        Chunk     @relation(fields: [chunkId], references: [id], onDelete: Cascade)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  usage        Int       @default(0)
+  chunk        Chunk                        @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  createdAt    DateTime                     @default(now())
+  updatedAt    DateTime                     @updatedAt
+  usage        Int                          @default(0)
 
+  @@unique([chunkId, modelName, modelVersion], name: "unique_chunk_model")
   @@index([chunkId])
   @@index([vector], map: "embedding_vector_idx")
-  @@unique([chunkId, modelName, modelVersion], name: "unique_chunk_model")
 }
 
 model Usage {
-  id               String    @id @default(uuid())
+  id               String      @id @default(uuid())
   provider         AI_Provider @default(NOT_SPECIFIED)
   modelName        String
   promptTokens     Int?
@@ -163,9 +178,9 @@ model Usage {
   totalTokens      Int?
   type             UsageType
   projectId        String
-  project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  project          Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
   @@index([projectId])
   @@index([modelName])

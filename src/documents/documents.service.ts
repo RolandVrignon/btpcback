@@ -84,7 +84,22 @@ export class DocumentsService {
   }
 
   async update(id: string, updateDocumentDto: UpdateDocumentDto) {
-    return this.documentsRepository.update(id, updateDocumentDto);
+    console.log('[SERVICE] Début de la méthode update avec id:', id);
+    console.log(
+      '[SERVICE] updateDocumentDto:',
+      JSON.stringify(updateDocumentDto, null, 2),
+    );
+    try {
+      const result = await this.documentsRepository.update(
+        id,
+        updateDocumentDto,
+      );
+      console.log('[SERVICE] Fin de la méthode update - succès');
+      return result;
+    } catch (error) {
+      console.error('[SERVICE] Erreur dans la méthode update:', error);
+      throw error;
+    }
   }
 
   async remove(id: string) {

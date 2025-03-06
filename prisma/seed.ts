@@ -41,6 +41,24 @@ async function main() {
     });
     console.log(`Projet ADMIN créé avec ID: ${adminProject.id}`);
 
+    // Création d'une organisation N8N avec rôle ADMIN
+    const n8nOrg = await prisma.organization.create({
+      data: {
+        name: 'N8N',
+        scope: 'ADMIN' as OrganizationScope,
+      },
+    });
+    console.log(`Organisation N8N (ADMIN) créée avec ID: ${n8nOrg.id}`);
+
+    // Création d'une clé API pour l'organisation N8N
+    const n8nApiKey = await prisma.apikey.create({
+      data: {
+        key: generateApiKey(),
+        organizationId: n8nOrg.id,
+      },
+    });
+    console.log(`Clé API pour N8N créée: ${n8nApiKey.key}`);
+
     // Création d'une organisation REGULAR
     const regularOrg = await prisma.organization.create({
       data: {

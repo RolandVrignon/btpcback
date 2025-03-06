@@ -1,51 +1,185 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNumber, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsArray,
+  IsObject,
+  IsInt,
+} from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateDocumentDto } from './create-document.dto';
+import { DocumentStatus } from '@prisma/client';
 
 export class UpdateDocumentDto extends PartialType(CreateDocumentDto) {
   @ApiProperty({
-    description: 'Le nom du fichier',
-    example: 'rapport_mis_a_jour.pdf',
+    description: 'Le statut du document',
+    enum: DocumentStatus,
+    example: 'PROCESSING',
+    required: false,
+  })
+  @IsEnum(DocumentStatus)
+  @IsOptional()
+  status?: DocumentStatus;
+
+  @ApiProperty({
+    description: 'Identification du lot',
+    example: ['LOT-01', 'LOT-02'],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  ai_lot_identification?: string[];
+
+  @ApiProperty({
+    description: 'Type de bâtiment',
+    example: ['Immeuble résidentiel', 'Immeuble commercial'],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  ai_Type_batiment?: string[];
+
+  @ApiProperty({
+    description: "Type d'opération",
+    example: 'Rénovation',
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  ai_Type_operation?: string[];
+
+  @ApiProperty({
+    description: 'Type de document',
+    example: "Plan d'architecte",
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  ai_Type_document?: string[];
+
+  @ApiProperty({
+    description: 'Version du document',
+    example: 'V1.2',
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  ai_Version_document?: string[];
+
+  @ApiProperty({
+    description: 'Adresse du projet',
+    example: '123 rue de la Construction',
     required: false,
   })
   @IsString()
   @IsOptional()
-  filename?: string;
+  ai_Adresse_projet?: string;
 
   @ApiProperty({
-    description: 'Le chemin du fichier sur le serveur',
-    example: '/uploads/rapport_mis_a_jour.pdf',
+    description: 'Ville du projet',
+    example: 'Paris',
     required: false,
   })
   @IsString()
   @IsOptional()
-  path?: string;
+  ai_Ville_projet?: string;
 
   @ApiProperty({
-    description: 'Le type MIME du fichier',
-    example: 'application/pdf',
+    description: 'Rue du projet',
+    example: 'Rue de la Construction',
     required: false,
   })
   @IsString()
   @IsOptional()
-  mimetype?: string;
+  ai_Rue_projet?: string;
 
   @ApiProperty({
-    description: 'La taille du fichier en octets',
-    example: 2048,
-    required: false,
-  })
-  @IsNumber()
-  @IsOptional()
-  size?: number;
-
-  @ApiProperty({
-    description: "L'ID du projet auquel le document appartient",
-    example: '01234567890123456789012345678901',
+    description: 'Code postal du projet',
+    example: '75001',
     required: false,
   })
   @IsString()
   @IsOptional()
-  projectId?: string;
+  ai_CP_projet?: string;
+
+  @ApiProperty({
+    description: "Maître d'ouvrage",
+    example: ['Société Immobilière XYZ', 'Groupe ABC'],
+    required: false,
+    isArray: true,
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  ai_Maitre_ouvrage?: string[];
+
+  @ApiProperty({
+    description: 'Architectes',
+    example: ["Cabinet d'Architecture DEF", 'Studio GHI'],
+    required: false,
+    isArray: true,
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  ai_Architecte?: string[];
+
+  @ApiProperty({
+    description: 'Autres sociétés impliquées',
+    example: ["Bureau d'études JKL", 'Entreprise MNO'],
+    required: false,
+    isArray: true,
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  ai_Autres_societes?: string[];
+
+  @ApiProperty({
+    description: 'Société éditrice du document',
+    example: ["Cabinet d'Architecture DEF", "Bureau d'études JKL"],
+    required: false,
+    isArray: true,
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  ai_societe_editrice_document?: string[];
+
+  @ApiProperty({
+    description: 'Métadonnées AI au format JSON',
+    example: {
+      Titre: "Plan d'exécution",
+      Date: '2023-05-15',
+      Échelle: '1:100',
+    },
+    required: false,
+  })
+  @IsObject()
+  @IsOptional()
+  ai_metadata?: Record<string, unknown>;
+
+  @ApiProperty({
+    description: 'Auteur du document (métadonnée)',
+    example: 'Jean Dupont',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  metadata_author?: string;
+
+  @ApiProperty({
+    description: 'Nombre de pages du document',
+    example: 42,
+    required: false,
+  })
+  @IsInt()
+  @IsOptional()
+  metadata_numPages?: number;
 }

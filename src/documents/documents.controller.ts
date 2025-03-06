@@ -9,6 +9,7 @@ import {
   Patch,
   UseGuards,
   NotFoundException,
+  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -36,6 +37,7 @@ import { GetDocumentMetadataDto } from './dto/get-document-metadata.dto';
 import { DocumentMetadataResponseDto } from './dto/document-metadata-response.dto';
 import { ConfirmMultipleUploadsDto } from './dto/confirm-multiple-uploads.dto';
 import { GetDocumentByFilenameDto } from './dto/get-document-by-filename.dto';
+import { Request } from 'express';
 
 @ApiTags('documents')
 @ApiHeader({
@@ -154,8 +156,25 @@ export class DocumentsController {
   update(
     @Param('id') id: string,
     @Body() updateDocumentDto: UpdateDocumentDto,
+    @Req() request: Request,
   ) {
-    return this.documentsService.update(id, updateDocumentDto);
+    console.log('[CONTROLLER] Début de la méthode update avec id:', id);
+    console.log(
+      '[CONTROLLER] Corps de la requête brut:',
+      JSON.stringify(request.body, null, 2),
+    );
+    console.log(
+      '[CONTROLLER] updateDocumentDto:',
+      JSON.stringify(updateDocumentDto, null, 2),
+    );
+    try {
+      const result = this.documentsService.update(id, updateDocumentDto);
+      console.log('[CONTROLLER] Fin de la méthode update - succès');
+      return result;
+    } catch (error) {
+      console.error('[CONTROLLER] Erreur dans la méthode update:', error);
+      throw error;
+    }
   }
 
   @Post('confirm-upload')

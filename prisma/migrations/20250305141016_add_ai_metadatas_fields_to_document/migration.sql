@@ -1,0 +1,17 @@
+-- AlterTable
+ALTER TABLE "Document" ADD COLUMN     "ai_Adresse_projet" TEXT DEFAULT '',
+ADD COLUMN     "ai_Architecte" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN     "ai_Autres_societes" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN     "ai_CP_projet" TEXT DEFAULT '',
+ADD COLUMN     "ai_Maitre_ouvrage" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN     "ai_Rue_projet" TEXT DEFAULT '',
+ADD COLUMN     "ai_Type_batiment" TEXT DEFAULT '',
+ADD COLUMN     "ai_Type_document" TEXT DEFAULT '',
+ADD COLUMN     "ai_Type_operation" TEXT DEFAULT '',
+ADD COLUMN     "ai_Version_document" TEXT DEFAULT '',
+ADD COLUMN     "ai_Ville_projet" TEXT DEFAULT '',
+ADD COLUMN     "ai_lot_identification" TEXT DEFAULT '',
+ADD COLUMN     "ai_societe_editrice_document" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN     "metadata_author" TEXT DEFAULT '',
+ADD COLUMN     "metadata_numPages" INTEGER DEFAULT 0,
+ALTER COLUMN "ai_metadata" SET DEFAULT '{}';

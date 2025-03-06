@@ -10,6 +10,8 @@ import { EmbeddingsModule } from './embeddings/embeddings.module';
 import { StorageModule } from './storage/storage.module';
 import { UsageModule } from './usage/usage.module';
 import { SearchModule } from './search/search.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -27,5 +29,7 @@ import { SearchModule } from './search/search.module';
     UsageModule,
     SearchModule,
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
