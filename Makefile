@@ -106,7 +106,7 @@ reset-db:
 .PHONY: clear-db
 clear-db:
 	@echo "Nettoyage de la base de données (conservation des tables Organization et ApiKey)..."
-	@pnpm ts-node src/scripts/clear-db.ts
+	@pnpm ts-node scripts/clear-db.ts
 
 .PHONY: init-db
 init-db:

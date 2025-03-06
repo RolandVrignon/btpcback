@@ -14,7 +14,6 @@ import {
   HeadObjectCommand,
   S3ServiceException,
 } from '@aws-sdk/client-s3';
-import { ConfirmUploadDto } from './dto/confirm-upload.dto';
 import { ViewDocumentDto } from './dto/view-document.dto';
 import { ViewDocumentResponseDto } from './dto/view-document-response.dto';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
@@ -31,8 +30,8 @@ import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { openai } from '@ai-sdk/openai';
 import { embed } from 'ai';
-import * as os from 'os';
 import { ConfirmMultipleUploadsDto } from './dto/confirm-multiple-uploads.dto';
+import { IndexationQueueService } from './queue/indexation-queue.service';
 
 @Injectable()
 export class DocumentsService {
@@ -46,6 +45,7 @@ export class DocumentsService {
     private readonly documentsRepository: DocumentsRepository,
     private readonly embeddingsService: EmbeddingsService,
     private readonly chunksService: ChunksService,
+    private readonly indexationQueueService: IndexationQueueService,
   ) {
     this.s3Client = new S3Client({
       region: this.configService.get<string>('AWS_REGION', 'eu-west-3'),
@@ -57,10 +57,7 @@ export class DocumentsService {
         ),
       },
     });
-    this.bucketName = this.configService.get<string>(
-      'AWS_S3_BUCKET',
-      'btpc-documents',
-    );
+    this.bucketName = this.configService.get<string>('AWS_S3_BUCKET', '');
   }
 
   async create(createDocumentDto: CreateDocumentDto) {
@@ -84,17 +81,11 @@ export class DocumentsService {
   }
 
   async update(id: string, updateDocumentDto: UpdateDocumentDto) {
-    console.log('[SERVICE] Début de la méthode update avec id:', id);
-    console.log(
-      '[SERVICE] updateDocumentDto:',
-      JSON.stringify(updateDocumentDto, null, 2),
-    );
     try {
       const result = await this.documentsRepository.update(
         id,
         updateDocumentDto,
       );
-      console.log('[SERVICE] Fin de la méthode update - succès');
       return result;
     } catch (error) {
       console.error('[SERVICE] Erreur dans la méthode update:', error);
@@ -127,65 +118,6 @@ export class DocumentsService {
     metadata: Record<string, unknown>,
   ) {
     return this.documentsRepository.updateAiMetadata(documentId, metadata);
-  }
-
-  /**
-   * Traite un document pour en extraire le texte, créer des chunks et générer des embeddings
-   * @param documentId ID du document à traiter
-   * @param projectId ID du projet associé
-   */
-  async processDocument(documentId: string, projectId: string): Promise<void> {
-    // Créer un répertoire temporaire pour les fichiers
-    const tempDir = path.join(os.tmpdir(), `document-${documentId}`);
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-
-    try {
-      // Mettre à jour le statut du document à INDEXING
-      await this.updateStatus(documentId, 'INDEXING');
-
-      // Étape 1: Télécharger le document depuis S3
-      const document = await this.findOne(documentId);
-
-      const tempFilePath = await this.downloadDocumentFromS3(
-        document.path,
-        tempDir,
-      );
-
-      // Étape 2: Convertir le document si nécessaire
-      const pdfFilePath = await this.convertToPdfIfNeeded(tempFilePath);
-
-      // Étape 3: Extraire le texte du PDF
-      const extractedText = await this.extractTextFromPdf(pdfFilePath);
-
-      // Étape 4: Chunker le texte
-      const chunks = this.chunkText(extractedText, 1000);
-
-      // Étape 5: Créer les chunks dans la base de données
-      await this.createChunksWithEmbeddings(chunks, documentId, projectId);
-
-      // Étape 6: Rafting - Extraire les informations importantes avec Gemini
-      await this.updateStatus(documentId, 'RAFTING' as DocumentStatus);
-
-      // Concaténer tous les textes des pages pour l'analyse globale
-      const fullText = extractedText.map((pt) => pt.text).join('\n\n');
-
-      await this.extractDocumentInfoWithGemini(fullText, documentId, projectId);
-
-      // Mettre à jour le statut du document à READY
-      await this.updateStatus(documentId, 'READY');
-
-      // Nettoyer les fichiers temporaires
-      await this.cleanupTempFiles(tempDir);
-    } catch (error) {
-      console.error(
-        `Erreur lors du traitement du document ${documentId}:`,
-        error instanceof Error ? error.message : String(error),
-      );
-      // En cas d'erreur, mettre à jour le statut du document à END
-      await this.updateStatus(documentId, 'END');
-    }
   }
 
   /**
@@ -242,170 +174,6 @@ export class DocumentsService {
       throw new Error(
         `Erreur lors de l'analyse du document: ${(error as Error).message}`,
       );
-    }
-  }
-
-  /**
-   * Confirme l'upload d'un fichier sur S3 et crée un document dans la base de données
-   * @param dto Informations sur le fichier uploadé
-   * @param organizationId ID de l'organisation qui fait la demande
-   * @returns Le document créé
-   * @throws NotFoundException si le projet n'existe pas ou si le fichier n'est pas trouvé sur S3
-   * @throws ForbiddenException si le projet n'appartient pas à l'organisation
-   * @throws BadRequestException si une erreur survient lors de la vérification du fichier
-   */
-  async confirmUpload(dto: ConfirmUploadDto, organizationId: string) {
-    // Vérifier si le projet existe et appartient à l'organisation
-    const project = await this.prisma.project.findFirst({
-      where: {
-        id: dto.projectId,
-        organization: {
-          id: organizationId,
-        },
-      },
-    });
-
-    if (!project) {
-      throw new NotFoundException(
-        "Projet non trouvé ou n'appartient pas à votre organisation",
-      );
-    }
-
-    // Construire le chemin du fichier sur S3
-    const filePath = `ct-toolbox/${dto.projectId}/${dto.fileName}`;
-    console.log('filePath:', filePath);
-
-    try {
-      // Vérifier si le fichier existe sur S3
-      const headObjectCommand = new HeadObjectCommand({
-        Bucket: this.bucketName,
-        Key: filePath,
-      });
-
-      await this.s3Client.send(headObjectCommand);
-
-      // Si le fichier existe, créer un document dans la base de données
-      const document = await this.prisma.document.create({
-        data: {
-          filename: dto.fileName,
-          path: filePath,
-          mimetype: 'application/octet-stream', // À déterminer en fonction du nom de fichier
-          size: 0, // Taille inconnue à ce stade
-          projectId: dto.projectId,
-          status: 'NOT_STARTED', // Statut initial
-        },
-        include: {
-          project: true,
-        },
-      });
-
-      // Lancer le traitement du document en arrière-plan seulement pour PDF ou DOCX
-      const fileExt = path.extname(dto.fileName).toLowerCase();
-      if (fileExt === '.pdf' || fileExt === '.docx' || fileExt === '.doc') {
-        void this.processDocumentAsync(document.id, project.id);
-      }
-
-      return document;
-    } catch (error) {
-      if (error instanceof S3ServiceException) {
-        throw new BadRequestException(
-          `Fichier non trouvé sur S3: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
-        );
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Traite un document de manière asynchrone en suivant les étapes:
-   * 1. Téléchargement du document depuis S3
-   * 2. Conversion si nécessaire (docx -> pdf)
-   * 3. Extraction du texte
-   * 4. Chunking du texte
-   * 5. Création des chunks dans la base de données
-   * 6. Vectorisation et création des embeddings
-   * 7. Rafting - Extraire les informations importantes avec Gemini
-   * 8. Mettre à jour le statut du document à READY
-   * @param documentId ID du document à traiter
-   * @returns Tableau des chunks de texte avec leur numéro de page
-   */
-  private async processDocumentAsync(
-    documentId: string,
-    projectId: string,
-  ): Promise<Array<{ text: string; page: number }>> {
-    try {
-      // Mettre à jour le statut du document à PROCESSING
-      console.log(
-        documentId,
-        ' Mise à jour du statut du document à INDEXING...',
-      );
-      await this.updateStatus(documentId, 'INDEXING' as DocumentStatus);
-
-      // Récupérer les informations du document
-      const document = await this.findOne(documentId);
-
-      if (!document) {
-        throw new NotFoundException(
-          `Document avec l'ID ${documentId} non trouvé`,
-        );
-      }
-
-      // Étape 1: Télécharger le document depuis S3
-      const tempDir = `/tmp/document-processing/${documentId}`;
-      const tempFilePath = await this.downloadDocumentFromS3(
-        document.path,
-        tempDir,
-      );
-
-      // Étape 2: Convertir le document si nécessaire
-      console.log(documentId, ' Convertion du document en PDF...');
-      const pdfFilePath = await this.convertToPdfIfNeeded(tempFilePath);
-
-      // Étape 3: Extraire le texte du PDF
-      console.log(documentId, ' Extraction du texte du PDF...');
-      const extractedText = await this.extractTextFromPdf(pdfFilePath);
-
-      // Étape 4: Chunker le texte
-      console.log(documentId, ' Chunking du texte...');
-      const chunks = this.chunkText(extractedText, 1000);
-
-      // Étape 5: Créer les chunks dans la base de données
-      console.log(
-        documentId,
-        ' Création des chunks dans la base de données...',
-      );
-      await this.createChunksWithEmbeddings(chunks, documentId, projectId);
-
-      // Étape 7: Rafting - Extraire les informations importantes avec Gemini
-      // await this.updateStatus(documentId, 'RAFTING' as DocumentStatus);
-
-      // Concaténer tous les textes des pages pour l'analyse globale
-      // const fullText = extractedText.map((pt) => pt.text).join('\n\n');
-
-      // await this.extractDocumentInfoWithGemini(fullText, documentId, projectId);
-
-      // Mettre à jour le statut du document à PENDING
-      console.log(
-        documentId,
-        ' Mise à jour du statut du document à PENDING...',
-      );
-      await this.updateStatus(documentId, 'PENDING');
-
-      // Nettoyer les fichiers temporaires
-      console.log(documentId, ' Nettoyage des fichiers temporaires...');
-      await this.cleanupTempFiles(tempDir);
-      console.log(documentId, ' Fichiers temporaires nettoyés avec succès.');
-      console.log(documentId, ' Document processed successfully.');
-
-      return chunks;
-    } catch (error) {
-      console.error(
-        `Erreur lors du traitement du document ${documentId}:`,
-        error,
-      );
-      // En cas d'erreur, mettre à jour le statut du document à END
-      await this.updateStatus(documentId, 'END');
-      return [];
     }
   }
 
@@ -800,7 +568,9 @@ export class DocumentsService {
 
     // Écrire le contenu dans un fichier temporaire
     const writeStream = fs.createWriteStream(tempFilePath);
-    const readStream = Readable.from(response.Body as any);
+    const readStream = Readable.from(
+      response.Body as unknown as Uint8Array | Buffer | string,
+    );
 
     await finished(readStream.pipe(writeStream));
 
@@ -1066,6 +836,9 @@ export class DocumentsService {
     dto: ConfirmMultipleUploadsDto,
     organizationId: string,
   ) {
+    // Enregistrer le temps de début
+    const startTime = Date.now();
+
     // Vérifier si le projet existe et appartient à l'organisation
     const project = await this.prisma.project.findFirst({
       where: {
@@ -1105,7 +878,7 @@ export class DocumentsService {
               mimetype: 'application/octet-stream', // À déterminer en fonction du nom de fichier
               size: 0, // Taille inconnue à ce stade
               projectId: dto.projectId,
-              status: 'NOT_STARTED', // Statut initial
+              status: 'PROCESSING', // Statut initial
             },
             include: {
               project: true,
@@ -1171,55 +944,115 @@ export class DocumentsService {
         documents: filteredDocuments,
       };
 
-      try {
-        // Convertir le payload en JSON
-        const payload = JSON.stringify(result);
+      // Préparer la requête n8n
+      const n8nPromise = (async () => {
+        try {
+          // Convertir le payload en JSON
+          const payload = JSON.stringify(result);
 
-        // Calculer la taille du payload en octets
-        const payloadSizeInBytes = new TextEncoder().encode(payload).length;
+          // Calculer la taille du payload en octets
+          const payloadSizeInBytes = new TextEncoder().encode(payload).length;
 
-        // Convertir en KB et MB pour une meilleure lisibilité
-        const payloadSizeInKB = payloadSizeInBytes / 1024;
-        const payloadSizeInMB = payloadSizeInKB / 1024;
+          // Convertir en KB et MB pour une meilleure lisibilité
+          const payloadSizeInKB = payloadSizeInBytes / 1024;
+          const payloadSizeInMB = payloadSizeInKB / 1024;
 
-        // Afficher la taille du payload
-        console.log('Nombre de documents:', documentsWithText.length);
-        console.log(
-          `Taille du payload: ${payloadSizeInBytes} octets (${payloadSizeInKB.toFixed(2)} KB, ${payloadSizeInMB.toFixed(2)} MB)`,
-        );
-
-        const n8nWebhookUrl = this.configService.get<string>('N8N_WEBHOOK_URL');
-
-        if (!n8nWebhookUrl) {
-          throw new Error(
-            'N8N_WEBHOOK_URL is not defined in environment variables',
+          // Afficher la taille du payload
+          console.log('Nombre de documents:', documentsWithText.length);
+          console.log(
+            `Taille du payload: ${payloadSizeInBytes} octets (${payloadSizeInKB.toFixed(2)} KB, ${payloadSizeInMB.toFixed(2)} MB)`,
           );
-        }
 
-        const res = await fetch(`${n8nWebhookUrl}/documate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: payload, // Utiliser le payload déjà stringifié
+          const n8nWebhookUrl =
+            this.configService.get<string>('N8N_WEBHOOK_URL');
+
+          if (!n8nWebhookUrl) {
+            console.warn(
+              'N8N_WEBHOOK_URL is not defined in environment variables',
+            );
+            return;
+          }
+
+          // Créer une promesse pour la requête n8n
+          const res = await fetch(`${n8nWebhookUrl}/documate`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: payload,
+          });
+
+          if (res.ok) {
+            console.log('Data successfully sent to n8n webhook.');
+          } else {
+            console.error(
+              'Error sending data to n8n webhook:',
+              res.status,
+              res.statusText,
+            );
+          }
+        } catch (error) {
+          console.error('Error sending data to n8n webhook:', error);
+        }
+      })();
+
+      // Au lieu d'appeler directement processDocumentsInBackground,
+      // nous allons ajouter cette tâche à notre queue d'indexation
+      const processingPromise = new Promise<void>((resolve) => {
+        // Ajouter la tâche d'indexation à la queue
+        void this.indexationQueueService.addTask(async () => {
+          try {
+            // Exécuter le traitement des documents
+            await this.processDocumentsInBackground(documentsWithText);
+            resolve();
+          } catch (error) {
+            console.error('Erreur lors du traitement des documents:', error);
+            resolve(); // Résoudre même en cas d'erreur pour ne pas bloquer
+          }
         });
+      });
 
-        if (res.ok) {
-          console.log('Data successfully sent to n8n webhook.');
-        } else {
-          console.error('Error sending data to n8n webhook:', res);
-        }
-      } catch (error) {
-        console.error('Error sending data to n8n webhook:', error);
-        // Continuer le traitement même en cas d'erreur avec n8n
-      }
-
-      await this.processDocumentsInBackground(documentsWithText);
+      // Attendre que les deux opérations soient terminées
+      await Promise.all([n8nPromise, processingPromise]);
 
       console.log('End of documents processing. It is successfully.');
 
-      return result;
+      // Mettre à jour le statut de tous les documents à READY
+      for (const doc of documentsWithText) {
+        try {
+          await this.updateStatus(doc.document.id, 'READY');
+          console.log(
+            `Document ${doc.document.id} (${doc.document.filename}) mis à jour avec le statut READY`,
+          );
+        } catch (error) {
+          console.error(
+            `Erreur lors de la mise à jour du statut du document ${doc.document.id}:`,
+            error,
+          );
+        }
+      }
+
+      // Calculer le temps d'exécution
+      const endTime = Date.now();
+      const executionTimeMs = endTime - startTime;
+      const executionTimeSec = (executionTimeMs / 1000).toFixed(2);
+
+      console.log(
+        `Fin d'exécution => temps d'exécution de confirmMultipleUploads: ${executionTimeMs}ms (${executionTimeSec}s)`,
+      );
+
+      // Retourner simplement un statut OK
+      return { status: 'OK' };
     } catch (error) {
+      // Calculer le temps d'exécution même en cas d'erreur
+      const endTime = Date.now();
+      const executionTimeMs = endTime - startTime;
+      const executionTimeSec = (executionTimeMs / 1000).toFixed(2);
+
+      console.log(
+        `Temps d'exécution de confirmMultipleUploads (avec erreur): ${executionTimeMs}ms (${executionTimeSec}s)`,
+      );
+
       throw new BadRequestException(
         `Erreur lors de la confirmation des uploads: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
       );
@@ -1251,9 +1084,6 @@ export class DocumentsService {
           continue; // Ignorer les documents sans texte extrait
         }
 
-        // Mettre à jour le statut du document à INDEXING
-        await this.updateStatus(document.id, 'INDEXING' as DocumentStatus);
-
         // Appliquer le chunking avec une taille fixe de 1000 caractères
         const chunks = this.chunkText(extractedTextPerPage, 1000);
 
@@ -1263,9 +1093,6 @@ export class DocumentsService {
           document.id,
           document.projectId,
         );
-
-        // Mettre à jour le statut du document à PENDING
-        await this.updateStatus(document.id, 'PENDING');
       } catch (error) {
         console.error(
           `Erreur lors du traitement du document ${docData.document.id}:`,

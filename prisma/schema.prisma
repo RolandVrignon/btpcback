@@ -122,6 +122,7 @@ model Document {
   ai_Type_batiment             String[]       @default([])
   ai_Type_operation            String[]       @default([])
   ai_Type_document             String[]       @default([])
+  ai_Phase_projet              String[]       @default([])
   ai_Version_document          String[]       @default([])
   ai_Adresse_projet            String?        @default("")
   ai_Ville_projet              String?        @default("")

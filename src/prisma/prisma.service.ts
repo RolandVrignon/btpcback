@@ -5,34 +5,49 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
-  private static readonly MAX_CONCURRENT_OPERATIONS = 64;
+  private static MAX_CONCURRENT_OPERATIONS: number;
   private operationQueue: Array<() => Promise<unknown>> = [];
   private runningOperations = 0;
   private readonly logger = new Logger(PrismaService.name);
 
-  constructor() {
+  constructor(private configService?: ConfigService) {
     /* eslint-disable @typescript-eslint/no-unsafe-call */
     const dbUrl = process.env.DATABASE_URL || '';
-    const connectionLimit = 64; // 80% de la limite de 81 connexions
+
+    // Récupérer la taille du pool de connexions depuis la variable d'environnement
+    const poolSize = parseInt(
+      process.env.DATABASE_CONNECTION_POOL_SIZE ||
+        configService?.get<string>('DATABASE_CONNECTION_POOL_SIZE', '10') ||
+        '10',
+      10,
+    );
 
     // Ajouter le paramètre connection_limit à l'URL si ce n'est pas déjà fait
     const dbUrlWithConnectionLimit = dbUrl.includes('connection_limit=')
       ? dbUrl
       : dbUrl.includes('?')
-        ? `${dbUrl}&connection_limit=${connectionLimit}`
-        : `${dbUrl}?connection_limit=${connectionLimit}`;
+        ? `${dbUrl}&connection_limit=${poolSize}`
+        : `${dbUrl}?connection_limit=${poolSize}`;
 
     super({
       log: ['info', 'warn', 'error'],
       // Configurer les options de connexion avec la limite de connexions
       datasourceUrl: dbUrlWithConnectionLimit,
     });
+
+    // Définir la valeur statique après l'appel à super
+    PrismaService.MAX_CONCURRENT_OPERATIONS = poolSize;
+
+    this.logger.log(
+      `Initialisation du pool PostgreSQL avec ${poolSize} connexions`,
+    );
   }
 
   async onModuleInit() {

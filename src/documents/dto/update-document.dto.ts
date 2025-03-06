@@ -63,6 +63,16 @@ export class UpdateDocumentDto extends PartialType(CreateDocumentDto) {
   ai_Type_document?: string[];
 
   @ApiProperty({
+    description: 'Phase du projet',
+    example: ['DCE'],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  ai_Phase_projet?: string[];
+
+  @ApiProperty({
     description: 'Version du document',
     example: 'V1.2',
     required: false,

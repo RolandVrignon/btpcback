@@ -139,19 +139,10 @@ export class DocumentsRepository {
    * Met à jour un document
    */
   async update(id: string, updateData: UpdateDocumentDto) {
-    console.log('[REPOSITORY] Début de la méthode update avec id:', id);
-    console.log(
-      '[REPOSITORY] updateData:',
-      JSON.stringify(updateData, null, 2),
-    );
     try {
       // On extrait projectId car il ne peut pas être modifié dans une opération update
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { projectId, ...updateDataWithoutProjectId } = updateData;
-      console.log(
-        '[REPOSITORY] updateDataWithoutProjectId:',
-        JSON.stringify(updateDataWithoutProjectId, null, 2),
-      );
 
       // Traitement spécial pour ai_metadata qui doit être converti en format JSON compatible avec Prisma
       const prismaUpdateData = {
@@ -161,10 +152,6 @@ export class DocumentsRepository {
             updateDataWithoutProjectId.ai_metadata as unknown as Prisma.InputJsonValue,
         }),
       };
-      console.log(
-        '[REPOSITORY] prismaUpdateData:',
-        JSON.stringify(prismaUpdateData, null, 2),
-      );
 
       const result = await this.prisma.executeWithQueue(() =>
         this.prisma.document.update({
@@ -175,10 +162,8 @@ export class DocumentsRepository {
           },
         }),
       );
-      console.log('[REPOSITORY] Fin de la méthode update - succès');
       return result;
     } catch (error) {
-      console.error('[REPOSITORY] Erreur dans la méthode update:', error);
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2025'

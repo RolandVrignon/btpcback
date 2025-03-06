@@ -9,7 +9,6 @@ import {
   Patch,
   UseGuards,
   NotFoundException,
-  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -26,7 +25,6 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { Organization } from '../decorators/organization.decorator';
 import { UpdateDocumentDto } from './dto/update-document.dto';
-import { ConfirmUploadDto } from './dto/confirm-upload.dto';
 import { OrganizationEntity } from '../types';
 import { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
 import { MonitorDocumentDto } from './dto/monitor-document.dto';
@@ -37,7 +35,6 @@ import { GetDocumentMetadataDto } from './dto/get-document-metadata.dto';
 import { DocumentMetadataResponseDto } from './dto/document-metadata-response.dto';
 import { ConfirmMultipleUploadsDto } from './dto/confirm-multiple-uploads.dto';
 import { GetDocumentByFilenameDto } from './dto/get-document-by-filename.dto';
-import { Request } from 'express';
 
 @ApiTags('documents')
 @ApiHeader({
@@ -156,48 +153,14 @@ export class DocumentsController {
   update(
     @Param('id') id: string,
     @Body() updateDocumentDto: UpdateDocumentDto,
-    @Req() request: Request,
   ) {
-    console.log('[CONTROLLER] Début de la méthode update avec id:', id);
-    console.log(
-      '[CONTROLLER] Corps de la requête brut:',
-      JSON.stringify(request.body, null, 2),
-    );
-    console.log(
-      '[CONTROLLER] updateDocumentDto:',
-      JSON.stringify(updateDocumentDto, null, 2),
-    );
     try {
       const result = this.documentsService.update(id, updateDocumentDto);
-      console.log('[CONTROLLER] Fin de la méthode update - succès');
       return result;
     } catch (error) {
       console.error('[CONTROLLER] Erreur dans la méthode update:', error);
       throw error;
     }
-  }
-
-  @Post('confirm-upload')
-  @ApiOperation({ summary: "Confirmer l'upload d'un fichier sur S3" })
-  @ApiResponse({ status: 201, description: 'Document créé avec succès.' })
-  @ApiResponse({ status: 404, description: 'Projet ou fichier non trouvé.' })
-  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
-  @ApiResponse({
-    status: 403,
-    description: 'Accès non autorisé à ce projet.',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Erreur lors de la vérification du fichier.',
-  })
-  confirmUpload(
-    @Body() confirmUploadDto: ConfirmUploadDto,
-    @Organization() organization: OrganizationEntity,
-  ) {
-    return this.documentsService.confirmUpload(
-      confirmUploadDto,
-      organization.id,
-    );
   }
 
   @Post('confirm-multiple-uploads')
