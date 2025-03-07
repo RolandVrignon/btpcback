@@ -6,6 +6,10 @@ DB_PASSWORD = postgres
 DB_NAME = btpc
 API_PORT = 8080
 API_SUBDOMAIN = aec-agents-api-dev
+DOCKER_HUB_USERNAME = roland.vrignon@iadopt.fr
+DOCKER_HUB_PREFIX = iadopt
+DOCKER_IMAGE_NAME = btpc-api
+DOCKER_IMAGE_TAG = latest
 
 # Commandes Docker
 .PHONY: docker-start
@@ -13,6 +17,41 @@ docker-start:
 	@echo "Démarrage du conteneur PostgreSQL avec pgvector..."
 	@docker start $(DOCKER_NAME) || docker run --name $(DOCKER_NAME) -e POSTGRES_PASSWORD=$(DB_PASSWORD) -e POSTGRES_USER=$(DB_USER) -e POSTGRES_DB=$(DB_NAME) -p $(DB_PORT):5432 -d ankane/pgvector
 	@echo "Conteneur PostgreSQL démarré sur le port $(DB_PORT)"
+
+# Commandes Docker pour le déploiement
+.PHONY: deploy
+deploy:
+	@echo "\033[1;36m=== Déploiement de l'application avec Docker ===\033[0m"
+	@if [ ! -f .env.docker ]; then \
+		echo "\033[1;31mErreur: Le fichier .env.docker n'existe pas.\033[0m"; \
+		echo "Veuillez créer ce fichier avec les variables d'environnement nécessaires."; \
+		exit 1; \
+	fi
+	@echo "\033[1;33mArrêt des conteneurs existants...\033[0m"
+	@docker-compose down || true
+	@echo "\033[1;33mConstruction de l'image Docker...\033[0m"
+	@docker-compose build
+	@echo "\033[1;33mDémarrage du conteneur avec les variables d'environnement de .env.docker...\033[0m"
+	@docker-compose up -d
+	@echo "\033[1;33mExécution des migrations Prisma...\033[0m"
+	@docker-compose exec -T api npx prisma migrate deploy || echo "\033[1;31mAttention: Échec de l'exécution des migrations. Vérifiez la connexion à la base de données.\033[0m"
+	@echo "\033[1;32mDéploiement terminé avec succès !\033[0m"
+	@echo "Pour voir les logs de l'API, exécutez: docker-compose logs -f api"
+	@echo "\033[1;33mConteneurs en cours d'exécution:\033[0m"
+	@docker-compose ps
+
+# Commande pour pousser l'image sur Docker Hub
+.PHONY: push-image
+push-image:
+	@echo "\033[1;36m=== Préparation et envoi de l'image Docker vers Docker Hub ===\033[0m"
+	@echo "\033[1;33mConstruction de l'image Docker...\033[0m"
+	@docker-compose build
+	@echo "\033[1;33mTaggage de l'image avec $(DOCKER_HUB_PREFIX)/$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)...\033[0m"
+	@docker tag btpc-api:latest $(DOCKER_HUB_PREFIX)/$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)
+	@echo "\033[1;33mEnvoi de l'image vers Docker Hub...\033[0m"
+	@docker push $(DOCKER_HUB_PREFIX)/$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)
+	@echo "\033[1;32mImage envoyée avec succès vers Docker Hub !\033[0m"
+	@echo "L'image est disponible à l'adresse: $(DOCKER_HUB_PREFIX)/$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)"
 
 .PHONY: docker-stop
 docker-stop:
@@ -163,6 +202,8 @@ help:
 	@echo "  make docker-stop         - Arrêter le conteneur PostgreSQL"
 	@echo "  make docker-logs         - Afficher les logs du conteneur PostgreSQL"
 	@echo "  make docker-psql         - Se connecter à PostgreSQL en ligne de commande"
+	@echo "  make deploy              - Déployer l'application avec Docker en utilisant .env.docker"
+	@echo "  make push-image          - Tagger et pousser l'image Docker sur Docker Hub"
 	@echo "  make prisma-studio       - Lancer Prisma Studio"
 	@echo "  make prisma-generate     - Générer le client Prisma"
 	@echo "  make prisma-migrate-dev  - Créer une nouvelle migration"

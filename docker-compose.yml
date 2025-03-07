@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: btpc-api:latest
+    container_name: btpc-api
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env.docker
+
+networks:
+  btpc-network:
+    driver: bridge

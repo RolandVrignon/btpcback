@@ -1,0 +1,38 @@
+node_modules
+npm-debug.log
+pnpm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Fichiers de build
+dist
+build
+.output
+
+# Fichiers d'environnement
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Fichiers de développement
+.git
+.github
+.vscode
+.idea
+*.md
+!README.md
+
+# Fichiers de test
+test
+coverage
+
+# Fichiers temporaires
+tmp
+temp
+uploads/*
+!uploads/.gitkeep

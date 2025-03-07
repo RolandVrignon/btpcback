@@ -32,7 +32,7 @@ export class IndexationQueueService implements OnModuleInit, OnModuleDestroy {
   ) {
     // Récupérer les paramètres depuis les variables d'environnement
     this.connectionPoolSize = parseInt(
-      this.configService.get<string>('DATABASE_CONNECTION_POOL_SIZE', '64'),
+      this.configService.get<string>('DATABASE_CONNECTION_POOL_SIZE', '65'),
       10,
     );
 

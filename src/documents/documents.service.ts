@@ -1017,21 +1017,6 @@ export class DocumentsService {
 
       console.log('End of documents processing. It is successfully.');
 
-      // Mettre à jour le statut de tous les documents à READY
-      for (const doc of documentsWithText) {
-        try {
-          await this.updateStatus(doc.document.id, 'READY');
-          console.log(
-            `Document ${doc.document.id} (${doc.document.filename}) mis à jour avec le statut READY`,
-          );
-        } catch (error) {
-          console.error(
-            `Erreur lors de la mise à jour du statut du document ${doc.document.id}:`,
-            error,
-          );
-        }
-      }
-
       // Calculer le temps d'exécution
       const endTime = Date.now();
       const executionTimeMs = endTime - startTime;
