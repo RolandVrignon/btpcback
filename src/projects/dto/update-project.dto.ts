@@ -13,6 +13,15 @@ export class UpdateProjectDto {
   name?: string;
 
   @ApiProperty({
+    description: 'La description du projet',
+    example: 'Description du projet',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @ApiProperty({
     description: "L'ID Salesforce du projet",
     example: 'SF123456',
     required: false,
@@ -29,6 +38,33 @@ export class UpdateProjectDto {
   @IsString()
   @IsOptional()
   ai_address?: string;
+
+  @ApiProperty({
+    description: 'La ville générée par IA',
+    example: 'Paris',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  ai_city?: string;
+
+  @ApiProperty({
+    description: 'Le code postal généré par IA',
+    example: '75001',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  ai_zip_code?: string;
+
+  @ApiProperty({
+    description: 'Le pays généré par IA',
+    example: 'France',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  ai_country?: string;
 
   @ApiProperty({
     description: 'Le statut du projet',

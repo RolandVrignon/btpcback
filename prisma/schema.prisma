@@ -92,8 +92,12 @@ model Apikey {
 model Project {
   id             String        @id @default(uuid())
   name           String        @default("New Project")
-  salesforce_id  String?
-  ai_address     String?
+  description    String?       @default("")
+  salesforce_id  String?       @default("")
+  ai_address     String?       @default("")
+  ai_city        String?       @default("")
+  ai_zip_code    String?       @default("")
+  ai_country     String?       @default("")
   status         ProjectStatus @default(DRAFT)
   tags           ProjectTag[]
   organizationId String

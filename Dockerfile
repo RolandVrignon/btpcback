@@ -27,6 +27,9 @@ RUN pnpm run build
 # Étape de production
 FROM node:20-alpine AS production
 
+# Installer poppler-utils pour pdfinfo
+RUN apk update && apk add --no-cache poppler-utils
+
 # Installer pnpm, prisma CLI, typescript et ts-node globalement
 RUN npm install -g pnpm prisma typescript ts-node
 

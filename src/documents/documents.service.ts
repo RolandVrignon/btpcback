@@ -973,6 +973,9 @@ export class DocumentsService {
             return;
           }
 
+          console.log('n8nWebhookUrl', `${n8nWebhookUrl}/documate`);
+          console.log('Sending data to n8n webhook...');
+
           // Créer une promesse pour la requête n8n
           const res = await fetch(`${n8nWebhookUrl}/documate`, {
             method: 'POST',
