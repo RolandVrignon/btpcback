@@ -178,143 +178,6 @@ export class DocumentsService {
   }
 
   /**
-   * Extrait les informations importantes d'un document en utilisant Gemini
-   * @param text Texte du document
-   * @param documentId ID du document
-   * @param projectId ID du projet
-   */
-  private async extractDocumentInfoWithGemini(
-    text: string,
-    documentId: string,
-    projectId: string,
-  ): Promise<void> {
-    try {
-      // Récupérer la clé API Gemini
-      const apiKey = this.configService.get<string>(
-        'GOOGLE_GENERATIVE_AI_API_KEY',
-      );
-      if (!apiKey) {
-        throw new Error("La clé API Gemini n'est pas configurée");
-      }
-
-      console.log(
-        'Extraction des informations avec Gemini pour le document:',
-        documentId,
-      );
-
-      // Limiter la taille du texte si nécessaire pour respecter les limites de Gemini
-      const maxLength = 30000; // Ajuster selon les limites de l'API Gemini
-      const truncatedText =
-        text.length > maxLength ? text.substring(0, maxLength) : text;
-
-      // Préparer le prompt pour Gemini
-      const prompt = `
-      Analyse le document suivant et extrait les informations importantes au format JSON.
-      A toi de juger de l'importance de chaque information.
-      Réponds uniquement avec un objet JSON valide sans aucun texte supplémentaire.
-
-      Chaque information doit être présentée sous forme d'objet JSON :
-      {
-        "key": "", // Nom de la clé
-        "value": "", // Valeur de la clé
-      }
-
-      Renvoie un tableau d'objets JSON.
-
-      Exemple de réponse:
-      [
-        {
-          "key": "Titre du document",
-          "value": "Résumé du contenu"
-        },
-        {
-          "key": "Auteur(s)",
-          "value": "John Doe"
-        }
-        [...]
-      ]
-
-      Ne renvoie que le tableau d'objets JSON, rien d'autre.
-
-      Document:
-
-      ${truncatedText}
-      `;
-
-      // Utiliser le SDK AI de Google pour communiquer avec Gemini
-      const { google } = await import('@ai-sdk/google');
-      const { generateText } = await import('ai');
-
-      // Configurer le modèle Gemini
-      process.env.GOOGLE_API_KEY = apiKey;
-
-      const model = 'gemini-1.5-pro';
-
-      // Générer la réponse avec Gemini
-      const { text: result, usage } = await generateText({
-        model: google(model),
-        prompt: prompt,
-        temperature: 0.8,
-      });
-
-      console.log('usage:', usage);
-
-      await this.usageService.logTextToTextUsage(
-        'GEMINI' as AI_Provider,
-        model,
-        {
-          totalTokens: usage.totalTokens,
-          promptTokens: usage.promptTokens,
-          completionTokens: usage.completionTokens,
-        },
-        projectId,
-      );
-
-      const responseText = result.toString();
-      console.log('responseText:', responseText);
-      const cleanedResponse = responseText.replace(/```json|```/g, '').trim();
-
-      // Parser le JSON
-      let documentInfo: Array<{
-        key: string;
-        value: string;
-      }>;
-
-      try {
-        documentInfo = JSON.parse(cleanedResponse) as Array<{
-          key: string;
-          value: string;
-        }>;
-      } catch (parseError) {
-        console.error('Erreur lors du parsing de la réponse JSON:', parseError);
-        throw new Error("La réponse de Gemini n'est pas un JSON valide");
-      }
-
-      console.log('Informations extraites:', documentInfo);
-
-      // Convertir le tableau en objet pour le stockage
-      const metadataObject = documentInfo.reduce(
-        (acc, item) => {
-          acc[item.key] = item.value;
-          return acc;
-        },
-        {} as Record<string, string>,
-      );
-
-      // Stocker les informations dans la base de données
-      await this.updateAiMetadata(documentId, metadataObject);
-
-      console.log('Informations du document enregistrées avec succès');
-    } catch (error) {
-      console.error(
-        "Erreur lors de l'extraction des informations avec Gemini:",
-        error,
-      );
-      // Ne pas propager l'erreur pour ne pas interrompre le processus global
-    }
-  }
-
-  /**
    * Crée les chunks dans la base de données et génère leurs embeddings
    * @param textChunks Tableau de chunks de texte avec leur numéro de page
    * @param documentId ID du document associé
@@ -348,31 +211,31 @@ export class DocumentsService {
             });
 
             // // 2. Générer l'embedding pour ce chunk
-            // const { embedding: embeddingVector, usage } = await embed({
-            //   model: openai.embedding(modelName),
-            //   value: chunk.text,
-            // });
+            const { embedding: embeddingVector, usage } = await embed({
+              model: openai.embedding(modelName),
+              value: chunk.text,
+            });
 
             // // 3. Créer l'embedding dans la base de données
-            // await this.embeddingsService.create({
-            //   provider: AI_Provider.OPENAI,
-            //   vector: embeddingVector,
-            //   modelName: modelName,
-            //   modelVersion: 'v1',
-            //   dimensions: embeddingVector.length,
-            //   chunkId: createdChunk.id,
-            //   usage: usage.tokens,
-            //   projectId: projectId,
-            // });
+            await this.embeddingsService.create({
+              provider: AI_Provider.OPENAI,
+              vector: embeddingVector,
+              modelName: modelName,
+              modelVersion: 'v1',
+              dimensions: embeddingVector.length,
+              chunkId: createdChunk.id,
+              usage: usage.tokens,
+              projectId: projectId,
+            });
 
             // Enregistrer l'utilisation pour l'embedding
-            // await this.usageService.create({
-            //   provider: AI_Provider.OPENAI,
-            //   modelName: modelName,
-            //   totalTokens: usage.tokens,
-            //   type: 'EMBEDDING',
-            //   projectId: projectId,
-            // });
+            await this.usageService.create({
+              provider: AI_Provider.OPENAI,
+              modelName: modelName,
+              totalTokens: usage.tokens,
+              type: 'EMBEDDING',
+              projectId: projectId,
+            });
 
             return { id: createdChunk.id, text: createdChunk.text };
           } catch (error) {
