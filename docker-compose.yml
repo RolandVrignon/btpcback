@@ -12,6 +12,35 @@ services:
       - "8080:8080"
     env_file:
       - .env.docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - btpc-network
+
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: btpc-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: btpc
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - btpc-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    name: btpc_postgres_data
 
 networks:
   btpc-network:

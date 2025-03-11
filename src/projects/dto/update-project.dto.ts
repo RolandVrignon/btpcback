@@ -13,13 +13,22 @@ export class UpdateProjectDto {
   name?: string;
 
   @ApiProperty({
-    description: 'La description du projet',
-    example: 'Description du projet',
+    description: 'Le résumé court du projet',
+    example: 'Résumé court du projet',
     required: false,
   })
   @IsString()
   @IsOptional()
-  description?: string;
+  short_summary?: string;
+
+  @ApiProperty({
+    description: 'Le résumé long du projet',
+    example: 'Résumé long du projet',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  long_summary?: string;
 
   @ApiProperty({
     description: "L'ID Salesforce du projet",

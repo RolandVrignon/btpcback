@@ -18,6 +18,48 @@ docker-start:
 	@docker start $(DOCKER_NAME) || docker run --name $(DOCKER_NAME) -e POSTGRES_PASSWORD=$(DB_PASSWORD) -e POSTGRES_USER=$(DB_USER) -e POSTGRES_DB=$(DB_NAME) -p $(DB_PORT):5432 -d ankane/pgvector
 	@echo "Conteneur PostgreSQL démarré sur le port $(DB_PORT)"
 
+# Commandes pour la base de données locale avec Docker Compose
+.PHONY: db-up
+db-up:
+	@echo "\033[1;36m=== Démarrage de la base de données PostgreSQL 17.3 ===\033[0m"
+	@docker-compose up -d postgres
+	@echo "\033[1;32mBase de données PostgreSQL démarrée sur le port 5433\033[0m"
+	@echo "Pour se connecter: psql -h localhost -p 5433 -U postgres -d btpc"
+
+.PHONY: db-migrate
+db-migrate:
+	@echo "\033[1;36m=== Exécution des migrations Prisma ===\033[0m"
+	@npx prisma migrate dev
+	@echo "\033[1;32mMigrations exécutées avec succès\033[0m"
+
+.PHONY: db-generate
+db-generate:
+	@echo "\033[1;36m=== Génération du client Prisma ===\033[0m"
+	@npx prisma generate
+	@echo "\033[1;32mClient Prisma généré avec succès\033[0m"
+
+.PHONY: db-seed
+db-seed:
+	@echo "\033[1;36m=== Alimentation de la base de données avec des données de test ===\033[0m"
+	@npx prisma db seed
+	@echo "\033[1;32mDonnées de test insérées avec succès\033[0m"
+
+.PHONY: db-setup
+db-setup: db-up db-migrate db-generate
+	@echo "\033[1;32m=== Configuration de la base de données terminée ===\033[0m"
+	@echo "Base de données démarrée, migrations appliquées et client généré"
+
+.PHONY: db-init-all
+db-init-all: db-up db-migrate db-generate db-seed
+	@echo "\033[1;32m=== Initialisation complète de la base de données terminée ===\033[0m"
+	@echo "Base de données démarrée, migrations appliquées, client généré et données initiales créées"
+
+.PHONY: db-reset
+db-reset:
+	@echo "\033[1;36m=== Réinitialisation de la base de données ===\033[0m"
+	@npx prisma migrate reset --force
+	@echo "\033[1;32mBase de données réinitialisée avec succès\033[0m"
+
 # Commandes Docker pour le déploiement
 .PHONY: deploy
 deploy:

@@ -15,12 +15,18 @@ datasource db {
   extensions = [pgvector(map: "vector")]
 }
 
+// Configuration du script seed
+generator seed {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
 enum ProjectStatus {
   DRAFT
-  IN_PROGRESS
-  PENDING_REVIEW
-  APPROVED
+  PROGRESS
+  PENDING
   COMPLETED
+  ERROR
 }
 
 enum ProjectTag {
@@ -92,7 +98,8 @@ model Apikey {
 model Project {
   id             String        @id @default(uuid())
   name           String        @default("New Project")
-  description    String?       @default("")
+  short_summary  String?       @default("")
+  long_summary   String?       @default("")
   salesforce_id  String?       @default("")
   ai_address     String?       @default("")
   ai_city        String?       @default("")

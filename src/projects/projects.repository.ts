@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateProjectDto } from './dto/create-project.dto';
+import { CreateProjectDto, ProjectStatus } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 
 @Injectable()
@@ -21,7 +21,7 @@ export class ProjectsRepository {
           data: {
             name: createProjectDto.name,
             salesforce_id: createProjectDto.salesforce_id,
-            status: createProjectDto.status,
+            status: ProjectStatus.DRAFT,
             tags: createProjectDto.tags,
             organization: {
               connect: {

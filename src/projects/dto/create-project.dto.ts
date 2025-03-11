@@ -3,10 +3,10 @@ import { IsString, IsOptional, IsEnum, IsArray, IsUUID } from 'class-validator';
 
 export enum ProjectStatus {
   DRAFT = 'DRAFT',
-  IN_PROGRESS = 'IN_PROGRESS',
-  PENDING_REVIEW = 'PENDING_REVIEW',
-  APPROVED = 'APPROVED',
+  PROGRESS = 'PROGRESS',
+  PENDING = 'PENDING',
   COMPLETED = 'COMPLETED',
+  ERROR = 'ERROR',
 }
 
 export enum ProjectTag {
@@ -38,16 +38,6 @@ export class CreateProjectDto {
   @IsString()
   @IsOptional()
   salesforce_id?: string;
-
-  @ApiProperty({
-    description: 'Le statut du projet',
-    enum: ProjectStatus,
-    default: ProjectStatus.DRAFT,
-    required: false,
-  })
-  @IsEnum(ProjectStatus)
-  @IsOptional()
-  status?: ProjectStatus;
 
   @ApiProperty({
     description: 'Les tags du projet',

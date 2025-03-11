@@ -347,32 +347,32 @@ export class DocumentsService {
               documentId,
             });
 
-            // 2. Générer l'embedding pour ce chunk
-            const { embedding: embeddingVector, usage } = await embed({
-              model: openai.embedding(modelName),
-              value: chunk.text,
-            });
+            // // 2. Générer l'embedding pour ce chunk
+            // const { embedding: embeddingVector, usage } = await embed({
+            //   model: openai.embedding(modelName),
+            //   value: chunk.text,
+            // });
 
-            // 3. Créer l'embedding dans la base de données
-            await this.embeddingsService.create({
-              provider: AI_Provider.OPENAI,
-              vector: embeddingVector,
-              modelName: modelName,
-              modelVersion: 'v1',
-              dimensions: embeddingVector.length,
-              chunkId: createdChunk.id,
-              usage: usage.tokens,
-              projectId: projectId,
-            });
+            // // 3. Créer l'embedding dans la base de données
+            // await this.embeddingsService.create({
+            //   provider: AI_Provider.OPENAI,
+            //   vector: embeddingVector,
+            //   modelName: modelName,
+            //   modelVersion: 'v1',
+            //   dimensions: embeddingVector.length,
+            //   chunkId: createdChunk.id,
+            //   usage: usage.tokens,
+            //   projectId: projectId,
+            // });
 
             // Enregistrer l'utilisation pour l'embedding
-            await this.usageService.create({
-              provider: AI_Provider.OPENAI,
-              modelName: modelName,
-              totalTokens: usage.tokens,
-              type: 'EMBEDDING',
-              projectId: projectId,
-            });
+            // await this.usageService.create({
+            //   provider: AI_Provider.OPENAI,
+            //   modelName: modelName,
+            //   totalTokens: usage.tokens,
+            //   type: 'EMBEDDING',
+            //   projectId: projectId,
+            // });
 
             return { id: createdChunk.id, text: createdChunk.text };
           } catch (error) {
@@ -977,22 +977,36 @@ export class DocumentsService {
           console.log('Sending data to n8n webhook...');
 
           // Créer une promesse pour la requête n8n
-          const res = await fetch(`${n8nWebhookUrl}/documate`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: payload,
-          });
+          const n8nResponse = await (async () => {
+            try {
+              const res = await fetch(`${n8nWebhookUrl}/documate`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: payload,
+              });
 
-          if (res.ok) {
-            console.log('Data successfully sent to n8n webhook.');
+              if (res.ok) {
+                console.log('Data successfully sent to n8n webhook.');
+              } else {
+                console.error(
+                  'Error sending data to n8n webhook:',
+                  res.status,
+                  res.statusText,
+                );
+              }
+              return res;
+            } catch (error) {
+              console.error('Error sending data to n8n webhook:', error);
+              throw error;
+            }
+          })();
+
+          if (n8nResponse.ok) {
+            console.log('Webhook n8n completed successfully.');
           } else {
-            console.error(
-              'Error sending data to n8n webhook:',
-              res.status,
-              res.statusText,
-            );
+            console.error('Webhook n8n failed.');
           }
         } catch (error) {
           console.error('Error sending data to n8n webhook:', error);
