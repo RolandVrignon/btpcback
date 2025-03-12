@@ -1,33 +1,30 @@
-import { IsEnum, IsOptional, IsUUID } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsEnum, IsString, IsOptional, IsArray } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DeliverableType } from '@prisma/client';
 
 export class CreateDeliverableDto {
   @ApiProperty({
-    description: 'Project ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
+    description: 'ID du projet',
+    example: 'd1746c95-2d42-4dea-a961-621e46172be0',
   })
-  @IsUUID()
+  @IsString()
   projectId: string;
 
   @ApiProperty({
-    description: 'Type of deliverable',
-    enum: [
-      'DESCRIPTIF_SOMMAIRE_DES_TRAVAUX',
-      'COMPARATEUR_INDICES',
-      'ANALYSE_ETHUDE_THERMIQUE',
-      'INCOHERENCE_DE_DONNEES',
-    ],
+    description: 'Type de livrable',
+    enum: DeliverableType,
     example: 'DESCRIPTIF_SOMMAIRE_DES_TRAVAUX',
   })
   @IsEnum(DeliverableType)
   type: DeliverableType;
 
-  @ApiProperty({
-    description: 'List of document IDs to be used in the deliverable',
-    example: ['123e4567-e89b-12d3-a456-426614174000'],
+  @ApiPropertyOptional({
+    description: 'Liste des IDs des documents à associer au livrable',
+    type: [String],
+    example: ['doc-id-1', 'doc-id-2'],
   })
-  @IsUUID('4', { each: true })
   @IsOptional()
-  documentIds: string[];
+  @IsArray()
+  @IsString({ each: true })
+  documentIds?: string[];
 }
