@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DeliverableFactory } from './factories/deliverable.factory';
@@ -11,6 +12,7 @@ import { DeliverablesRepository } from './deliverables.repository';
 import { Deliverable, DeliverableType } from '@prisma/client';
 import { DeliverableContext } from './interfaces/deliverable-context.interface';
 import { DeliverableQueueService } from './services/deliverable-queue.service';
+import { OrganizationEntity } from '../types';
 
 interface DeliverableProcessEvent {
   deliverableId: string;
@@ -55,10 +57,16 @@ export class DeliverablesService {
     });
   }
 
-  async create(dto: CreateDeliverableDto): Promise<DeliverableResult> {
-    const projectId = dto.projectId;
-    const type = dto.type;
-    const documentIds = dto.documentIds || [];
+  async create(createDeliverableDto: CreateDeliverableDto, organization: OrganizationEntity) {
+    // Verify project access
+    const project = await this.deliverablesRepository.findProject(createDeliverableDto.projectId);
+    if (project.organizationId !== organization.id) {
+      throw new ForbiddenException("Accès non autorisé au projet");
+    }
+
+    const projectId = createDeliverableDto.projectId;
+    const type = createDeliverableDto.type;
+    const documentIds = createDeliverableDto.documentIds || [];
 
     if (documentIds.length) {
       const documents =
@@ -111,17 +119,28 @@ export class DeliverablesService {
     };
   }
 
-  async findAll(projectId: string): Promise<Deliverable[]> {
+  async findAll(projectId: string, organization: OrganizationEntity) {
+    // Verify project access
+    const project = await this.deliverablesRepository.findProject(projectId);
+    if (project.organizationId !== organization.id) {
+      throw new ForbiddenException("Accès non autorisé au projet");
+    }
+
     return this.deliverablesRepository.findByProject(projectId);
   }
 
-  async findOne(id: string): Promise<Deliverable> {
-    const deliverable = (await this.deliverablesRepository.findById(
-      id,
-    )) as Deliverable;
+  async findOne(id: string, organization: OrganizationEntity) {
+    const deliverable = await this.deliverablesRepository.findById(id);
     if (!deliverable) {
       throw new NotFoundException(`Deliverable #${id} not found`);
     }
+
+    // Verify project access
+    const project = await this.deliverablesRepository.findProject(deliverable.projectId);
+    if (project.organizationId !== organization.id) {
+      throw new ForbiddenException("Accès non autorisé au livrable");
+    }
+
     return deliverable;
   }
 }

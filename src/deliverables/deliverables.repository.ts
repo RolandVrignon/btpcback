@@ -6,69 +6,29 @@ import {
   Document,
   DeliverableType,
   DocumentCategory,
+  Project,
 } from '@prisma/client';
 import { UpdateDeliverableDto } from './dto/update-deliverable.dto';
+import { CreateDeliverableDto } from './dto/create-deliverable.dto';
 
 @Injectable()
 export class DeliverablesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: {
-    projectId: string;
-    type: DeliverableType;
-    documentIds?: string[];
-  }): Promise<Deliverable> {
-    return this.prisma.executeWithQueue<Deliverable>(async () => {
-      // First, get all PROJECT documents if no specific documents are provided
-      const documentsToConnect = data.documentIds
-        ? await this.prisma.document.findMany({
-            where: {
-              id: {
-                in: data.documentIds,
-              },
-              projectId: data.projectId,
-            },
-            select: { id: true },
-          })
-        : await this.prisma.document.findMany({
-            where: {
-              projectId: data.projectId,
-              category: DocumentCategory.PROJECT,
-            },
-            select: { id: true },
-          });
-
-      const createData: Prisma.DeliverableCreateInput = {
-        type: data.type,
-        project: {
-          connect: { id: data.projectId },
-        },
-        status: 'DRAFT',
-        documents: {
-          create: documentsToConnect.map((doc) => ({
-            documentId: doc.id,
-            usage: 'primary',
-          })),
-        },
-      };
-
-      return await this.prisma.deliverable.create({
-        data: createData,
-        include: {
-          project: true,
-          documents: {
-            include: {
-              document: true,
-            },
-          },
-        },
-      });
+  async create(dto: CreateDeliverableDto): Promise<Deliverable> {
+    return this.prisma.deliverable.create({
+      data: {
+        projectId: dto.projectId,
+        type: dto.type,
+        status: 'PENDING',
+        documentIds: dto.documentIds || [],
+      },
     });
   }
 
-  async update(id: string, data: UpdateDeliverableDto): Promise<Deliverable> {
+  async update(id: string, dto: UpdateDeliverableDto): Promise<Deliverable> {
     const updateData: Prisma.DeliverableUpdateInput = {
-      ...data,
+      ...dto,
       updatedAt: new Date(),
     };
 
@@ -88,62 +48,43 @@ export class DeliverablesRepository {
   }
 
   async findByProject(projectId: string): Promise<Deliverable[]> {
-    return this.prisma.executeWithQueue<Deliverable[]>(async () => {
-      return await this.prisma.deliverable.findMany({
-        where: { projectId },
-        include: {
-          documents: {
-            include: {
-              document: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      });
+    return this.prisma.deliverable.findMany({
+      where: { projectId },
     });
   }
 
-  async findById(id: string): Promise<Deliverable | null> {
-    return this.prisma.executeWithQueue<Deliverable | null>(async () => {
-      return await this.prisma.deliverable.findUnique({
-        where: { id },
-        include: {
-          documents: {
-            include: {
-              document: true,
-            },
-          },
-        },
-      });
+  async findById(id: string): Promise<Deliverable> {
+    return this.prisma.deliverable.findUnique({
+      where: { id },
     });
   }
 
   async findDocuments(documentIds: string[]): Promise<Document[]> {
-    return this.prisma.executeWithQueue<Document[]>(async () => {
-      return await this.prisma.document.findMany({
-        where: {
-          id: {
-            in: documentIds,
-          },
+    return this.prisma.document.findMany({
+      where: {
+        id: {
+          in: documentIds,
         },
-      });
+      },
     });
   }
 
   async findDocumentsWithChunks(documentIds: string[]): Promise<Document[]> {
-    return this.prisma.executeWithQueue<Document[]>(async () => {
-      return await this.prisma.document.findMany({
-        where: {
-          id: {
-            in: documentIds,
-          },
+    return this.prisma.document.findMany({
+      where: {
+        id: {
+          in: documentIds,
         },
-        include: {
-          chunks: true,
-        },
-      });
+      },
+      include: {
+        chunks: true,
+      },
+    });
+  }
+
+  async findProject(projectId: string): Promise<Project> {
+    return this.prisma.project.findUnique({
+      where: { id: projectId },
     });
   }
 }
