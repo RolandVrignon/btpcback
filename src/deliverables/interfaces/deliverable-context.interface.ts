@@ -1,7 +1,7 @@
 import { DeliverableType } from '@prisma/client';
 
 export interface DeliverableContext {
-  id: number;
+  id: string;
   type: DeliverableType;
   projectId: string;
   documentIds: string[];

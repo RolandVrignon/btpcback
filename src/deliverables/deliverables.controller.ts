@@ -46,7 +46,11 @@ export class DeliverablesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer un livrable par son ID' })
-  @ApiParam({ name: 'id', description: 'ID du livrable' })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    description: 'ID du livrable',
+  })
   @ApiResponse({
     status: 200,
     description: 'Le livrable a été trouvé.',
@@ -56,7 +60,7 @@ export class DeliverablesController {
     status: 404,
     description: 'Livrable non trouvé.',
   })
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id') id: string) {
     return this.deliverablesService.findOne(id);
   }
 }

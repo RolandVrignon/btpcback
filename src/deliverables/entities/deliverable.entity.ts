@@ -3,9 +3,9 @@ import { ApiProperty } from '@nestjs/swagger';
 export class DeliverableEntity {
   @ApiProperty({
     description: 'ID unique du livrable',
-    example: 1,
+    example: 'uuid-example-123',
   })
-  id: number;
+  id: string;
 
   @ApiProperty({
     description: 'Type de livrable',

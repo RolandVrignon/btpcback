@@ -66,7 +66,7 @@ export class DeliverablesRepository {
     });
   }
 
-  async update(id: number, data: UpdateDeliverableDto): Promise<Deliverable> {
+  async update(id: string, data: UpdateDeliverableDto): Promise<Deliverable> {
     const updateData: Prisma.DeliverableUpdateInput = {
       ...data,
       updatedAt: new Date(),
@@ -105,7 +105,7 @@ export class DeliverablesRepository {
     });
   }
 
-  async findById(id: number): Promise<Deliverable | null> {
+  async findById(id: string): Promise<Deliverable | null> {
     return this.prisma.executeWithQueue<Deliverable | null>(async () => {
       return await this.prisma.deliverable.findUnique({
         where: { id },

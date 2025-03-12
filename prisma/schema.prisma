@@ -22,11 +22,11 @@ generator seed {
 }
 
 enum Status {
-  DRAFT       // En cours de création/modification
-  PROGRESS    // En cours de traitement
-  PENDING     // En attente
-  COMPLETED   // Terminé
-  ERROR       // Erreur survenue
+  DRAFT // En cours de création/modification
+  PROGRESS // En cours de traitement
+  PENDING // En attente
+  COMPLETED // Terminé
+  ERROR // Erreur survenue
 }
 
 enum ProjectTag {
@@ -66,17 +66,18 @@ enum AI_Provider {
 
 enum DeliverableType {
   DESCRIPTIF_SOMMAIRE_DES_TRAVAUX // DESCRIPTIF_SOMMAIRE_DES_TRAVAUX
-  COMPARATEUR_INDICES             // COMPARATEUR_INDICES
-  ANALYSE_ETHUDE_THERMIQUE        // ANALYSE_ETHUDE_THERMIQUE
-  INCOHERENCE_DE_DONNEES          // INCOHERENCE_DE_DONNEES
+  COMPARATEUR_INDICES // COMPARATEUR_INDICES
+  ANALYSE_ETHUDE_THERMIQUE // ANALYSE_ETHUDE_THERMIQUE
+  INCOHERENCE_DE_DONNEES // INCOHERENCE_DE_DONNEES
 }
 
 enum DocumentCategory {
-  PROJECT     // Document lié au projet/chantier (CCTP, CCAP, plans, etc.)
-  REFERENCE   // Document de référence/normatif (DTU, normes, notices, etc.)
+  PROJECT // Document lié au projet/chantier (CCTP, CCAP, plans, etc.)
+  REFERENCE // Document de référence/normatif (DTU, normes, notices, etc.)
 }
+
 model Organization {
-  id        String            @id @default(uuid())
+  id        String            @id @unique @default(uuid())
   name      String            @unique @db.VarChar(255)
   scope     OrganizationScope @default(REGULAR)
   apikeys   Apikey[]
@@ -87,7 +88,7 @@ model Organization {
 }
 
 model Apikey {
-  id             String       @id @default(uuid())
+  id             String       @id @unique @default(uuid())
   key            String       @unique @db.VarChar(255)
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -98,7 +99,7 @@ model Apikey {
 }
 
 model Project {
-  id             String        @id @default(uuid())
+  id             String        @id @unique @default(uuid())
   name           String        @default("New Project") @db.VarChar(255)
   short_summary  String?       @default("") @db.Text
   long_summary   String?       @default("") @db.Text
@@ -121,53 +122,53 @@ model Project {
 }
 
 model Document {
-  id                           String           @id @default(uuid())
-  filename                     String
-  path                         String
-  mimetype                     String
-  size                         Int
-  status                       Status           @default(DRAFT)
+  id       String @id @unique @default(uuid())
+  filename String
+  path     String
+  mimetype String
+  size     Int
+  status   Status @default(DRAFT)
 
   // Catégorisation du document
-  category                     DocumentCategory @default(PROJECT)
+  category DocumentCategory @default(PROJECT)
 
-  projectId                    String
-  project                      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  chunks                       Chunk[]
-  createdAt                    DateTime         @default(now())
-  updatedAt                    DateTime         @updatedAt
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  chunks    Chunk[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Champs existants d'analyse AI
-  ai_lot_identification        String[]         @default([])
-  ai_Type_batiment            String[]         @default([])
-  ai_Type_operation           String[]         @default([])
-  ai_Type_document            String[]         @default([])
-  ai_Phase_projet             String[]         @default([])
-  ai_Version_document         String[]         @default([])
-  ai_Adresse_projet           String?          @default("")
-  ai_Ville_projet             String?          @default("")
-  ai_Rue_projet               String?          @default("")
-  ai_CP_projet                String?          @default("")
-  ai_Maitre_ouvrage           String[]         @default([])
-  ai_Architecte               String[]         @default([])
-  ai_Autres_societes          String[]         @default([])
-  ai_societe_editrice_document String[]        @default([])
-  ai_metadata                 Json?            @default("{}") @db.JsonB
-  metadata_author             String?          @default("")
-  metadata_numPages           Int?             @default(0)
-  deliverables                DocumentDeliverable[]
+  ai_lot_identification        String[]              @default([])
+  ai_Type_batiment             String[]              @default([])
+  ai_Type_operation            String[]              @default([])
+  ai_Type_document             String[]              @default([])
+  ai_Phase_projet              String[]              @default([])
+  ai_Version_document          String[]              @default([])
+  ai_Adresse_projet            String?               @default("")
+  ai_Ville_projet              String?               @default("")
+  ai_Rue_projet                String?               @default("")
+  ai_CP_projet                 String?               @default("")
+  ai_Maitre_ouvrage            String[]              @default([])
+  ai_Architecte                String[]              @default([])
+  ai_Autres_societes           String[]              @default([])
+  ai_societe_editrice_document String[]              @default([])
+  ai_metadata                  Json?                 @default("{}") @db.JsonB
+  metadata_author              String?               @default("")
+  metadata_numPages            Int?                  @default(0)
+  deliverables                 DocumentDeliverable[]
 
-  version     Int        @default(1)
-  parentId    String?    // Pour référencer la version précédente
-  parent      Document?  @relation("DocumentVersions", fields: [parentId], references: [id])
-  versions    Document[] @relation("DocumentVersions")
+  version  Int        @default(1)
+  parentId String? // Pour référencer la version précédente
+  parent   Document?  @relation("DocumentVersions", fields: [parentId], references: [id])
+  versions Document[] @relation("DocumentVersions")
 
   @@index([projectId])
   @@index([category])
 }
 
 model Chunk {
-  id         String      @id @default(uuid())
+  id         String      @id @unique @default(uuid())
   text       String
   page       Int?
   documentId String
@@ -181,7 +182,7 @@ model Chunk {
 }
 
 model Embedding {
-  id           String                       @id @default(uuid())
+  id           String                       @id @unique @default(uuid())
   vector       Unsupported("vector(1536)")?
   modelName    String
   modelVersion String
@@ -198,7 +199,7 @@ model Embedding {
 }
 
 model Usage {
-  id               String      @id @default(uuid())
+  id               String      @id @unique @default(uuid())
   provider         AI_Provider @default(NOT_SPECIFIED)
   modelName        String
   promptTokens     Int?
@@ -216,28 +217,28 @@ model Usage {
 }
 
 model Deliverable {
-  id          Int            @id @default(autoincrement())
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id        String   @id @unique @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  type        DeliverableType
-  status      Status         @default(DRAFT)
+  type   DeliverableType
+  status Status          @default(DRAFT)
 
   // Relations
-  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  projectId   String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
 
   // Document references
-  documents   DocumentDeliverable[]
+  documents DocumentDeliverable[]
 
   // Result stored as JSONB
-  result      Json?        @db.JsonB
+  result Json? @db.JsonB
 
   // Error handling
-  error       String?
+  error String?
 
   // Metadata
-  metadata    Json?        @db.JsonB
+  metadata Json? @db.JsonB
 
   @@index([projectId])
   @@index([type])
@@ -248,12 +249,12 @@ model Deliverable {
 model DocumentDeliverable {
   id            Int         @id @default(autoincrement())
   document      Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  documentId    String      // Changed to String to match Document.id type
+  documentId    String // Changed to String to match Document.id type
   deliverable   Deliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
-  deliverableId Int
+  deliverableId String // Changed to String to match Deliverable.id type
 
   // Additional metadata about the document usage in this deliverable
-  usage         String?     // e.g., "primary", "reference", "appendix"
+  usage String? // e.g., "primary", "reference", "appendix"
 
   @@unique([documentId, deliverableId])
   @@index([documentId])

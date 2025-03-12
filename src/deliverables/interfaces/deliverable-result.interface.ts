@@ -1,10 +1,9 @@
 export interface DeliverableResult {
   success: boolean;
   data: {
-    id: number;
     status: string;
     message: string;
-  };
+  } | null;
   metadata?: Record<string, any>;
   error?: string;
 }

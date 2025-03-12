@@ -13,7 +13,7 @@ import { DeliverableContext } from './interfaces/deliverable-context.interface';
 import { DeliverableQueueService } from './services/deliverable-queue.service';
 
 interface DeliverableProcessEvent {
-  deliverableId: number;
+  deliverableId: string;
   type: DeliverableType;
   projectId: string;
   documentIds: string[];
@@ -88,7 +88,7 @@ export class DeliverablesService {
     }
 
     this.eventEmitter.emit('deliverable.process', {
-      deliverableId: deliverable.id,
+      deliverableId: deliverable.id.toString(),
       type: deliverable.type,
       projectId: deliverable.projectId,
       documentIds,
@@ -100,10 +100,14 @@ export class DeliverablesService {
     return {
       success: true,
       data: {
-        id: deliverable.id,
         status: 'PENDING',
         message: `Deliverable creation initiated (Queue: ${currentLoad}/${currentLoad + availableSlots} tasks running)`,
       },
+      metadata: {
+        id: deliverable.id,
+        type: deliverable.type,
+        projectId: deliverable.projectId,
+      }
     };
   }
 
@@ -111,7 +115,7 @@ export class DeliverablesService {
     return this.deliverablesRepository.findByProject(projectId);
   }
 
-  async findOne(id: number): Promise<Deliverable> {
+  async findOne(id: string): Promise<Deliverable> {
     const deliverable = (await this.deliverablesRepository.findById(
       id,
     )) as Deliverable;
