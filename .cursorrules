@@ -106,3 +106,5 @@ src/
 ```
 
 This enhanced architecture provides a comprehensive structure for each module, ensuring proper organization of code while maintaining the benefits of the three-layer architecture (controller, service, repository) for maintainability, scalability, and testability, all while adhering to SOLID principles.
+
+Ne te préoccupes pas des erreurs de lint. 

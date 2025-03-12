@@ -3,12 +3,16 @@ import { DeliverableType } from '@prisma/client';
 import { BaseDeliverableStrategy } from '../strategies/base-deliverable.strategy';
 import { DescriptifSommaireDesTravauxStrategy } from '../strategies/descriptif-sommaire-des-travaux.strategy';
 import { PrismaService } from '../../prisma/prisma.service';
+import { DeliverablesRepository } from '../deliverables.repository';
 
 @Injectable()
 export class DeliverableFactory {
   private strategies: Map<DeliverableType, BaseDeliverableStrategy>;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly deliverablesRepository: DeliverablesRepository,
+  ) {
     this.strategies = new Map();
     this.registerStrategies();
   }
@@ -17,7 +21,10 @@ export class DeliverableFactory {
     // Enregistrer toutes les stratégies disponibles
     this.strategies.set(
       'DESCRIPTIF_SOMMAIRE_DES_TRAVAUX' as DeliverableType,
-      new DescriptifSommaireDesTravauxStrategy(this.prisma),
+      new DescriptifSommaireDesTravauxStrategy(
+        this.prisma,
+        this.deliverablesRepository,
+      ),
     );
 
     // TODO: Ajouter les autres stratégies au fur et à mesure

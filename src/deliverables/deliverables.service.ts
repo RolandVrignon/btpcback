@@ -107,7 +107,7 @@ export class DeliverablesService {
         id: deliverable.id,
         type: deliverable.type,
         projectId: deliverable.projectId,
-      }
+      },
     };
   }
 

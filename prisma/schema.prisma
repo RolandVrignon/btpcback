@@ -247,8 +247,8 @@ model Deliverable {
 
 // Junction table for Many-to-Many relation between Document and Deliverable
 model DocumentDeliverable {
-  id            Int         @id @default(autoincrement())
-  document      Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  id            String    @id @unique @default(uuid())
+  document      Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
   documentId    String // Changed to String to match Document.id type
   deliverable   Deliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
   deliverableId String // Changed to String to match Deliverable.id type

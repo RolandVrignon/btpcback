@@ -1,8 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { Status } from '@prisma/client';
+import { Status, DeliverableType } from '@prisma/client';
 
 export class UpdateDeliverableDto {
+  @ApiProperty({
+    description: 'Type du livrable',
+    enum: DeliverableType,
+    required: false,
+  })
+  @IsEnum(DeliverableType)
+  @IsOptional()
+  type?: DeliverableType;
+
   @ApiProperty({
     description: 'Status du livrable',
     enum: ['DRAFT', 'PROGRESS', 'PENDING', 'COMPLETED', 'ERROR'],

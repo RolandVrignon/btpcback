@@ -3,7 +3,8 @@ import { BaseDeliverableStrategy } from './base-deliverable.strategy';
 import { DeliverableResult } from '../interfaces/deliverable-result.interface';
 import { DeliverableContext } from '../interfaces/deliverable-context.interface';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Document, DeliverableType, Prisma } from '@prisma/client';
+import { Document, DeliverableType } from '@prisma/client';
+import { DeliverablesRepository } from '../deliverables.repository';
 
 interface WorkSummary {
   title: string;
@@ -17,8 +18,11 @@ interface WorkSummary {
 
 @Injectable()
 export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrategy {
-  constructor(protected readonly prisma: PrismaService) {
-    super(prisma);
+  constructor(
+    protected readonly prisma: PrismaService,
+    protected readonly deliverablesRepository: DeliverablesRepository,
+  ) {
+    super(prisma, deliverablesRepository);
   }
 
   async validate(context: DeliverableContext): Promise<boolean> {
@@ -31,30 +35,22 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
 
   async generate(context: DeliverableContext): Promise<DeliverableResult> {
     try {
-      const documents = await this.prisma.document.findMany({
-        where: {
-          id: { in: context.documentIds },
-        },
-        include: {
-          chunks: true,
-        },
-      });
+      const documents =
+        await this.deliverablesRepository.findDocumentsWithChunks(
+          context.documentIds,
+        );
 
       const summary = await this.generateWorkSummary(documents);
       const jsonResult = JSON.stringify(summary);
 
-      // Mettre à jour le livrable existant
-      const updatedDeliverable = await this.prisma.deliverable.update({
-        where: {
-          id: context.id,
-        },
-        data: {
+      const updatedDeliverable = await this.deliverablesRepository.update(
+        context.id,
+        {
           type: DeliverableType.DESCRIPTIF_SOMMAIRE_DES_TRAVAUX,
-          result: jsonResult as Prisma.JsonValue,
+          result: jsonResult,
           status: 'COMPLETED',
-          updatedAt: new Date(),
         },
-      });
+      );
 
       console.log('Updated deliverable:', updatedDeliverable);
 
@@ -115,7 +111,6 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
   }
 
   private async analyzeDocuments(documents: Document[]): Promise<void> {
-    // Cette méthode sera implémentée pour analyser le contenu des documents
     console.log('Analyzing documents:', documents.length);
     await Promise.resolve();
   }

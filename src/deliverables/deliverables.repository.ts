@@ -131,4 +131,19 @@ export class DeliverablesRepository {
       });
     });
   }
+
+  async findDocumentsWithChunks(documentIds: string[]): Promise<Document[]> {
+    return this.prisma.executeWithQueue<Document[]>(async () => {
+      return await this.prisma.document.findMany({
+        where: {
+          id: {
+            in: documentIds,
+          },
+        },
+        include: {
+          chunks: true,
+        },
+      });
+    });
+  }
 }

@@ -4,10 +4,14 @@ import {
 } from '../interfaces/deliverable-result.interface';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Injectable } from '@nestjs/common';
+import { DeliverablesRepository } from '../deliverables.repository';
 
 @Injectable()
 export abstract class BaseDeliverableStrategy {
-  constructor(protected readonly prisma: PrismaService) {}
+  constructor(
+    protected readonly prisma: PrismaService,
+    protected readonly deliverablesRepository: DeliverablesRepository,
+  ) {}
 
   /**
    * Validate if the context is valid for this deliverable type
@@ -30,11 +34,9 @@ export abstract class BaseDeliverableStrategy {
   protected async validateDocuments(
     context: DeliverableContext,
   ): Promise<boolean> {
-    const documents = await this.prisma.document.findMany({
-      where: {
-        id: { in: context.documentIds },
-      },
-    });
+    const documents = await this.deliverablesRepository.findDocuments(
+      context.documentIds,
+    );
 
     const requiredTypes = this.getRequiredDocumentTypes();
     const documentTypes = documents.flatMap((doc) => doc.ai_Type_document);
