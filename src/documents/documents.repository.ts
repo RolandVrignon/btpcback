@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
-import { DocumentStatus, Prisma } from '@prisma/client';
+import { Status, Prisma, Document } from '@prisma/client';
 
 @Injectable()
 export class DocumentsRepository {
@@ -11,21 +11,15 @@ export class DocumentsRepository {
   /**
    * Crée un nouveau document dans la base de données
    */
-  async create(createDocumentDto: CreateDocumentDto) {
-    try {
-      return await this.prisma.executeWithQueue(() =>
-        this.prisma.document.create({
-          data: createDocumentDto,
-          include: {
-            project: true,
-          },
-        }),
-      );
-    } catch (error) {
-      throw new Error(
-        `Erreur lors de la création du document: ${(error as Error).message}`,
-      );
-    }
+  async create(data: CreateDocumentDto): Promise<Document> {
+    return this.prisma.executeWithQueue<Document>(async () => {
+      return await this.prisma.document.create({
+        data,
+        include: {
+          project: true,
+        },
+      });
+    });
   }
 
   /**
@@ -199,7 +193,7 @@ export class DocumentsRepository {
   /**
    * Met à jour le statut d'un document
    */
-  async updateStatus(documentId: string, status: DocumentStatus) {
+  async updateStatus(documentId: string, status: Status): Promise<Document> {
     try {
       const document = await this.prisma.executeWithQueue(() =>
         this.prisma.document.findUnique({
@@ -217,7 +211,12 @@ export class DocumentsRepository {
         this.prisma.document.update({
           where: { id: documentId },
           data: {
-            status: status,
+            status: status as
+              | 'DRAFT'
+              | 'PROGRESS'
+              | 'PENDING'
+              | 'COMPLETED'
+              | 'ERROR',
           },
           include: {
             project: true,

@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsOptional, IsEnum, IsArray } from 'class-validator';
-import { ProjectStatus, ProjectTag } from './create-project.dto';
+import { Status, ProjectTag } from './create-project.dto';
 
 export class UpdateProjectDto {
   @ApiProperty({
@@ -77,12 +77,12 @@ export class UpdateProjectDto {
 
   @ApiProperty({
     description: 'Le statut du projet',
-    enum: ProjectStatus,
+    enum: Status,
     required: false,
   })
-  @IsEnum(ProjectStatus)
+  @IsEnum(Status)
   @IsOptional()
-  status?: ProjectStatus;
+  status?: Status;
 
   @ApiProperty({
     description: 'Les tags du projet',

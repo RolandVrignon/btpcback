@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsOptional, IsEnum, IsArray, IsUUID } from 'class-validator';
 
-export enum ProjectStatus {
+export enum Status {
   DRAFT = 'DRAFT',
   PROGRESS = 'PROGRESS',
   PENDING = 'PENDING',

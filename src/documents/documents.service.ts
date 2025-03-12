@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
-import { Project, DocumentStatus, AI_Provider } from '@prisma/client';
+import { Project, Status, AI_Provider } from '@prisma/client';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -97,7 +97,7 @@ export class DocumentsService {
     return this.documentsRepository.remove(id);
   }
 
-  async updateStatus(documentId: string, status: DocumentStatus) {
+  async updateStatus(documentId: string, status: Status) {
     return this.documentsRepository.updateStatus(documentId, status);
   }
 
@@ -131,7 +131,7 @@ export class DocumentsService {
       // Mettre à jour le statut du document
       await this.documentsRepository.updateStatus(
         documentId,
-        'PROCESSING' as DocumentStatus,
+        'PROCESSING' as Status,
       );
 
       // Logique pour analyser le document...
@@ -151,7 +151,7 @@ export class DocumentsService {
       // Mettre à jour le statut du document une fois l'analyse terminée
       await this.documentsRepository.updateStatus(
         documentId,
-        'READY' as DocumentStatus,
+        'READY' as Status,
       );
 
       return { success: true, message: 'Document analysé avec succès' };
@@ -160,7 +160,7 @@ export class DocumentsService {
       try {
         await this.documentsRepository.updateStatus(
           documentId,
-          'END' as DocumentStatus,
+          'END' as Status,
         );
       } catch (updateError) {
         console.error(
@@ -270,7 +270,7 @@ export class DocumentsService {
    * @param organizationId ID de l'organisation
    * @returns Le document avec son statut actuel
    */
-  async monitorDocumentStatus(
+  async monitorStatus(
     documentId: string,
     projectId: string,
     organizationId: string,
@@ -312,20 +312,18 @@ export class DocumentsService {
    * @param status Statut du document
    * @returns Message explicatif
    */
-  private getStatusMessage(status: DocumentStatus): string {
+  private getStatusMessage(status: Status): string {
     switch (status) {
-      case 'NOT_STARTED':
-        return 'Le document est en attente de traitement';
-      case 'PROCESSING':
-        return 'Le document est en cours de traitement';
-      case 'INDEXING':
-        return 'Le document est en cours de vectorisation';
-      case 'RAFTING':
-        return 'Le document est en cours de résumé';
-      case 'READY':
-        return 'Le document est prêt à être utilisé';
-      case 'END':
-        return 'Une erreur est survenue lors du traitement du document';
+      case 'DRAFT':
+        return 'Brouillon';
+      case 'PROGRESS':
+        return 'En cours de traitement';
+      case 'PENDING':
+        return 'En attente';
+      case 'COMPLETED':
+        return 'Prêt';
+      case 'ERROR':
+        return 'Erreur';
       default:
         return 'Statut inconnu';
     }
@@ -734,18 +732,13 @@ export class DocumentsService {
           await this.s3Client.send(headObjectCommand);
 
           // Si le fichier existe, créer un document dans la base de données
-          const document = await this.prisma.document.create({
-            data: {
-              filename: fileName,
-              path: filePath,
-              mimetype: 'application/octet-stream', // À déterminer en fonction du nom de fichier
-              size: 0, // Taille inconnue à ce stade
-              projectId: dto.projectId,
-              status: 'PROCESSING', // Statut initial
-            },
-            include: {
-              project: true,
-            },
+          const document = await this.create({
+            filename: fileName,
+            path: filePath,
+            mimetype: 'application/octet-stream',
+            size: 0,
+            projectId: dto.projectId,
+            status: 'PROGRESS',
           });
 
           // Télécharger et extraire le texte seulement pour PDF ou DOCX
@@ -964,7 +957,7 @@ export class DocumentsService {
           error,
         );
         // En cas d'erreur, mettre à jour le statut du document à END
-        await this.updateStatus(docData.document.id, 'END');
+        await this.updateStatus(docData.document.id, 'ERROR');
       }
     }
   }

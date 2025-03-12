@@ -1,15 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsNotEmpty } from 'class-validator';
-import { DocumentStatus } from '@prisma/client';
+import { Status } from '@prisma/client';
 
-export class UpdateDocumentStatusDto {
+export class UpdateStatusDto {
   @ApiProperty({
     description: 'Le nouveau statut du document',
-    enum: DocumentStatus,
+    enum: ['DRAFT', 'PROGRESS', 'PENDING', 'COMPLETED', 'ERROR'],
     example: 'INDEXING',
     required: true,
   })
-  @IsEnum(DocumentStatus)
+  @IsEnum(Status)
   @IsNotEmpty()
-  status: DocumentStatus;
+  status: Status;
 }

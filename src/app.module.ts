@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { PrismaModule } from './prisma/prisma.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { ApikeysModule } from './apikeys/apikeys.module';
@@ -12,12 +13,14 @@ import { UsageModule } from './usage/usage.module';
 import { SearchModule } from './search/search.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { DeliverablesModule } from './deliverables/deliverables.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    EventEmitterModule.forRoot(),
     PrismaModule,
     OrganizationsModule,
     ApikeysModule,
@@ -28,6 +31,7 @@ import { AppService } from './app.service';
     StorageModule,
     UsageModule,
     SearchModule,
+    DeliverablesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

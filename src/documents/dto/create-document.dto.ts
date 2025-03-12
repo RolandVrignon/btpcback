@@ -6,7 +6,7 @@ import {
   IsEnum,
   IsOptional,
 } from 'class-validator';
-import { DocumentStatus } from '@prisma/client';
+import { Status } from '@prisma/client';
 
 export class CreateDocumentDto {
   @ApiProperty({
@@ -51,11 +51,11 @@ export class CreateDocumentDto {
 
   @ApiProperty({
     description: 'Le statut du document',
-    enum: ['NOT_STARTED', 'PROCESSING', 'READY', 'ERROR'],
-    default: 'NOT_STARTED',
+    enum: ['DRAFT', 'PROCESSING', 'PENDING', 'READY', 'ERROR'],
+    default: 'DRAFT',
     required: false,
   })
-  @IsEnum(DocumentStatus)
+  @IsEnum(Status)
   @IsOptional()
-  status?: DocumentStatus;
+  status?: Status;
 }

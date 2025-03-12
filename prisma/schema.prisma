@@ -21,12 +21,12 @@ generator seed {
   output   = "../node_modules/.prisma/client"
 }
 
-enum ProjectStatus {
-  DRAFT
-  PROGRESS
-  PENDING
-  COMPLETED
-  ERROR
+enum Status {
+  DRAFT       // En cours de création/modification
+  PROGRESS    // En cours de traitement
+  PENDING     // En attente
+  COMPLETED   // Terminé
+  ERROR       // Erreur survenue
 }
 
 enum ProjectTag {
@@ -38,16 +38,6 @@ enum ProjectTag {
   URGENT
   ECO_FRIENDLY
   HISTORIC
-}
-
-enum DocumentStatus {
-  NOT_STARTED
-  INDEXING
-  RAFTING
-  PENDING
-  PROCESSING
-  READY
-  END
 }
 
 enum OrganizationScope {
@@ -74,19 +64,31 @@ enum AI_Provider {
   DEEPSEEK
 }
 
+enum DeliverableType {
+  DESCRIPTIF_SOMMAIRE_DES_TRAVAUX // DESCRIPTIF_SOMMAIRE_DES_TRAVAUX
+  COMPARATEUR_INDICES             // COMPARATEUR_INDICES
+  ANALYSE_ETHUDE_THERMIQUE        // ANALYSE_ETHUDE_THERMIQUE
+  INCOHERENCE_DE_DONNEES          // INCOHERENCE_DE_DONNEES
+}
+
+enum DocumentCategory {
+  PROJECT     // Document lié au projet/chantier (CCTP, CCAP, plans, etc.)
+  REFERENCE   // Document de référence/normatif (DTU, normes, notices, etc.)
+}
 model Organization {
   id        String            @id @default(uuid())
-  name      String            @unique
+  name      String            @unique @db.VarChar(255)
   scope     OrganizationScope @default(REGULAR)
   apikeys   Apikey[]
   projects  Project[]
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
+  deletedAt DateTime?
 }
 
 model Apikey {
   id             String       @id @default(uuid())
-  key            String       @unique
+  key            String       @unique @db.VarChar(255)
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
@@ -97,57 +99,71 @@ model Apikey {
 
 model Project {
   id             String        @id @default(uuid())
-  name           String        @default("New Project")
-  short_summary  String?       @default("")
-  long_summary   String?       @default("")
-  salesforce_id  String?       @default("")
-  ai_address     String?       @default("")
-  ai_city        String?       @default("")
-  ai_zip_code    String?       @default("")
-  ai_country     String?       @default("")
-  status         ProjectStatus @default(DRAFT)
+  name           String        @default("New Project") @db.VarChar(255)
+  short_summary  String?       @default("") @db.Text
+  long_summary   String?       @default("") @db.Text
+  salesforce_id  String?       @default("") @db.VarChar(255)
+  ai_address     String?       @default("") @db.VarChar(255)
+  ai_city        String?       @default("") @db.VarChar(255)
+  ai_zip_code    String?       @default("") @db.VarChar(10)
+  ai_country     String?       @default("") @db.VarChar(255)
+  status         Status        @default(DRAFT)
   tags           ProjectTag[]
-  organizationId String
+  organizationId String        @db.VarChar(255)
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   documents      Document[]
   usages         Usage[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+  deliverables   Deliverable[]
 
   @@index([organizationId])
 }
 
 model Document {
-  id                           String         @id @default(uuid())
+  id                           String           @id @default(uuid())
   filename                     String
   path                         String
   mimetype                     String
   size                         Int
-  status                       DocumentStatus @default(NOT_STARTED)
+  status                       Status           @default(DRAFT)
+
+  // Catégorisation du document
+  category                     DocumentCategory @default(PROJECT)
+
   projectId                    String
-  project                      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project                      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   chunks                       Chunk[]
-  createdAt                    DateTime       @default(now())
-  updatedAt                    DateTime       @updatedAt
-  ai_lot_identification        String[]       @default([])
-  ai_Type_batiment             String[]       @default([])
-  ai_Type_operation            String[]       @default([])
-  ai_Type_document             String[]       @default([])
-  ai_Phase_projet              String[]       @default([])
-  ai_Version_document          String[]       @default([])
-  ai_Adresse_projet            String?        @default("")
-  ai_Ville_projet              String?        @default("")
-  ai_Rue_projet                String?        @default("")
-  ai_CP_projet                 String?        @default("")
-  ai_Maitre_ouvrage            String[]       @default([])
-  ai_Architecte                String[]       @default([])
-  ai_Autres_societes           String[]       @default([])
-  ai_societe_editrice_document String[]       @default([])
-  ai_metadata                  Json?          @default("{}") @db.JsonB
-  metadata_author              String?        @default("")
-  metadata_numPages            Int?           @default(0)
+  createdAt                    DateTime         @default(now())
+  updatedAt                    DateTime         @updatedAt
+
+  // Champs existants d'analyse AI
+  ai_lot_identification        String[]         @default([])
+  ai_Type_batiment            String[]         @default([])
+  ai_Type_operation           String[]         @default([])
+  ai_Type_document            String[]         @default([])
+  ai_Phase_projet             String[]         @default([])
+  ai_Version_document         String[]         @default([])
+  ai_Adresse_projet           String?          @default("")
+  ai_Ville_projet             String?          @default("")
+  ai_Rue_projet               String?          @default("")
+  ai_CP_projet                String?          @default("")
+  ai_Maitre_ouvrage           String[]         @default([])
+  ai_Architecte               String[]         @default([])
+  ai_Autres_societes          String[]         @default([])
+  ai_societe_editrice_document String[]        @default([])
+  ai_metadata                 Json?            @default("{}") @db.JsonB
+  metadata_author             String?          @default("")
+  metadata_numPages           Int?             @default(0)
+  deliverables                DocumentDeliverable[]
+
+  version     Int        @default(1)
+  parentId    String?    // Pour référencer la version précédente
+  parent      Document?  @relation("DocumentVersions", fields: [parentId], references: [id])
+  versions    Document[] @relation("DocumentVersions")
 
   @@index([projectId])
+  @@index([category])
 }
 
 model Chunk {
@@ -197,4 +213,49 @@ model Usage {
   @@index([projectId])
   @@index([modelName])
   @@index([type])
+}
+
+model Deliverable {
+  id          Int            @id @default(autoincrement())
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  type        DeliverableType
+  status      Status         @default(DRAFT)
+
+  // Relations
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId   String
+
+  // Document references
+  documents   DocumentDeliverable[]
+
+  // Result stored as JSONB
+  result      Json?        @db.JsonB
+
+  // Error handling
+  error       String?
+
+  // Metadata
+  metadata    Json?        @db.JsonB
+
+  @@index([projectId])
+  @@index([type])
+  @@index([status])
+}
+
+// Junction table for Many-to-Many relation between Document and Deliverable
+model DocumentDeliverable {
+  id            Int         @id @default(autoincrement())
+  document      Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentId    String      // Changed to String to match Document.id type
+  deliverable   Deliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  deliverableId Int
+
+  // Additional metadata about the document usage in this deliverable
+  usage         String?     // e.g., "primary", "reference", "appendix"
+
+  @@unique([documentId, deliverableId])
+  @@index([documentId])
+  @@index([deliverableId])
 }

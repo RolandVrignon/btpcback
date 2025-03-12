@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
-import { Project, DocumentStatus, AI_Provider } from '@prisma/client';
+import { Project, Status, AI_Provider } from '@prisma/client';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -90,7 +90,7 @@ export class DocumentsService {
     return this.documentsRepository.remove(id);
   }
 
-  async updateStatus(documentId: string, status: DocumentStatus) {
+  async updateStatus(documentId: string, status: Status) {
     return this.documentsRepository.updateStatus(documentId, status);
   }
 
@@ -152,7 +152,7 @@ export class DocumentsService {
       await this.createChunksWithEmbeddings(chunks, documentId, projectId);
 
       // Étape 6: Rafting - Extraire les informations importantes avec Gemini
-      await this.updateStatus(documentId, 'RAFTING' as DocumentStatus);
+      await this.updateStatus(documentId, 'RAFTING' as Status);
 
       // Concaténer tous les textes des pages pour l'analyse globale
       const extractedText = pageTexts.map((pt) => pt.text).join('\n\n');
@@ -189,7 +189,7 @@ export class DocumentsService {
       // Mettre à jour le statut du document
       await this.documentsRepository.updateStatus(
         documentId,
-        'PROCESSING' as DocumentStatus,
+        'PROCESSING' as Status,
       );
 
       // Logique pour analyser le document...
@@ -209,7 +209,7 @@ export class DocumentsService {
       // Mettre à jour le statut du document une fois l'analyse terminée
       await this.documentsRepository.updateStatus(
         documentId,
-        'READY' as DocumentStatus,
+        'READY' as Status,
       );
 
       return { success: true, message: 'Document analysé avec succès' };
@@ -218,7 +218,7 @@ export class DocumentsService {
       try {
         await this.documentsRepository.updateStatus(
           documentId,
-          'END' as DocumentStatus,
+          'END' as Status,
         );
       } catch (updateError) {
         console.error(
@@ -324,7 +324,7 @@ export class DocumentsService {
   ): Promise<void> {
     try {
       // Mettre à jour le statut du document à PROCESSING
-      await this.updateStatus(documentId, 'INDEXING' as DocumentStatus);
+      await this.updateStatus(documentId, 'INDEXING' as Status);
 
       // Récupérer les informations du document
       const document = await this.findOne(documentId);
@@ -360,7 +360,7 @@ export class DocumentsService {
       await this.createChunksWithEmbeddings(chunks, documentId, projectId);
 
       // Étape 7: Rafting - Extraire les informations importantes avec Gemini
-      await this.updateStatus(documentId, 'RAFTING' as DocumentStatus);
+      await this.updateStatus(documentId, 'RAFTING' as Status);
       await this.extractDocumentInfoWithGemini(
         extractedText,
         documentId,
@@ -506,7 +506,7 @@ export class DocumentsService {
    * @param organizationId ID de l'organisation
    * @returns Le document avec son statut actuel
    */
-  async monitorDocumentStatus(
+  async monitorStatus(
     documentId: string,
     projectId: string,
     organizationId: string,
@@ -550,7 +550,7 @@ export class DocumentsService {
    * @param status Statut du document
    * @returns Message explicatif
    */
-  private getStatusMessage(status: DocumentStatus): string {
+  private getStatusMessage(status: Status): string {
     switch (status) {
       case 'NOT_STARTED':
         return 'Le document est en attente de traitement';

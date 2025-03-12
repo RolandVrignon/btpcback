@@ -9,18 +9,18 @@ import {
 } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateDocumentDto } from './create-document.dto';
-import { DocumentStatus } from '@prisma/client';
+import { Status } from '@prisma/client';
 
 export class UpdateDocumentDto extends PartialType(CreateDocumentDto) {
   @ApiProperty({
     description: 'Le statut du document',
-    enum: DocumentStatus,
+    enum: Status,
     example: 'PROCESSING',
     required: false,
   })
-  @IsEnum(DocumentStatus)
+  @IsEnum(Status)
   @IsOptional()
-  status?: DocumentStatus;
+  status?: Status;
 
   @ApiProperty({
     description: 'Identification du lot',

@@ -1,4 +1,4 @@
-import { OrganizationScope, ProjectStatus, ProjectTag } from '@prisma/client';
+import { OrganizationScope, Status, ProjectTag } from '@prisma/client';
 import { Request } from 'express';
 
 /**
@@ -20,7 +20,7 @@ export interface ProjectEntity {
   name: string;
   salesforce_id?: string;
   ai_address?: string;
-  status: ProjectStatus;
+  status: Status;
   tags: ProjectTag[];
   organizationId: string;
   createdAt: Date;

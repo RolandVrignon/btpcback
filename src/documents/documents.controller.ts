@@ -26,7 +26,7 @@ import { extname } from 'path';
 import { Organization } from '../decorators/organization.decorator';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { OrganizationEntity } from '../types';
-import { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
+import { UpdateStatusDto } from './dto/update-document-status.dto';
 import { MonitorDocumentDto } from './dto/monitor-document.dto';
 import { ApiKeyGuard } from '../common/guards/api-key.guard';
 import { ViewDocumentDto } from './dto/view-document.dto';
@@ -205,7 +205,7 @@ export class DocumentsController {
   })
   async updateStatus(
     @Param('id') id: string,
-    @Body() updateStatusDto: UpdateDocumentStatusDto,
+    @Body() updateStatusDto: UpdateStatusDto,
   ) {
     // Vérifier que le document appartient à un projet de l'organisation
     await this.documentsService.findOne(id);
@@ -228,7 +228,7 @@ export class DocumentsController {
     @Body() monitorDocumentDto: MonitorDocumentDto,
     @Organization() organization: OrganizationEntity,
   ) {
-    return this.documentsService.monitorDocumentStatus(
+    return this.documentsService.monitorStatus(
       monitorDocumentDto.documentId,
       monitorDocumentDto.projectId,
       organization.id,
