@@ -35,6 +35,14 @@ async function clearDatabase() {
     await prisma.project.deleteMany({});
     console.log('✅ Table Project vidée');
 
+    console.log('Suppression des données de la table Deliverable...');
+    await prisma.deliverable.deleteMany({});
+    console.log('✅ Table Deliverable vidée');
+
+    console.log('Suppression des données de la table DocumentDeliverable...');
+    await prisma.documentDeliverable.deleteMany({});
+    console.log('✅ Table DocumentDeliverable vidée');
+
     console.log('\n🎉 Base de données nettoyée avec succès !');
     console.log('Les tables Organization et ApiKey ont été préservées.');
   } catch (error) {
