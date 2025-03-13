@@ -8,9 +8,10 @@ import {
 } from '../middleware/api-key.middleware';
 import { RequestMethod } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
+import { ProjectsModule } from '../projects/projects.module';
 
 @Module({
-  imports: [ConfigModule, PrismaModule],
+  imports: [ConfigModule, PrismaModule, ProjectsModule],
   controllers: [StorageController],
   providers: [StorageService],
   exports: [StorageService],

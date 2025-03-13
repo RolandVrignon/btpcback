@@ -10,6 +10,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { EmbeddingsModule } from '../embeddings/embeddings.module';
 import { ChunksModule } from '../chunks/chunks.module';
 import { IndexationQueueModule } from './queue/indexation-queue.module';
+import { GuardsModule } from '../common/guards/guards.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { IndexationQueueModule } from './queue/indexation-queue.module';
     EmbeddingsModule,
     ChunksModule,
     IndexationQueueModule,
+    GuardsModule,
   ],
   controllers: [DocumentsController],
   providers: [DocumentsService, DocumentsRepository],

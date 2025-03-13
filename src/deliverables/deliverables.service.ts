@@ -7,7 +7,6 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DeliverableFactory } from './factories/deliverable.factory';
 import { CreateDeliverableDto } from './dto/create-deliverable.dto';
-import { DeliverableResult } from './interfaces/deliverable-result.interface';
 import { DeliverablesRepository } from './deliverables.repository';
 import { Deliverable, DeliverableType } from '@prisma/client';
 import { DeliverableContext } from './interfaces/deliverable-context.interface';

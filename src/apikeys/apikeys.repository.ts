@@ -235,8 +235,22 @@ export class ApikeysRepository {
   }
 
   async findByKey(key: string) {
-    return this.prisma.apikey.findUnique({
-      where: { key },
-    });
+    return this.prisma.executeWithQueue(() =>
+      this.prisma.apikey.findUnique({
+        where: { key },
+      }),
+    );
+  }
+
+  /**
+   * Récupère une clé API par sa valeur avec l'organisation associée
+   */
+  async findByKeyWithOrganization(key: string) {
+    return this.prisma.executeWithQueue(() =>
+      this.prisma.apikey.findUnique({
+        where: { key },
+        include: { organization: true },
+      }),
+    );
   }
 }

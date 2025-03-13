@@ -1,9 +1,9 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { EmbeddingsService } from '../embeddings/embeddings.service';
 import { SearchRequestDto, SearchResponseDto, SearchResultDto } from './dto';
-import { Prisma, Project } from '@prisma/client';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
+import { ProjectsRepository } from '../projects/projects.repository';
+import { SearchRepository } from './search.repository';
 
 // Interface pour les résultats de recherche vectorielle
 interface VectorSearchResult {
@@ -29,8 +29,9 @@ export class SearchService {
   private readonly embeddingVersion = 'v1';
 
   constructor(
-    private readonly prisma: PrismaService,
     private readonly embeddingsService: EmbeddingsService,
+    private readonly projectsRepository: ProjectsRepository,
+    private readonly searchRepository: SearchRepository,
   ) {}
 
   /**
@@ -169,47 +170,17 @@ export class SearchService {
 
     const { result: results, executionTimeMs } =
       await this.measureExecutionTime(async () => {
-        // Construire la requête de base qui recherche directement dans les chunks
-        let query = Prisma.sql`
-          SELECT c.id, c."documentId", c.text, c.page,
-                 ts_rank_cd(to_tsvector('french', c.text), plainto_tsquery('french', ${params.query})) AS score
-          FROM "Chunk" c
-          JOIN "Document" d ON c."documentId" = d.id
-          JOIN "Project" p ON d."projectId" = p.id
-          WHERE to_tsvector('french', c.text) @@ plainto_tsquery('french', ${params.query})
-        `;
-
-        // Ajouter des filtres conditionnels selon la priorité
-        if (params.documentId) {
-          // Si documentId est renseigné, on limite la recherche à ce document (prioritaire)
-          console.log(
-            `[SEMANTIC SEARCH] Scope limité au document: ${params.documentId}`,
-          );
-          query = Prisma.sql`
-            ${query} AND c."documentId" = ${params.documentId}
-          `;
-        } else if (params.projectId) {
-          // Si documentId est null mais projectId est renseigné, on étend la recherche à tous les documents du projet
-          console.log(
-            `[SEMANTIC SEARCH] Scope étendu au projet: ${params.projectId}`,
-          );
-          query = Prisma.sql`
-            ${query} AND d."projectId" = ${params.projectId}
-          `;
-        }
-
-        // Ajouter le tri et la limite
-        query = Prisma.sql`
-          ${query} ORDER BY score DESC
-          LIMIT ${params.limit || 5}
-        `;
-
         console.log(
           `[SEMANTIC SEARCH] Exécution de la requête full-text sur les chunks`,
         );
 
-        // Exécuter la requête
-        const chunks = await this.prisma.$queryRaw(query);
+        // Utiliser le repository pour la recherche sémantique
+        const chunks = await this.searchRepository.semanticSearch(
+          params.query,
+          params.documentId,
+          params.projectId,
+          params.limit || 5,
+        );
 
         console.log(
           `[SEMANTIC SEARCH] Nombre de résultats: ${Array.isArray(chunks) ? chunks.length : 0}`,
@@ -307,49 +278,19 @@ export class SearchService {
           );
         }
 
-        // Construire la requête hybride
-        let query = Prisma.sql`
-          SELECT c.id, c."documentId", c.text, c.page,
-                 (0.7 * (1 - (e.vector <=> (SELECT vector FROM "Embedding" WHERE "chunkId" = ${referenceChunkId} AND "modelName" = ${this.embeddingModel} AND "modelVersion" = ${this.embeddingVersion})::vector)) +
-                  0.3 * ts_rank_cd(to_tsvector('french', c.text), plainto_tsquery('french', ${params.query}))) AS score
-          FROM "Chunk" c
-          JOIN "Embedding" e ON c.id = e."chunkId"
-          JOIN "Document" d ON c."documentId" = d.id
-          JOIN "Project" p ON d."projectId" = p.id
-          WHERE p."organizationId" = ${organizationId}
-          AND e."modelName" = ${this.embeddingModel}
-          AND e."modelVersion" = ${this.embeddingVersion}
-        `;
-
-        // Ajouter des filtres conditionnels selon la priorité
-        if (params.documentId) {
-          // Si documentId est renseigné, on limite la recherche à ce document (prioritaire)
-          console.log(
-            `[HYBRID SEARCH] Scope limité au document: ${params.documentId}`,
-          );
-          query = Prisma.sql`
-            ${query} AND c."documentId" = ${params.documentId}
-          `;
-        } else if (params.projectId) {
-          // Si documentId est null mais projectId est renseigné, on étend la recherche à tous les documents du projet
-          console.log(
-            `[HYBRID SEARCH] Scope étendu au projet: ${params.projectId}`,
-          );
-          query = Prisma.sql`
-            ${query} AND d."projectId" = ${params.projectId}
-          `;
-        }
-
-        // Ajouter le tri et la limite
-        query = Prisma.sql`
-          ${query} ORDER BY score DESC
-          LIMIT ${params.limit || 5}
-        `;
-
         console.log(`[HYBRID SEARCH] Exécution de la requête hybride`);
 
-        // Exécuter la requête
-        const chunks = await this.prisma.$queryRaw(query);
+        // Utiliser le repository pour la recherche hybride
+        const chunks = await this.searchRepository.hybridSearch(
+          params.query,
+          referenceChunkId,
+          this.embeddingModel,
+          this.embeddingVersion,
+          organizationId,
+          params.documentId,
+          params.projectId,
+          params.limit || 5,
+        );
 
         console.log(
           `[HYBRID SEARCH] Nombre de résultats finaux: ${Array.isArray(chunks) ? chunks.length : 0}`,
@@ -393,29 +334,17 @@ export class SearchService {
    * @param projectId ID du projet
    * @param organizationId ID de l'organisation
    * @throws {NotFoundException} Si le projet n'existe pas
-   * @throws {ForbiddenException} Si l'organisation n'a pas accès au projet
    */
   private async checkProjectAccess(projectId: string, organizationId: string) {
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
-      include: {
-        organization: true,
-      },
-    });
+    // Utiliser le repository au lieu d'appeler directement Prisma
+    const project =
+      await this.projectsRepository.findProjectByIdAndOrganization(
+        projectId,
+        organizationId,
+      );
 
     if (!project) {
-      throw new NotFoundException('Projet non trouvé');
-    }
-
-    // Le type Project de Prisma n'inclut pas organizationId directement
-    // mais il est présent dans le résultat de la requête
-    interface ProjectWithOrg extends Project {
-      organizationId: string;
-    }
-
-    const projectWithOrg = project as ProjectWithOrg;
-    if (projectWithOrg.organizationId !== organizationId) {
-      throw new ForbiddenException('Accès non autorisé à ce projet');
+      throw new NotFoundException('Projet non trouvé ou accès non autorisé');
     }
 
     return project;

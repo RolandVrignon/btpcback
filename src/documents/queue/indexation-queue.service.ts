@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../../prisma/prisma.service';
+import { IndexationQueueRepository } from './indexation-queue.repository';
 
 interface IndexationTask {
   id: string;
@@ -28,7 +28,7 @@ export class IndexationQueueService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private configService: ConfigService,
-    private prisma: PrismaService,
+    private indexationQueueRepository: IndexationQueueRepository,
   ) {
     // Récupérer les paramètres depuis les variables d'environnement
     this.connectionPoolSize = parseInt(
@@ -86,7 +86,7 @@ export class IndexationQueueService implements OnModuleInit, OnModuleDestroy {
 
   private async monitorConnectionUsage() {
     try {
-      // Obtenir des statistiques sur l'utilisation des connexions
+      // Obtenir des statistiques sur l'utilisation des connexions via le repository
       const stats = await this.getConnectionStats();
 
       // Ajuster le nombre maximum de tâches concurrentes en fonction de l'utilisation
@@ -100,46 +100,18 @@ export class IndexationQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async getConnectionStats() {
-    // Cette fonction est conceptuelle
-    // Dans un environnement réel, vous devriez obtenir ces informations de votre base de données
-    // Par exemple, pour PostgreSQL, vous pourriez exécuter:
-    // SELECT count(*) as active FROM pg_stat_activity WHERE state = 'active'
+    // Utiliser le repository pour obtenir les statistiques de connexion
+    const stats = await this.indexationQueueRepository.getConnectionStats();
 
-    try {
-      // Exemple avec une requête SQL directe via Prisma
-      const result = await this.prisma.$queryRaw`
-        SELECT
-          count(*) FILTER (WHERE state = 'active') as active_connections,
-          count(*) as total_connections
-        FROM pg_stat_activity
-        WHERE datname = current_database()
-      `;
-
-      // Utiliser une assertion de type pour éviter l'erreur
-      const typedResult = result as Array<{
-        active_connections: string;
-        total_connections: string;
-      }>;
-
-      // Ajouter des logs pour le diagnostic
-      const activeConnections = parseInt(typedResult[0].active_connections, 10);
-      const totalConnections = parseInt(typedResult[0].total_connections, 10);
-
-      return {
-        activeConnections,
-        totalConnections,
-      };
-    } catch (error) {
-      console.error(
-        'Erreur lors de la récupération des statistiques de connexion:',
-        error,
-      );
-      // Valeurs par défaut en cas d'erreur - utiliser la valeur configurée
-      return {
-        activeConnections: this.concurrentTasks,
-        totalConnections: this.connectionPoolSize,
-      };
+    if (stats) {
+      return stats;
     }
+
+    // Valeurs par défaut en cas d'erreur - utiliser la valeur configurée
+    return {
+      activeConnections: this.concurrentTasks,
+      totalConnections: this.connectionPoolSize,
+    };
   }
 
   private adjustConcurrency(

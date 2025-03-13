@@ -205,4 +205,21 @@ export class ProjectsRepository {
 
     return project;
   }
+
+  async findProjectByIdAndOrganization(
+    projectId: string,
+    organizationId: string,
+  ) {
+    return this.prisma.executeWithQueue(() =>
+      this.prisma.project.findFirst({
+        where: {
+          id: projectId,
+          organizationId,
+        },
+        include: {
+          organization: true,
+        },
+      }),
+    );
+  }
 }

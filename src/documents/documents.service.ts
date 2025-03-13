@@ -4,7 +4,6 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { Project, Status, AI_Provider } from '@prisma/client';
 import { UpdateDocumentDto } from './dto/update-document.dto';
@@ -39,7 +38,6 @@ export class DocumentsService {
   private bucketName: string;
 
   constructor(
-    private prisma: PrismaService,
     private configService: ConfigService,
     private usageService: UsageService,
     private readonly documentsRepository: DocumentsRepository,
@@ -279,18 +277,8 @@ export class DocumentsService {
     // Vérifier si le projet existe et appartient à l'organisation
     await this.checkProjectAccess(projectId, organizationId);
 
-    // Récupérer le document
-    const document = await this.prisma.document.findUnique({
-      where: { id: documentId },
-      select: {
-        id: true,
-        filename: true,
-        status: true,
-        projectId: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    // Récupérer le document via le repository
+    const document = await this.documentsRepository.findOne(documentId);
 
     if (!document) {
       throw new NotFoundException(`Document non trouvé`);
@@ -331,12 +319,9 @@ export class DocumentsService {
   }
 
   async checkProjectAccess(projectId: string, organizationId: string) {
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
-      include: {
-        organization: true,
-      },
-    });
+    // Utiliser le repository pour vérifier l'accès au projet
+    const project =
+      await this.documentsRepository.findProjectWithOrganization(projectId);
 
     if (!project) {
       throw new NotFoundException('Projet non trouvé');
@@ -663,20 +648,12 @@ export class DocumentsService {
     // Construire le chemin du fichier sur S3
     const filePath = `ct-toolbox/${projectId}/${fileName}`;
 
-    // Rechercher le document dans la base de données
-    const document = await this.prisma.document.findFirst({
-      where: {
-        projectId,
-        filename: fileName,
-        path: filePath,
-      },
-      select: {
-        id: true,
-        filename: true,
-        status: true,
-        ai_metadata: true,
-      },
-    });
+    // Rechercher le document dans la base de données via le repository
+    const document = await this.documentsRepository.findByFilenameAndProject(
+      projectId,
+      fileName,
+      filePath,
+    );
 
     if (!document) {
       throw new NotFoundException(`Document non trouvé`);
@@ -701,15 +678,12 @@ export class DocumentsService {
     // Enregistrer le temps de début
     const startTime = Date.now();
 
-    // Vérifier si le projet existe et appartient à l'organisation
-    const project = await this.prisma.project.findFirst({
-      where: {
-        id: dto.projectId,
-        organization: {
-          id: organizationId,
-        },
-      },
-    });
+    // Vérifier si le projet existe et appartient à l'organisation via le repository
+    const project =
+      await this.documentsRepository.findProjectByIdAndOrganization(
+        dto.projectId,
+        organizationId,
+      );
 
     if (!project) {
       throw new NotFoundException(
@@ -970,11 +944,10 @@ export class DocumentsService {
    * @returns Le document trouvé ou null si aucun document ne correspond
    */
   async findByProjectIdAndFileName(projectId: string, fileName: string) {
-    return this.prisma.document.findFirst({
-      where: {
-        projectId,
-        filename: fileName,
-      },
-    });
+    // Utiliser le repository pour cette recherche
+    return this.documentsRepository.findByProjectIdAndFileName(
+      projectId,
+      fileName,
+    );
   }
 }

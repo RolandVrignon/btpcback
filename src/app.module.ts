@@ -14,6 +14,7 @@ import { SearchModule } from './search/search.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DeliverablesModule } from './deliverables/deliverables.module';
+import { SharedModule } from './shared/shared.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { DeliverablesModule } from './deliverables/deliverables.module';
     }),
     EventEmitterModule.forRoot(),
     PrismaModule,
+    SharedModule,
     OrganizationsModule,
     ApikeysModule,
     ProjectsModule,

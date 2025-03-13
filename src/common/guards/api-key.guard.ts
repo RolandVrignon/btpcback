@@ -4,43 +4,40 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { Request } from 'express';
-import { PrismaService } from '../../prisma/prisma.service';
+import { ApikeysRepository } from '../../apikeys/apikeys.repository';
 
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private apikeysRepository: ApikeysRepository) {}
 
-  canActivate(
-    context: ExecutionContext,
-  ): boolean | Promise<boolean> | Observable<boolean> {
-    const request = context.switchToHttp().getRequest<Request>();
-    const apiKey = request.headers['x-api-key'] as string;
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const apiKey = this.extractApiKey(request);
 
     if (!apiKey) {
-      throw new UnauthorizedException('Clé API manquante');
+      throw new UnauthorizedException('API key is missing');
     }
 
-    return this.validateApiKey(apiKey, request);
-  }
-
-  private async validateApiKey(
-    apiKey: string,
-    request: Request,
-  ): Promise<boolean> {
-    const foundApiKey = await this.prisma.apikey.findUnique({
-      where: { key: apiKey },
-      include: { organization: true },
-    });
+    // Utiliser le repository pour valider la clé API
+    const foundApiKey =
+      await this.apikeysRepository.findByKeyWithOrganization(apiKey);
 
     if (!foundApiKey) {
-      throw new UnauthorizedException('Clé API invalide');
+      throw new UnauthorizedException('Invalid API key');
     }
 
     // Ajouter l'organisation à la requête pour une utilisation ultérieure
-    request['organization'] = foundApiKey.organization;
+    request.organization = foundApiKey.organization;
+    request.apiKey = foundApiKey;
 
     return true;
+  }
+
+  private extractApiKey(request: any): string | undefined {
+    const apiKey =
+      request.headers['x-api-key'] ||
+      request.query.apiKey ||
+      request.body?.apiKey;
+    return apiKey;
   }
 }

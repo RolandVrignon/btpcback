@@ -20,12 +20,14 @@ export class ApiKeyMiddleware implements NestMiddleware {
 
     try {
       // Rechercher la clé API dans la base de données
-      const apiKeyData = await this.prisma.apikey.findUnique({
-        where: { key: apiKey },
-        include: {
-          organization: true,
-        },
-      });
+      const apiKeyData = await this.prisma.executeWithQueue(() =>
+        this.prisma.apikey.findUnique({
+          where: { key: apiKey },
+          include: {
+            organization: true,
+          },
+        }),
+      );
 
       if (!apiKeyData) {
         throw new UnauthorizedException('Clé API invalide');
@@ -59,12 +61,14 @@ export class AdminApiKeyMiddleware implements NestMiddleware {
 
     try {
       // Rechercher la clé API dans la base de données
-      const apiKeyData = await this.prisma.apikey.findUnique({
-        where: { key: apiKey },
-        include: {
-          organization: true,
-        },
-      });
+      const apiKeyData = await this.prisma.executeWithQueue(() =>
+        this.prisma.apikey.findUnique({
+          where: { key: apiKey },
+          include: {
+            organization: true,
+          },
+        }),
+      );
 
       if (!apiKeyData) {
         throw new UnauthorizedException('Clé API invalide');

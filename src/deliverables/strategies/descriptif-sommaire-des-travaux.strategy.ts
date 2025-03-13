@@ -95,18 +95,18 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
       }
 
       await this.generateWorkSummary(documents, context.projectId, context.id);
-
-      return;
     } catch (error: unknown) {
       console.error('Error generating deliverable:', error);
+      // Don't return anything in the error case since the return type is void
       if (error instanceof Error) {
-        return this.handleError(error);
+        this.handleError(error);
+      } else {
+        // Update the deliverable with an error status
+        await this.deliverablesRepository.update(context.id, {
+          status: 'ERROR',
+          error: 'Une erreur inattendue est survenue',
+        } as any);
       }
-      return {
-        success: false,
-        data: null,
-        error: 'Une erreur inattendue est survenue',
-      };
     }
   }
 

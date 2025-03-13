@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -27,7 +26,7 @@ import { CreateBucketResponseDto } from './dto/create-bucket-response.dto';
 import { DownloadFileDto } from './dto/download-file.dto';
 import { DownloadFileResponseDto } from './dto/download-file-response.dto';
 import { RootObjectsResponseDto } from './dto/root-objects-response.dto';
-import { PrismaService } from '../prisma/prisma.service';
+import { ProjectsRepository } from '../projects/projects.repository';
 
 @Injectable()
 export class StorageService {
@@ -36,7 +35,7 @@ export class StorageService {
 
   constructor(
     private configService: ConfigService,
-    private prisma: PrismaService,
+    private projectsRepository: ProjectsRepository,
   ) {
     this.s3Client = new S3Client({
       region: this.configService.get<string>('AWS_REGION', 'eu-west-3'),
@@ -67,19 +66,14 @@ export class StorageService {
     organizationId: string,
   ): Promise<PresignedUrlResponseDto> {
     // Vérifier si le projet existe et appartient à l'organisation
-    const project = await this.prisma.project.findUnique({
-      where: { id: dto.projectId },
-      include: {
-        organization: true,
-      },
-    });
+    const project =
+      await this.projectsRepository.findProjectByIdAndOrganization(
+        dto.projectId,
+        organizationId,
+      );
 
     if (!project) {
       throw new NotFoundException('Projet non trouvé');
-    }
-
-    if (project.organizationId !== organizationId) {
-      throw new ForbiddenException('Accès non autorisé à ce projet');
     }
 
     const expiresIn = 3600; // 1 heure par défaut
@@ -116,19 +110,14 @@ export class StorageService {
     organizationId: string,
   ): Promise<DownloadFileResponseDto> {
     // Vérifier si le projet existe et appartient à l'organisation
-    const project = await this.prisma.project.findUnique({
-      where: { id: dto.projectId },
-      include: {
-        organization: true,
-      },
-    });
+    const project =
+      await this.projectsRepository.findProjectByIdAndOrganization(
+        dto.projectId,
+        organizationId,
+      );
 
     if (!project) {
       throw new NotFoundException('Projet non trouvé');
-    }
-
-    if (project.organizationId !== organizationId) {
-      throw new ForbiddenException('Accès non autorisé à ce projet');
     }
 
     const expiresIn = 3600; // 1 heure par défaut

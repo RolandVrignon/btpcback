@@ -51,8 +51,8 @@ export class CreateDocumentDto {
 
   @ApiProperty({
     description: 'Le statut du document',
-    enum: ['DRAFT', 'PROCESSING', 'PENDING', 'READY', 'ERROR'],
-    default: 'DRAFT',
+    enum: Status,
+    default: Status.DRAFT,
     required: false,
   })
   @IsEnum(Status)

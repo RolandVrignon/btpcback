@@ -10,13 +10,12 @@ import {
   AdminApiKeyMiddleware,
   ApiKeyMiddleware,
 } from '../middleware/api-key.middleware';
-import { ApikeysRepository } from './apikeys.repository';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
   imports: [PrismaModule],
   controllers: [ApikeysController],
-  providers: [ApikeysService, ApikeysRepository],
+  providers: [ApikeysService],
   exports: [ApikeysService],
 })
 export class ApikeysModule implements NestModule {

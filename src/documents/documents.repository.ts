@@ -309,4 +309,42 @@ export class DocumentsRepository {
       }),
     );
   }
+
+  async findProjectWithOrganization(projectId: string) {
+    return this.prisma.executeWithQueue(() =>
+      this.prisma.project.findUnique({
+        where: { id: projectId },
+        include: {
+          organization: true,
+        },
+      }),
+    );
+  }
+
+  async findProjectByIdAndOrganization(
+    projectId: string,
+    organizationId: string,
+  ) {
+    return this.prisma.executeWithQueue(() =>
+      this.prisma.project.findFirst({
+        where: {
+          id: projectId,
+          organization: {
+            id: organizationId,
+          },
+        },
+      }),
+    );
+  }
+
+  async findByProjectIdAndFileName(projectId: string, fileName: string) {
+    return this.prisma.executeWithQueue(() =>
+      this.prisma.document.findFirst({
+        where: {
+          projectId,
+          filename: fileName,
+        },
+      }),
+    );
+  }
 }
