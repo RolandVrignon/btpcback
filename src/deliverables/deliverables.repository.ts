@@ -18,11 +18,27 @@ export class DeliverablesRepository {
   async create(dto: CreateDeliverableDto): Promise<Deliverable> {
     return this.prisma.deliverable.create({
       data: {
-        projectId: dto.projectId,
         type: dto.type,
         status: 'PENDING',
-        documentIds: dto.documentIds || [],
+        project: {
+          connect: { id: dto.projectId }
+        },
+        documents: dto.documentIds ? {
+          create: dto.documentIds.map(documentId => ({
+            document: {
+              connect: { id: documentId }
+            },
+            usage: 'primary'
+          }))
+        } : undefined
       },
+      include: {
+        documents: {
+          include: {
+            document: true
+          }
+        }
+      }
     });
   }
 
@@ -32,30 +48,42 @@ export class DeliverablesRepository {
       updatedAt: new Date(),
     };
 
-    return this.prisma.executeWithQueue<Deliverable>(async () => {
-      return await this.prisma.deliverable.update({
-        where: { id },
-        data: updateData,
-        include: {
-          documents: {
-            include: {
-              document: true,
-            },
+    return this.prisma.deliverable.update({
+      where: { id },
+      data: updateData,
+      include: {
+        documents: {
+          include: {
+            document: true,
           },
         },
-      });
+      },
     });
   }
 
   async findByProject(projectId: string): Promise<Deliverable[]> {
     return this.prisma.deliverable.findMany({
       where: { projectId },
+      include: {
+        documents: {
+          include: {
+            document: true
+          }
+        }
+      }
     });
   }
 
   async findById(id: string): Promise<Deliverable> {
     return this.prisma.deliverable.findUnique({
       where: { id },
+      include: {
+        documents: {
+          include: {
+            document: true
+          }
+        }
+      }
     });
   }
 
