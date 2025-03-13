@@ -115,18 +115,7 @@ export class DeliverablesService {
     const currentLoad = this.queueService.getCurrentLoad();
     const availableSlots = this.queueService.getAvailableSlots();
 
-    return {
-      success: true,
-      data: {
-        status: 'PENDING',
-        message: `Deliverable creation initiated (Queue: ${currentLoad}/${currentLoad + availableSlots} tasks running)`,
-      },
-      metadata: {
-        id: deliverable.id,
-        type: deliverable.type,
-        projectId: deliverable.projectId,
-      },
-    };
+    return deliverable;
   }
 
   async findAll(projectId: string, organization: OrganizationEntity) {

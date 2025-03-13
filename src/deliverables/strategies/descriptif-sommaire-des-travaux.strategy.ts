@@ -56,7 +56,7 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
     return ['CCTP', 'CCAP'];
   }
 
-  async generate(context: DeliverableContext): Promise<DeliverableResult> {
+  async generate(context: DeliverableContext): Promise<void> {
     try {
       console.log('Document IDs received:', context.documentIds);
 
@@ -94,38 +94,9 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
         );
       }
 
-      const summary = await this.generateWorkSummary(
-        documents,
-        context.projectId,
-        context.id,
-      );
-      const jsonResult = JSON.stringify(summary);
+      await this.generateWorkSummary(documents, context.projectId, context.id);
 
-      const updatedDeliverable = await this.deliverablesRepository.update(
-        context.id,
-        {
-          type: DeliverableType.DESCRIPTIF_SOMMAIRE_DES_TRAVAUX,
-          short_result: jsonResult,
-          status: 'COMPLETED',
-        } as any,
-      );
-
-      console.log('Updated deliverable:', updatedDeliverable);
-
-      return {
-        success: true,
-        data: {
-          status: summary.status,
-          message: summary.message,
-        },
-        metadata: {
-          documentCount: documents?.length || 0,
-          generatedAt: new Date().toISOString(),
-          deliverableId: updatedDeliverable.id,
-          title: summary.title,
-          sections: summary.sections,
-        },
-      };
+      return;
     } catch (error: unknown) {
       console.error('Error generating deliverable:', error);
       if (error instanceof Error) {

@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { DeliverableType, Status } from '@prisma/client';
 import { JsonValue } from '@prisma/client/runtime/library';
+import { IsObject, isObject } from 'class-validator';
 
 export class DeliverableEntity {
   @ApiProperty({
@@ -44,20 +45,20 @@ export class DeliverableEntity {
   @ApiProperty({
     description: 'Résultat court du livrable',
     example: {
-      summary: 'Résumé du travail effectué...',
-      recommendations: ['Recommandation 1', 'Recommandation 2'],
+      result: 'Résumé du travail effectué...',
     },
     required: false,
   })
+  @IsObject()
   short_result?: JsonValue;
 
   @ApiProperty({
     description: 'Résultat long du livrable',
     example: {
-      summary: 'Résumé du travail effectué...',
-      recommendations: ['Recommandation 1', 'Recommandation 2'],
+      result: 'Résumé du travail effectué...',
     },
   })
+  @IsObject()
   long_result?: JsonValue;
 
   @ApiProperty({

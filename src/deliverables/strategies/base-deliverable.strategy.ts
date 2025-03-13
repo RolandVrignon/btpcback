@@ -25,7 +25,7 @@ export abstract class BaseDeliverableStrategy {
   /**
    * Generate the deliverable
    */
-  abstract generate(context: DeliverableContext): Promise<DeliverableResult>;
+  abstract generate(context: DeliverableContext): Promise<void>;
 
   /**
    * Get required document types for this deliverable
