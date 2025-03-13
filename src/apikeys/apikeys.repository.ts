@@ -233,4 +233,10 @@ export class ApikeysRepository {
       );
     }
   }
+
+  async findByKey(key: string) {
+    return this.prisma.apikey.findUnique({
+      where: { key },
+    });
+  }
 }

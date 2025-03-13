@@ -159,4 +159,25 @@ export class ChunksRepository {
       throw error;
     }
   }
+
+  async getDocumentChunks(
+    documentId: string,
+  ): Promise<{ id: string; text: string }[]> {
+    const chunks = await this.prisma.executeWithQueue(() =>
+      this.prisma.chunk.findMany({
+        where: {
+          documentId,
+        },
+        select: {
+          id: true,
+          text: true,
+        },
+        orderBy: {
+          order: 'asc',
+        },
+      }),
+    );
+
+    return chunks;
+  }
 }

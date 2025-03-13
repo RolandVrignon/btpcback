@@ -123,8 +123,7 @@ prisma-generate:
 .PHONY: prisma-migrate-dev
 prisma-migrate-dev:
 	@echo "Création d'une nouvelle migration..."
-	@read -p "Nom de la migration: " name; \
-	pnpm prisma migrate dev --name $$name
+	pnpm prisma migrate dev
 
 .PHONY: prisma-migrate-reset
 prisma-migrate-reset:

@@ -112,21 +112,17 @@ export class DocumentsRepository {
   /**
    * Récupère tous les documents d'un projet
    */
-  async findByProject(projectId: string) {
-    try {
-      return await this.prisma.executeWithQueue(() =>
-        this.prisma.document.findMany({
-          where: { projectId },
-          include: {
-            project: true,
-          },
-        }),
-      );
-    } catch (error) {
-      throw new Error(
-        `Erreur lors de la récupération des documents du projet: ${(error as Error).message}`,
-      );
-    }
+  async findByProject(projectId: string): Promise<Document[]> {
+    return this.prisma.executeWithQueue(() =>
+      this.prisma.document.findMany({
+        where: {
+          projectId,
+        },
+        include: {
+          chunks: true,
+        },
+      }),
+    );
   }
 
   /**
@@ -285,5 +281,32 @@ export class DocumentsRepository {
         `Erreur lors de la mise à jour des métadonnées AI: ${(error as Error).message}`,
       );
     }
+  }
+
+  async findDocuments(documentIds: string[]): Promise<Document[]> {
+    return this.prisma.executeWithQueue(() =>
+      this.prisma.document.findMany({
+        where: {
+          id: {
+            in: documentIds,
+          },
+        },
+      }),
+    );
+  }
+
+  async findDocumentsWithChunks(documentIds: string[]): Promise<Document[]> {
+    return this.prisma.executeWithQueue(() =>
+      this.prisma.document.findMany({
+        where: {
+          id: {
+            in: documentIds,
+          },
+        },
+        include: {
+          chunks: true,
+        },
+      }),
+    );
   }
 }

@@ -9,7 +9,7 @@ import { PrismaModule } from '../prisma/prisma.module';
   imports: [PrismaModule],
   controllers: [ChunksController],
   providers: [ChunksService, ChunksRepository],
-  exports: [ChunksService],
+  exports: [ChunksService, ChunksRepository],
 })
 export class ChunksModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

@@ -20,6 +20,15 @@ export class CreateChunkDto {
   page?: number;
 
   @ApiProperty({
+    description: "L'ordre du chunk",
+    example: 1,
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  order?: number;
+
+  @ApiProperty({
     description: "L'ID du document auquel le chunk est associé",
     example: '01234567890123456789012345678901',
   })

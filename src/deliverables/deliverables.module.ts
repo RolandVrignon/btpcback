@@ -7,6 +7,10 @@ import { DeliverablesRepository } from './deliverables.repository';
 import { DeliverableQueueService } from './services/deliverable-queue.service';
 import { ConfigModule } from '@nestjs/config';
 import { ApiKeyMiddleware } from '../middleware/api-key.middleware';
+import { HttpModule } from '@nestjs/axios';
+import { DocumentsModule } from '../documents/documents.module';
+import { ProjectsModule } from '../projects/projects.module';
+import { ChunksModule } from '../chunks/chunks.module';
 
 @Module({
   imports: [
@@ -14,6 +18,10 @@ import { ApiKeyMiddleware } from '../middleware/api-key.middleware';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    HttpModule,
+    DocumentsModule,
+    ProjectsModule,
+    ChunksModule,
   ],
   controllers: [DeliverablesController],
   providers: [

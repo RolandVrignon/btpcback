@@ -1,15 +1,15 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { ProjectsController } from './projects.controller';
-import { ApiKeyMiddleware } from '../middleware/api-key.middleware';
 import { ProjectsRepository } from './projects.repository';
 import { PrismaModule } from '../prisma/prisma.module';
+import { ApiKeyMiddleware } from '../middleware/api-key.middleware';
 
 @Module({
   imports: [PrismaModule],
   controllers: [ProjectsController],
   providers: [ProjectsService, ProjectsRepository],
-  exports: [ProjectsService],
+  exports: [ProjectsService, ProjectsRepository],
 })
 export class ProjectsModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

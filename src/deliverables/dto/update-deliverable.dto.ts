@@ -1,38 +1,57 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { Status, DeliverableType } from '@prisma/client';
+import { IsString, IsOptional, IsObject, IsEnum } from 'class-validator';
+import { DeliverableType, Status } from '@prisma/client';
+import { JsonValue } from '@prisma/client/runtime/library';
 
 export class UpdateDeliverableDto {
   @ApiProperty({
-    description: 'Type du livrable',
-    enum: DeliverableType,
-    required: false,
-  })
-  @IsEnum(DeliverableType)
-  @IsOptional()
-  type?: DeliverableType;
-
-  @ApiProperty({
-    description: 'Status du livrable',
-    enum: ['DRAFT', 'PROGRESS', 'PENDING', 'COMPLETED', 'ERROR'],
-    required: false,
-  })
-  @IsEnum(Status)
-  @IsOptional()
-  status?: Status;
-
-  @ApiProperty({
-    description: 'Résultat du livrable',
-    required: false,
-  })
-  @IsOptional()
-  result?: any;
-
-  @ApiProperty({
-    description: "Message d'erreur",
-    required: false,
+    description: 'The ID of the project',
+    example: '123e4567-e89b-12d3-a456-426614174000',
   })
   @IsString()
   @IsOptional()
-  error?: string;
+  projectId: string;
+
+  @ApiProperty({
+    description: 'The ID of the deliverable to update',
+    example: '123e4567-e89b-12d3-a456-426614174001',
+  })
+  @IsString()
+  @IsOptional()
+  deliverableId: string;
+
+  @ApiProperty({
+    description: 'The type of the deliverable',
+    enum: DeliverableType,
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(DeliverableType)
+  type?: DeliverableType;
+
+  @ApiProperty({
+    description: 'The status of the deliverable',
+    enum: Status,
+    example: 'COMPLETED',
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(Status)
+  status?: Status;
+
+  @ApiProperty({
+    description: 'The short result of the deliverable',
+    required: false,
+  })
+  @IsOptional()
+  @IsObject()
+  short_result?: JsonValue;
+
+  @ApiProperty({
+    description: 'The long result of the deliverable',
+    required: false,
+  })
+  @IsOptional()
+  @IsObject()
+  long_result?: JsonValue;
 }

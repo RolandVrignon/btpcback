@@ -1,16 +1,18 @@
+import { Controller, Get, Post, Body, Param, Patch } from '@nestjs/common';
 import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-} from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiHeader } from '@nestjs/swagger';
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiHeader,
+  ApiBody,
+} from '@nestjs/swagger';
 import { DeliverablesService } from './deliverables.service';
 import { CreateDeliverableDto } from './dto/create-deliverable.dto';
 import { DeliverableEntity } from './entities/deliverable.entity';
 import { Organization } from '../decorators/organization.decorator';
 import { OrganizationEntity } from '../types';
+import { UpdateDeliverableDto } from './dto/update-deliverable.dto';
 
 @ApiTags('Livrables')
 @ApiHeader({
@@ -37,7 +39,7 @@ export class DeliverablesController {
   @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide' })
   @ApiResponse({
     status: 403,
-    description: "Accès non autorisé au projet",
+    description: 'Accès non autorisé au projet',
   })
   create(
     @Body() createDeliverableDto: CreateDeliverableDto,
@@ -57,7 +59,7 @@ export class DeliverablesController {
   @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide' })
   @ApiResponse({
     status: 403,
-    description: "Accès non autorisé au projet",
+    description: 'Accès non autorisé au projet',
   })
   findAll(
     @Param('projectId') projectId: string,
@@ -81,7 +83,7 @@ export class DeliverablesController {
   @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide' })
   @ApiResponse({
     status: 403,
-    description: "Accès non autorisé au livrable",
+    description: 'Accès non autorisé au livrable',
   })
   @ApiResponse({
     status: 404,
@@ -92,5 +94,18 @@ export class DeliverablesController {
     @Organization() organization: OrganizationEntity,
   ) {
     return this.deliverablesService.findOne(id, organization);
+  }
+
+  @Patch()
+  @ApiOperation({ summary: 'Update a deliverable' })
+  @ApiResponse({
+    status: 200,
+    description: 'The deliverable has been successfully updated',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden - Invalid API key' })
+  @ApiResponse({ status: 404, description: 'Deliverable not found' })
+  @ApiBody({ type: UpdateDeliverableDto })
+  async updateDeliverable(@Body() updateDeliverableDto: UpdateDeliverableDto) {
+    return this.deliverablesService.updateDeliverable(updateDeliverableDto);
   }
 }

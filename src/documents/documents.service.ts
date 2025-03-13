@@ -201,13 +201,14 @@ export class DocumentsService {
       const modelName = 'text-embedding-3-small';
 
       const createdChunks = await Promise.all(
-        textChunks.map(async (chunk) => {
+        textChunks.map(async (chunk, index) => {
           try {
             // 1. Créer le chunk dans la base de données
             const createdChunk = await this.chunksService.create({
               text: chunk.text,
               page: chunk.page,
               documentId,
+              order: index,
             });
 
             // // 2. Générer l'embedding pour ce chunk

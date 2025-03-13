@@ -1,4 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { DeliverableType, Status } from '@prisma/client';
+import { JsonValue } from '@prisma/client/runtime/library';
 
 export class DeliverableEntity {
   @ApiProperty({
@@ -9,22 +11,17 @@ export class DeliverableEntity {
 
   @ApiProperty({
     description: 'Type de livrable',
-    enum: [
-      'WORK_SUMMARY',
-      'INDEX_COMPARISON',
-      'THERMAL_STUDY_ANALYSIS',
-      'DATA_INCONSISTENCY',
-    ],
-    example: 'WORK_SUMMARY',
+    enum: DeliverableType,
+    example: DeliverableType.DESCRIPTIF_SOMMAIRE_DES_TRAVAUX,
   })
-  type: 'WORK_SUMMARY';
+  type: DeliverableType;
 
   @ApiProperty({
     description: 'Statut du livrable',
-    enum: ['DRAFT', 'PROGRESS', 'PENDING', 'COMPLETED', 'ERROR'],
-    example: 'DRAFT',
+    enum: Status,
+    example: Status.DRAFT,
   })
-  status: 'DRAFT' | 'PROGRESS' | 'PENDING' | 'COMPLETED' | 'ERROR';
+  status: Status;
 
   @ApiProperty({
     description: 'ID du projet associé',
@@ -45,14 +42,23 @@ export class DeliverableEntity {
   updatedAt: Date;
 
   @ApiProperty({
-    description: 'Résultat du traitement du livrable',
+    description: 'Résultat court du livrable',
     example: {
       summary: 'Résumé du travail effectué...',
       recommendations: ['Recommandation 1', 'Recommandation 2'],
     },
     required: false,
   })
-  result?: Record<string, any>;
+  short_result?: JsonValue;
+
+  @ApiProperty({
+    description: 'Résultat long du livrable',
+    example: {
+      summary: 'Résumé du travail effectué...',
+      recommendations: ['Recommandation 1', 'Recommandation 2'],
+    },
+  })
+  long_result?: JsonValue;
 
   @ApiProperty({
     description: "Message d'erreur en cas d'échec",
@@ -60,22 +66,4 @@ export class DeliverableEntity {
     required: false,
   })
   error?: string;
-
-  @ApiProperty({
-    description: 'Métadonnées additionnelles du livrable',
-    example: {
-      totalPages: 42,
-      documentCount: 3,
-    },
-    required: false,
-  })
-  metadata?: Record<string, any>;
-
-  @ApiProperty({
-    description: 'IDs des documents associés au livrable',
-    example: ['123e4567-e89b-12d3-a456-426614174000'],
-    type: [String],
-    required: false,
-  })
-  documentIds?: string[];
 }

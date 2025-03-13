@@ -25,7 +25,7 @@ import { IndexationQueueModule } from './queue/indexation-queue.module';
   ],
   controllers: [DocumentsController],
   providers: [DocumentsService, DocumentsRepository],
-  exports: [DocumentsService],
+  exports: [DocumentsRepository],
 })
 export class DocumentsModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

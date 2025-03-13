@@ -5,8 +5,8 @@ import { Status } from '@prisma/client';
 export class UpdateStatusDto {
   @ApiProperty({
     description: 'Le nouveau statut du document',
-    enum: ['DRAFT', 'PROGRESS', 'PENDING', 'COMPLETED', 'ERROR'],
-    example: 'INDEXING',
+    enum: Status,
+    example: Status.COMPLETED,
     required: true,
   })
   @IsEnum(Status)

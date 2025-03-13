@@ -5,12 +5,16 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { Injectable } from '@nestjs/common';
 import { DeliverablesRepository } from '../deliverables.repository';
+import { ProjectsRepository } from '../../projects/projects.repository';
+import { DocumentsRepository } from '../../documents/documents.repository';
 
 @Injectable()
 export abstract class BaseDeliverableStrategy {
   constructor(
     protected readonly prisma: PrismaService,
     protected readonly deliverablesRepository: DeliverablesRepository,
+    protected readonly projectsRepository: ProjectsRepository,
+    protected readonly documentsRepository: DocumentsRepository,
   ) {}
 
   /**
@@ -34,7 +38,7 @@ export abstract class BaseDeliverableStrategy {
   protected async validateDocuments(
     context: DeliverableContext,
   ): Promise<boolean> {
-    const documents = await this.deliverablesRepository.findDocuments(
+    const documents = await this.documentsRepository.findDocuments(
       context.documentIds,
     );
 
@@ -54,5 +58,17 @@ export abstract class BaseDeliverableStrategy {
       data: null,
       error: error.message,
     };
+  }
+
+  protected async validateProject(
+    context: DeliverableContext,
+  ): Promise<boolean> {
+    try {
+      const project = await this.projectsRepository.findById(context.projectId);
+      return !!project;
+    } catch (error) {
+      console.error('Error validating project:', error);
+      return false;
+    }
   }
 }

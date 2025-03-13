@@ -13,6 +13,9 @@ import { Deliverable, DeliverableType } from '@prisma/client';
 import { DeliverableContext } from './interfaces/deliverable-context.interface';
 import { DeliverableQueueService } from './services/deliverable-queue.service';
 import { OrganizationEntity } from '../types';
+import { ProjectsRepository } from '../projects/projects.repository';
+import { DocumentsRepository } from '../documents/documents.repository';
+import { UpdateDeliverableDto } from './dto/update-deliverable.dto';
 
 interface DeliverableProcessEvent {
   deliverableId: string;
@@ -28,6 +31,8 @@ export class DeliverablesService {
     private readonly deliverableFactory: DeliverableFactory,
     private readonly eventEmitter: EventEmitter2,
     private readonly queueService: DeliverableQueueService,
+    private readonly projectsRepository: ProjectsRepository,
+    private readonly documentsRepository: DocumentsRepository,
   ) {
     this.eventEmitter.on(
       'deliverable.process',
@@ -42,7 +47,7 @@ export class DeliverablesService {
   ): Promise<void> {
     await this.queueService.processTask(async () => {
       try {
-        const strategy = this.deliverableFactory.getStrategy(data.type);
+        const strategy = this.deliverableFactory.createStrategy(data.type);
         const context: DeliverableContext = {
           id: data.deliverableId,
           type: data.type,
@@ -57,11 +62,16 @@ export class DeliverablesService {
     });
   }
 
-  async create(createDeliverableDto: CreateDeliverableDto, organization: OrganizationEntity) {
+  async create(
+    createDeliverableDto: CreateDeliverableDto,
+    organization: OrganizationEntity,
+  ) {
     // Verify project access
-    const project = await this.deliverablesRepository.findProject(createDeliverableDto.projectId);
+    const project = await this.projectsRepository.findById(
+      createDeliverableDto.projectId,
+    );
     if (project.organizationId !== organization.id) {
-      throw new ForbiddenException("Accès non autorisé au projet");
+      throw new ForbiddenException('Accès non autorisé au projet');
     }
 
     const projectId = createDeliverableDto.projectId;
@@ -70,7 +80,7 @@ export class DeliverablesService {
 
     if (documentIds.length) {
       const documents =
-        await this.deliverablesRepository.findDocuments(documentIds);
+        await this.documentsRepository.findDocuments(documentIds);
 
       if (documents.length !== documentIds.length) {
         throw new BadRequestException('Some documents were not found');
@@ -121,9 +131,9 @@ export class DeliverablesService {
 
   async findAll(projectId: string, organization: OrganizationEntity) {
     // Verify project access
-    const project = await this.deliverablesRepository.findProject(projectId);
+    const project = await this.projectsRepository.findById(projectId);
     if (project.organizationId !== organization.id) {
-      throw new ForbiddenException("Accès non autorisé au projet");
+      throw new ForbiddenException('Accès non autorisé au projet');
     }
 
     return this.deliverablesRepository.findByProject(projectId);
@@ -136,11 +146,50 @@ export class DeliverablesService {
     }
 
     // Verify project access
-    const project = await this.deliverablesRepository.findProject(deliverable.projectId);
+    const project = await this.projectsRepository.findById(
+      deliverable.projectId,
+    );
     if (project.organizationId !== organization.id) {
-      throw new ForbiddenException("Accès non autorisé au livrable");
+      throw new ForbiddenException('Accès non autorisé au livrable');
     }
 
     return deliverable;
+  }
+
+  async updateDeliverable(updateDeliverableDto: UpdateDeliverableDto) {
+    // First, verify the deliverable belongs to the specified project
+    const deliverable = await this.deliverablesRepository.findById(
+      updateDeliverableDto.deliverableId,
+    );
+
+    if (!deliverable) {
+      throw new NotFoundException(
+        `Deliverable with ID ${updateDeliverableDto.deliverableId} not found`,
+      );
+    }
+
+    if (deliverable.projectId !== updateDeliverableDto.projectId) {
+      throw new ForbiddenException(
+        `Deliverable with ID ${updateDeliverableDto.deliverableId} does not belong to project with ID ${updateDeliverableDto.projectId}`,
+      );
+    }
+
+    // Prepare update data (remove projectId and deliverableId from the update payload)
+    const updatePayload = Object.fromEntries(
+      Object.entries(updateDeliverableDto).filter(([key]) => {
+        return key !== 'projectId' && key !== 'deliverableId';
+      }),
+    );
+
+    // Update the deliverable
+    const updatedDeliverable = await this.deliverablesRepository.update(
+      updateDeliverableDto.deliverableId,
+      updatePayload as UpdateDeliverableDto,
+    );
+
+    return {
+      success: true,
+      data: updatedDeliverable,
+    };
   }
 }

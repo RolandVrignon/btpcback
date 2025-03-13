@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto, Status } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { Project } from '@prisma/client';
 
 @Injectable()
 export class ProjectsRepository {
@@ -189,5 +190,19 @@ export class ProjectsRepository {
         `Erreur lors de la vérification de l'existence du projet: ${(error as Error).message}`,
       );
     }
+  }
+
+  async findById(projectId: string): Promise<Project> {
+    const project = await this.prisma.executeWithQueue(() =>
+      this.prisma.project.findUnique({
+        where: { id: projectId },
+      }),
+    );
+
+    if (!project) {
+      return null;
+    }
+
+    return project;
   }
 }

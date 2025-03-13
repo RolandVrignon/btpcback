@@ -1,45 +1,39 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { DeliverableType } from '@prisma/client';
-import { BaseDeliverableStrategy } from '../strategies/base-deliverable.strategy';
-import { DescriptifSommaireDesTravauxStrategy } from '../strategies/descriptif-sommaire-des-travaux.strategy';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DeliverablesRepository } from '../deliverables.repository';
+import { DeliverableType } from '@prisma/client';
+import { DescriptifSommaireDesTravauxStrategy } from '../strategies/descriptif-sommaire-des-travaux.strategy';
+import { DocumentsRepository } from '../../documents/documents.repository';
+import { ProjectsRepository } from '../../projects/projects.repository';
+import { ChunksRepository } from '../../chunks/chunks.repository';
+import { ConfigService } from '@nestjs/config';
+import { HttpService } from '@nestjs/axios';
 
 @Injectable()
 export class DeliverableFactory {
-  private strategies: Map<DeliverableType, BaseDeliverableStrategy>;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly deliverablesRepository: DeliverablesRepository,
-  ) {
-    this.strategies = new Map();
-    this.registerStrategies();
-  }
+    private readonly documentsRepository: DocumentsRepository,
+    private readonly projectsRepository: ProjectsRepository,
+    private readonly chunksRepository: ChunksRepository,
+    private readonly configService: ConfigService,
+    private readonly httpService: HttpService,
+  ) {}
 
-  private registerStrategies(): void {
-    // Enregistrer toutes les stratégies disponibles
-    this.strategies.set(
-      'DESCRIPTIF_SOMMAIRE_DES_TRAVAUX' as DeliverableType,
-      new DescriptifSommaireDesTravauxStrategy(
-        this.prisma,
-        this.deliverablesRepository,
-      ),
-    );
-
-    // TODO: Ajouter les autres stratégies au fur et à mesure
-    // this.strategies.set(DeliverableType.COMPARATEUR_INDICES, new IndexComparisonStrategy(this.prisma));
-    // this.strategies.set(DeliverableType.ANALYSE_ETHUDE_THERMIQUE, new ThermalStudyStrategy(this.prisma));
-    // this.strategies.set(DeliverableType.INCOHERENCE_DE_DONNEES, new DataInconsistencyStrategy(this.prisma));
-  }
-
-  getStrategy(type: DeliverableType): BaseDeliverableStrategy {
-    const strategy = this.strategies.get(type);
-    if (!strategy) {
-      throw new NotFoundException(
-        `Strategy not found for deliverable type: ${type}`,
-      );
+  createStrategy(type: DeliverableType) {
+    switch (type) {
+      case DeliverableType.DESCRIPTIF_SOMMAIRE_DES_TRAVAUX:
+        return new DescriptifSommaireDesTravauxStrategy(
+          this.prisma,
+          this.deliverablesRepository,
+          this.documentsRepository,
+          this.projectsRepository,
+          this.configService,
+        );
+      // Add other cases as needed
+      default:
+        throw new Error(`Unsupported deliverable type: ${type}`);
     }
-    return strategy;
   }
 }

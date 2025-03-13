@@ -170,6 +170,7 @@ model Document {
 model Chunk {
   id         String      @id @unique @default(uuid())
   text       String
+  order      Int?
   page       Int?
   documentId String
   document   Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
@@ -231,14 +232,8 @@ model Deliverable {
   // Document references
   documents DocumentDeliverable[]
 
-  // Result stored as JSONB
-  result Json? @db.JsonB
-
-  // Error handling
-  error String?
-
-  // Metadata
-  metadata Json? @db.JsonB
+  short_result Json? @db.JsonB @default("{}")
+  long_result  Json? @db.JsonB @default("{}")
 
   @@index([projectId])
   @@index([type])
@@ -247,8 +242,8 @@ model Deliverable {
 
 // Junction table for Many-to-Many relation between Document and Deliverable
 model DocumentDeliverable {
-  id            String    @id @unique @default(uuid())
-  document      Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  id            String      @id @unique @default(uuid())
+  document      Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
   documentId    String // Changed to String to match Document.id type
   deliverable   Deliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
   deliverableId String // Changed to String to match Deliverable.id type
