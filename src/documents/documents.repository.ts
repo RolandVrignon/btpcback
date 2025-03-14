@@ -199,19 +199,24 @@ export class DocumentsRepository {
 
     if (Array.isArray(data)) {
       // Pour les tableaux, vérifier si ce sont des objets similaires
-      if (data.length > 0 && typeof data[0] === 'object' && !Array.isArray(data[0])) {
+      if (
+        data.length > 0 &&
+        typeof data[0] === 'object' &&
+        !Array.isArray(data[0])
+      ) {
         // Vérifier si tous les objets ont les mêmes clés
         const firstItemKeys = Object.keys(data[0]);
-        const allSameKeys = data.every(item => 
-          typeof item === 'object' && 
-          !Array.isArray(item) && 
-          Object.keys(item).length === firstItemKeys.length &&
-          firstItemKeys.every(key => key in item)
+        const allSameKeys = data.every(
+          (item) =>
+            typeof item === 'object' &&
+            !Array.isArray(item) &&
+            Object.keys(item).length === firstItemKeys.length &&
+            firstItemKeys.every((key) => key in item),
         );
 
         if (allSameKeys) {
           // Stocker un seul fieldOrder pour tout le tableau
-          const processedItems = data.map(item => {
+          const processedItems = data.map((item) => {
             const processedItem: Record<string, any> = {};
             for (const key of firstItemKeys) {
               // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
@@ -224,14 +229,14 @@ export class DocumentsRepository {
           return {
             __data: processedItems,
             __fieldOrder: firstItemKeys,
-            __isArray: true
+            __isArray: true,
           };
         }
       }
-      
+
       // Si ce n'est pas un tableau d'objets similaires, traiter chaque élément individuellement
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return data.map(item => this.preserveFieldOrder(item));
+      return data.map((item) => this.preserveFieldOrder(item));
     }
 
     // Pour les objets
@@ -266,7 +271,7 @@ export class DocumentsRepository {
     if (Array.isArray(data)) {
       // Pour les tableaux, traiter chaque élément
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return data.map(item => this.restoreFieldOrder(item));
+      return data.map((item) => this.restoreFieldOrder(item));
     }
 
     // Vérifier si c'est un tableau d'objets similaires avec un seul fieldOrder

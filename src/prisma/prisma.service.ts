@@ -29,24 +29,42 @@ export class PrismaService
       10,
     );
 
-    // Ajouter le paramètre connection_limit à l'URL si ce n'est pas déjà fait
-    const dbUrlWithConnectionLimit = dbUrl.includes('connection_limit=')
-      ? dbUrl
-      : dbUrl.includes('?')
-        ? `${dbUrl}&connection_limit=${poolSize}`
-        : `${dbUrl}?connection_limit=${poolSize}`;
+    // Récupérer le timeout de connexion depuis la variable d'environnement (en secondes)
+    const connectionTimeout = parseInt(
+      process.env.DATABASE_CONNECTION_TIMEOUT ||
+        configService?.get<string>('DATABASE_CONNECTION_TIMEOUT', '30') ||
+        '30',
+      10,
+    );
+
+    // Ajouter les paramètres connection_limit et connection_timeout à l'URL
+    let modifiedDbUrl = dbUrl;
+
+    // Ajouter connection_limit si ce n'est pas déjà fait
+    if (!modifiedDbUrl.includes('connection_limit=')) {
+      modifiedDbUrl = modifiedDbUrl.includes('?')
+        ? `${modifiedDbUrl}&connection_limit=${poolSize}`
+        : `${modifiedDbUrl}?connection_limit=${poolSize}`;
+    }
+
+    // Ajouter connection_timeout
+    if (!modifiedDbUrl.includes('connection_timeout=')) {
+      modifiedDbUrl = modifiedDbUrl.includes('?') 
+        ? `${modifiedDbUrl}&connection_timeout=${connectionTimeout}` 
+        : `${modifiedDbUrl}?connection_timeout=${connectionTimeout}`;
+    }
 
     super({
       log: ['info', 'warn', 'error'],
-      // Configurer les options de connexion avec la limite de connexions
-      datasourceUrl: dbUrlWithConnectionLimit,
+      // Configurer les options de connexion avec la limite de connexions et le timeout
+      datasourceUrl: modifiedDbUrl,
     });
 
     // Définir la valeur statique après l'appel à super
     PrismaService.MAX_CONCURRENT_OPERATIONS = poolSize;
 
     this.logger.log(
-      `Initialisation du pool PostgreSQL avec ${poolSize} connexions`,
+      `Initialisation du pool PostgreSQL avec ${poolSize} connexions et un timeout de ${connectionTimeout} secondes`,
     );
   }
 

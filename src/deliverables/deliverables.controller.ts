@@ -14,7 +14,7 @@ import { Organization } from '../decorators/organization.decorator';
 import { OrganizationEntity } from '../types';
 import { UpdateDeliverableDto } from './dto/update-deliverable.dto';
 
-@ApiTags('Livrables')
+@ApiTags('deliverables')
 @ApiHeader({
   name: 'x-api-key',
   description: "Clé API pour l'authentification",
