@@ -49,8 +49,8 @@ export class PrismaService
 
     // Ajouter connection_timeout
     if (!modifiedDbUrl.includes('connection_timeout=')) {
-      modifiedDbUrl = modifiedDbUrl.includes('?') 
-        ? `${modifiedDbUrl}&connection_timeout=${connectionTimeout}` 
+      modifiedDbUrl = modifiedDbUrl.includes('?')
+        ? `${modifiedDbUrl}&connection_timeout=${connectionTimeout}`
         : `${modifiedDbUrl}?connection_timeout=${connectionTimeout}`;
     }
 
