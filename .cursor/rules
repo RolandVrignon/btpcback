@@ -45,37 +45,6 @@ Node version 20.13.0
   - Provide **mocks for services and controllers** to facilitate isolated testing.
   - Develop comprehensive **unit tests** for the various components of the backend, ensuring all business logic and API endpoints are covered.
 
----
-
-## Module Architecture
-
-Each module in the system must maintain a consistent structure with:
-
-1. **Service File** (`*.service.ts`):
-   - Contains business logic
-   - Implements specific use cases
-   - Interacts with the repository for data operations
-
-2. **Controller File** (`*.controller.ts`):
-   - Handles incoming HTTP requests
-   - Defines API routes with Swagger documentation
-   - Delegates processing to appropriate services
-
-3. **Repository File** (`*.repository.ts`):
-   - Encapsulates all database interactions
-   - Uses Prisma for CRUD operations
-   - Isolates data access logic from the rest of the application
-
-4. **Entities Files** (`*.interface.ts`):
-   - Define common data structures used across the module
-   - Provide type definitions for domain objects
-   - Located at the root of the module
-
-5. **Utils Directory** (`utils/`):
-   - Contains helper functions and utilities specific to the module
-   - Implements reusable logic that doesn't belong in services
-   - Houses module-specific constants and configurations
-
 ## Organizational Principles
 
 - **Separation of Concerns**: Each file has a distinct and well-defined role
