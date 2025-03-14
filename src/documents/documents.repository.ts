@@ -134,24 +134,46 @@ export class DocumentsRepository {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { projectId, ...updateDataWithoutProjectId } = updateData;
 
+      console.log(
+        'updateDataWithoutProjectId.ai_metadata:',
+        JSON.stringify(updateDataWithoutProjectId.ai_metadata, null, 2),
+      );
+
       // Traitement spécial pour ai_metadata qui doit être converti en format JSON compatible avec Prisma
-      const prismaUpdateData = {
-        ...updateDataWithoutProjectId,
-        ...(updateDataWithoutProjectId.ai_metadata && {
-          ai_metadata:
-            updateDataWithoutProjectId.ai_metadata as unknown as Prisma.InputJsonValue,
-        }),
-      };
+      // et préserver l'ordre des champs
+      const prismaUpdateData: any = { ...updateDataWithoutProjectId };
+
+      if (updateDataWithoutProjectId.ai_metadata) {
+        // Extraire l'ordre des champs et transformer les données pour préserver l'ordre
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+        prismaUpdateData.ai_metadata = this.preserveFieldOrder(
+          updateDataWithoutProjectId.ai_metadata,
+        );
+      }
+
+      console.log(
+        'prismaUpdateData.ai_metadata:',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        JSON.stringify(prismaUpdateData.ai_metadata, null, 2),
+      );
 
       const result = await this.prisma.executeWithQueue(() =>
         this.prisma.document.update({
           where: { id },
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           data: prismaUpdateData,
           include: {
             project: true,
           },
         }),
       );
+
+      // Si le résultat contient ai_metadata avec l'ordre préservé, restaurer l'ordre original
+      if (result.ai_metadata) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        result.ai_metadata = this.restoreFieldOrder(result.ai_metadata);
+      }
+
       return result;
     } catch (error) {
       if (
@@ -163,6 +185,140 @@ export class DocumentsRepository {
       }
       throw error;
     }
+  }
+
+  /**
+   * Préserve l'ordre des champs dans un objet JSON en ajoutant des métadonnées
+   * @param data Données JSON à traiter
+   * @returns Données JSON avec métadonnées d'ordre
+   */
+  private preserveFieldOrder(data: any): any {
+    if (data === null || typeof data !== 'object') {
+      return data;
+    }
+
+    if (Array.isArray(data)) {
+      // Pour les tableaux, vérifier si ce sont des objets similaires
+      if (data.length > 0 && typeof data[0] === 'object' && !Array.isArray(data[0])) {
+        // Vérifier si tous les objets ont les mêmes clés
+        const firstItemKeys = Object.keys(data[0]);
+        const allSameKeys = data.every(item => 
+          typeof item === 'object' && 
+          !Array.isArray(item) && 
+          Object.keys(item).length === firstItemKeys.length &&
+          firstItemKeys.every(key => key in item)
+        );
+
+        if (allSameKeys) {
+          // Stocker un seul fieldOrder pour tout le tableau
+          const processedItems = data.map(item => {
+            const processedItem: Record<string, any> = {};
+            for (const key of firstItemKeys) {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+              processedItem[key] = this.preserveFieldOrder(item[key]);
+            }
+            return processedItem;
+          });
+
+          // Retourner un objet avec les données et l'ordre des champs
+          return {
+            __data: processedItems,
+            __fieldOrder: firstItemKeys,
+            __isArray: true
+          };
+        }
+      }
+      
+      // Si ce n'est pas un tableau d'objets similaires, traiter chaque élément individuellement
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return data.map(item => this.preserveFieldOrder(item));
+    }
+
+    // Pour les objets
+    const fieldOrder = Object.keys(data);
+    const processedData: Record<string, any> = {};
+
+    // Traiter chaque champ
+    for (const key of fieldOrder) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      const processedValue = this.preserveFieldOrder(data[key]);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      processedData[key] = processedValue;
+    }
+
+    // Ajouter les métadonnées d'ordre
+    return {
+      __data: processedData,
+      __fieldOrder: fieldOrder,
+    };
+  }
+
+  /**
+   * Restaure l'ordre des champs à partir des métadonnées
+   * @param data Données JSON avec métadonnées d'ordre
+   * @returns Données JSON avec l'ordre original
+   */
+  private restoreFieldOrder(data: any): any {
+    if (data === null || typeof data !== 'object') {
+      return data;
+    }
+
+    if (Array.isArray(data)) {
+      // Pour les tableaux, traiter chaque élément
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return data.map(item => this.restoreFieldOrder(item));
+    }
+
+    // Vérifier si c'est un tableau d'objets similaires avec un seul fieldOrder
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (data.__data && data.__fieldOrder && data.__isArray === true) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      const items = data.__data;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      const fieldOrder = data.__fieldOrder;
+
+      // Reconstruire chaque élément du tableau avec le même ordre de champs
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+      return items.map((item: any) => {
+        const result: Record<string, any> = {};
+        for (const key of fieldOrder) {
+          if (key in item) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+            result[key] = this.restoreFieldOrder(item[key]);
+          }
+        }
+        return result;
+      });
+    }
+
+    // Vérifier si c'est un objet avec métadonnées d'ordre
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (data.__data && data.__fieldOrder && Array.isArray(data.__fieldOrder)) {
+      const result: Record<string, any> = {};
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      const orderedData = data.__data;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      const fieldOrder = data.__fieldOrder;
+
+      // Reconstruire l'objet selon l'ordre des champs
+      for (const key of fieldOrder) {
+        if (key in orderedData) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+          result[key] = this.restoreFieldOrder(orderedData[key]);
+        }
+      }
+
+      return result;
+    }
+
+    // Pour les objets sans métadonnées d'ordre
+    const result: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      result[key] = this.restoreFieldOrder(value);
+    }
+
+    return result;
   }
 
   /**
