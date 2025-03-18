@@ -161,10 +161,24 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
     // Prepare document data for the webhook
     const documentData = await Promise.all(
       documents.map((doc) => {
+        let result;
+
+        if (doc.ai_metadata && typeof doc.ai_metadata === 'object') {
+          const data = doc.ai_metadata['__data'];
+          if (data && typeof data === 'object') {
+            const procedes = data['Procédés à risque'];
+            if (procedes && typeof procedes === 'object') {
+              result = {
+                'Procédés à risques': procedes['__data'],
+              };
+            }
+          }
+        }
+
         return {
           id: doc.id,
           filename: doc.filename,
-          ai_metadata: doc.ai_metadata['Procédés à risque'],
+          ai_metadata: result,
         };
       }),
     );
