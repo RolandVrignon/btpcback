@@ -149,12 +149,6 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
       'triggerWebhook called with documents:',
       documents?.length || 0,
     );
-    const webhookUrl = this.configService.get<string>('N8N_WEBHOOK_URL');
-
-    if (!webhookUrl) {
-      console.error('N8N_WEBHOOK_URL is not defined in environment variables');
-      throw new Error('Webhook URL is not configured');
-    }
 
     // Get project details to include the long_summary
     const project = await this.projectsRepository.findById(projectId);
@@ -204,7 +198,9 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
           `Taille du payload: ${payloadSizeInBytes} octets (${payloadSizeInKB.toFixed(2)} KB, ${payloadSizeInMB.toFixed(2)} MB)`,
         );
 
-        const n8nWebhookUrl = this.configService.get<string>('N8N_WEBHOOK_URL');
+        const n8nWebhookUrl = this.configService.get<string>(
+          'N8N_WEBHOOK_URL_PROD',
+        );
         console.log('n8nWebhookUrl:', n8nWebhookUrl);
 
         if (!n8nWebhookUrl) {
@@ -214,13 +210,15 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
           return;
         }
 
-        console.log('n8nWebhookUrl', `${n8nWebhookUrl}/documate`);
+        console.log('n8nWebhookUrl', `${n8nWebhookUrl}/deliverable`);
         console.log('Sending data to n8n webhook...');
+        const url = `${n8nWebhookUrl}/deliverable`;
+        console.log('url:', url);
 
         // Créer une promesse pour la requête n8n
         const n8nResponse = await (async () => {
           try {
-            const res = await fetch(`${n8nWebhookUrl}/deliverable`, {
+            const res = await fetch(url, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

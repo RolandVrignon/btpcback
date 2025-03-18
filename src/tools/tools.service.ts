@@ -15,7 +15,7 @@ export class ToolsService {
     cityDocumentsDto: CityDocumentsDto,
   ): Promise<CityDocumentsResponse> {
     try {
-      const n8nUrl = process.env.N8N_WEBHOOK_URL;
+      const n8nUrl = process.env.N8N_WEBHOOK_URL_PROD;
 
       const city = cityDocumentsDto.city;
 
@@ -30,9 +30,9 @@ export class ToolsService {
       const data = (await response.json()) as CityDocumentsResponse;
 
       return data;
-    } catch (error) {
-      console.error('Erreur lors de la récupération des documents:', error);
-      throw error;
+    } catch {
+      console.error('tools > tools.service.ts > TOOLS GetCityDocuments error');
+      return null;
     }
   }
 }

@@ -190,6 +190,7 @@ export class DocumentsService {
     try {
       // Récupérer la clé API OpenAI une seule fois
       const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+
       if (!apiKey) {
         throw new Error("La clé API OpenAI n'est pas configurée");
       }
@@ -198,60 +199,81 @@ export class DocumentsService {
       process.env.OPENAI_API_KEY = apiKey;
       const modelName = 'text-embedding-3-small';
 
-      const createdChunks = await Promise.all(
-        textChunks.map(async (chunk, index) => {
-          try {
-            // 1. Créer le chunk dans la base de données
-            const createdChunk = await this.chunksService.create({
-              text: chunk.text,
-              page: chunk.page,
-              documentId,
-              order: index,
-            });
-
-            // // 2. Générer l'embedding pour ce chunk
-            const { embedding: embeddingVector, usage } = await embed({
-              model: openai.embedding(modelName),
-              value: chunk.text,
-            });
-
-            // // 3. Créer l'embedding dans la base de données
-            await this.embeddingsService.create({
-              provider: AI_Provider.OPENAI,
-              vector: embeddingVector,
-              modelName: modelName,
-              modelVersion: 'v1',
-              dimensions: embeddingVector.length,
-              chunkId: createdChunk.id,
-              usage: usage.tokens,
-              projectId: projectId,
-            });
-
-            // Enregistrer l'utilisation pour l'embedding
-            await this.usageService.create({
-              provider: AI_Provider.OPENAI,
-              modelName: modelName,
-              totalTokens: usage.tokens,
-              type: 'EMBEDDING',
-              projectId: projectId,
-            });
-
-            return { id: createdChunk.id, text: createdChunk.text };
-          } catch (error) {
-            console.error(
-              `Erreur lors de la création du chunk et de l'embedding: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
-            );
-            throw error;
-          }
-        }),
+      // Récupérer la taille du lot depuis les variables d'environnement, par défaut 5
+      const batchSize = parseInt(
+        this.configService.get<string>('CHUNK_BATCH_SIZE', '66'),
+        10,
       );
+
+      console.log(`Traitement des chunks par lots de ${batchSize}`);
+
+      const allCreatedChunks: { id: string; text: string }[] = [];
+
+      // Traiter les chunks par lots
+      for (let i = 0; i < textChunks.length; i += batchSize) {
+        const batch = textChunks.slice(i, i + batchSize);
+        console.log(
+          `Traitement du lot ${i / batchSize + 1}/${Math.ceil(textChunks.length / batchSize)}`,
+        );
+
+        const batchResults = await Promise.all(
+          batch.map(async (chunk, batchIndex) => {
+            const index = i + batchIndex;
+            try {
+              // 1. Créer le chunk dans la base de données
+              const createdChunk = await this.chunksService.create({
+                text: chunk.text,
+                page: chunk.page,
+                documentId,
+                order: index,
+              });
+
+              // 2. Générer l'embedding pour ce chunk
+              const { embedding: embeddingVector, usage } = await embed({
+                model: openai.embedding(modelName),
+                value: chunk.text,
+              });
+
+              // 3. Créer l'embedding dans la base de données
+              await this.embeddingsService.create({
+                provider: AI_Provider.OPENAI,
+                vector: embeddingVector,
+                modelName: modelName,
+                modelVersion: 'v1',
+                dimensions: embeddingVector.length,
+                chunkId: createdChunk.id,
+                usage: usage.tokens,
+                projectId: projectId,
+              });
+
+              // Enregistrer l'utilisation pour l'embedding
+              await this.usageService.create({
+                provider: AI_Provider.OPENAI,
+                modelName: modelName,
+                totalTokens: usage.tokens,
+                type: 'EMBEDDING',
+                projectId: projectId,
+              });
+
+              return { id: createdChunk.id, text: createdChunk.text };
+            } catch (error) {
+              console.error(
+                `Erreur lors de la création du chunk et de l'embedding: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              );
+              throw error;
+            }
+          }),
+        );
+
+        allCreatedChunks.push(...batchResults);
+      }
 
       console.log(
-        `${createdChunks.length} chunks et embeddings créés avec succès.`,
+        `${allCreatedChunks.length} chunks et embeddings créés avec succès.`,
       );
-      return createdChunks;
+      return allCreatedChunks;
     } catch (error) {
       console.error(
         `Erreur lors de la création des chunks et embeddings: ${
