@@ -80,7 +80,19 @@ export class PrismaService
    * Exécute une opération en utilisant une file d'attente pour limiter
    * le nombre d'opérations concurrentes sur la base de données
    */
-  async executeWithQueue<T>(operation: () => Promise<T>): Promise<T> {
+  async executeWithQueue<T>(
+    operation: () => Promise<T>,
+    options: {
+      maxRetries?: number;
+      retryDelay?: number;
+      currentRetry?: number;
+    } = {},
+  ): Promise<T> {
+    // Paramètres par défaut
+    const maxRetries = options.maxRetries ?? 3;
+    const retryDelay = options.retryDelay ?? 5000; // 5 secondes par défaut
+    const currentRetry = options.currentRetry ?? 0;
+
     return new Promise<T>((resolve, reject) => {
       // Ajouter l'opération à la file d'attente
       this.operationQueue.push(async () => {
@@ -90,21 +102,41 @@ export class PrismaService
           return result;
         } catch (error) {
           this.logger.error(
-            `Erreur lors de l'exécution de l'opération: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+            `Erreur lors de l'exécution de l'opération (tentative ${currentRetry + 1}/${maxRetries}): ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
             error instanceof Error ? error.stack : undefined,
           );
 
-          // S'assurer que l'erreur est une instance d'Error
-          const errorToReject =
-            error instanceof Error
-              ? error
-              : new Error(
-                  typeof error === 'string'
-                    ? error
-                    : 'Une erreur inconnue est survenue',
-                );
-          reject(errorToReject);
-          throw errorToReject;
+          // Si on n'a pas dépassé le nombre maximum de tentatives, réessayer
+          if (currentRetry < maxRetries - 1) {
+            this.logger.log(`Réessai de l'opération dans ${retryDelay}ms...`);
+
+            // Programmation d'une nouvelle tentative après un délai
+            setTimeout(() => {
+              void this.executeWithQueue(operation, {
+                maxRetries,
+                retryDelay,
+                currentRetry: currentRetry + 1,
+              })
+                .then(resolve)
+                .catch(reject);
+            }, retryDelay);
+          } else {
+            // On a épuisé toutes les tentatives, rejeter la promesse
+            this.logger.error(
+              `Abandon après ${maxRetries} tentatives échouées.`,
+            );
+
+            // S'assurer que l'erreur est une instance d'Error
+            const errorToReject =
+              error instanceof Error
+                ? error
+                : new Error(
+                    typeof error === 'string'
+                      ? error
+                      : 'Une erreur inconnue est survenue',
+                  );
+            reject(errorToReject);
+          }
         } finally {
           this.runningOperations--;
           this.processQueue();

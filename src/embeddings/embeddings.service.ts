@@ -40,9 +40,11 @@ export class EmbeddingsService {
   ): Promise<number[]> {
     const modelName = 'text-embedding-3-small';
 
+    const cleanedQuery = this.cleanTextForEmbedding(createFromQueryDto.query);
+
     const { embedding, usage } = await embed({
       model: openai.embedding(modelName),
-      value: createFromQueryDto.query,
+      value: cleanedQuery,
     });
 
     await this.usageService.create({
@@ -54,6 +56,45 @@ export class EmbeddingsService {
     });
 
     return embedding;
+  }
+
+  /**
+   * Nettoie le texte pour le rendre compatible avec l'API d'embeddings d'OpenAI
+   * Supprime les caractères problématiques et formate le texte pour éviter les erreurs 400
+   * @param text Texte à nettoyer
+   * @returns Texte nettoyé
+   */
+  private cleanTextForEmbedding(text: string): string {
+    if (!text) return '';
+
+    // Remplacer les retours à la ligne par des espaces
+    let cleaned = text.replace(/\n/g, ' ');
+
+    // Supprimer les espaces multiples
+    cleaned = cleaned.replace(/\s+/g, ' ');
+
+    // Supprimer les caractères de contrôle (en utilisant une méthode différente pour éviter les erreurs)
+    cleaned = cleaned
+      .split('')
+      .filter((char) => {
+        const code = char.charCodeAt(0);
+        return !(code <= 0x1f || (code >= 0x7f && code <= 0x9f));
+      })
+      .join('');
+
+    // Supprimer les espaces en début et fin de chaîne
+    cleaned = cleaned.trim();
+
+    // Vérifier si le texte est trop long (OpenAI a une limite de tokens)
+    // Une approximation grossière est de compter les caractères
+    if (cleaned.length > 8000) {
+      console.warn(
+        `Le texte a été tronqué car il dépasse 8000 caractères (longueur: ${cleaned.length})`,
+      );
+      cleaned = cleaned.substring(0, 8000);
+    }
+
+    return cleaned;
   }
 
   async createMany(createEmbeddingDtos: CreateEmbeddingDto[]) {

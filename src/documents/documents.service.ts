@@ -30,12 +30,15 @@ import { exec as execCallback } from 'child_process';
 import { openai } from '@ai-sdk/openai';
 import { embed } from 'ai';
 import { ConfirmMultipleUploadsDto } from './dto/confirm-multiple-uploads.dto';
-import { IndexationQueueService } from './queue/indexation-queue.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class DocumentsService {
   private s3Client: S3Client;
   private bucketName: string;
+  private static indexationQueue: Array<Promise<any>> = [];
+  private static activeIndexations = 0;
+  private static maxConcurrentIndexations: number;
 
   constructor(
     private configService: ConfigService,
@@ -43,7 +46,7 @@ export class DocumentsService {
     private readonly documentsRepository: DocumentsRepository,
     private readonly embeddingsService: EmbeddingsService,
     private readonly chunksService: ChunksService,
-    private readonly indexationQueueService: IndexationQueueService,
+    private readonly prismaService: PrismaService,
   ) {
     this.s3Client = new S3Client({
       region: this.configService.get<string>('AWS_REGION', 'eu-west-3'),
@@ -56,6 +59,20 @@ export class DocumentsService {
       },
     });
     this.bucketName = this.configService.get<string>('AWS_S3_BUCKET', '');
+
+    // Initialiser la valeur statique de maxConcurrentIndexations
+    if (!DocumentsService.maxConcurrentIndexations) {
+      DocumentsService.maxConcurrentIndexations = parseInt(
+        this.configService.get<string>(
+          'MAX_CONCURRENT_INDEXATION_PROCESSES',
+          '5',
+        ),
+        10,
+      );
+      console.log(
+        `Maximum de processus d'indexation concurrents: ${DocumentsService.maxConcurrentIndexations}`,
+      );
+    }
   }
 
   async create(createDocumentDto: CreateDocumentDto) {
@@ -99,6 +116,10 @@ export class DocumentsService {
     return this.documentsRepository.updateStatus(documentId, status);
   }
 
+  async updateIndexationStatus(documentId: string, status: Status) {
+    return this.documentsRepository.updateIndexationStatus(documentId, status);
+  }
+
   async findByFilenameAndProject(
     projectId: string,
     fileName: string,
@@ -139,6 +160,7 @@ export class DocumentsService {
       const usage = {
         totalTokens: 2000, // Exemple, à remplacer par la valeur réelle
       };
+
       await this.usageService.logTextToTextUsage(
         'GEMINI' as AI_Provider,
         model,
@@ -186,7 +208,7 @@ export class DocumentsService {
     textChunks: Array<{ text: string; page: number }>,
     documentId: string,
     projectId: string,
-  ): Promise<{ id: string; text: string }[]> {
+  ): Promise<void> {
     try {
       // Récupérer la clé API OpenAI une seule fois
       const apiKey = this.configService.get<string>('OPENAI_API_KEY');
@@ -195,19 +217,20 @@ export class DocumentsService {
         throw new Error("La clé API OpenAI n'est pas configurée");
       }
 
+      await this.updateIndexationStatus(documentId, 'PROGRESS' as Status);
+
       // Configurer le client OpenAI avec la clé API
       process.env.OPENAI_API_KEY = apiKey;
+
       const modelName = 'text-embedding-3-small';
 
       // Récupérer la taille du lot depuis les variables d'environnement, par défaut 5
       const batchSize = parseInt(
-        this.configService.get<string>('CHUNK_BATCH_SIZE', '66'),
+        this.configService.get<string>('CHUNK_BATCH_SIZE', '5'),
         10,
       );
 
       console.log(`Traitement des chunks par lots de ${batchSize}`);
-
-      const allCreatedChunks: { id: string; text: string }[] = [];
 
       // Traiter les chunks par lots
       for (let i = 0; i < textChunks.length; i += batchSize) {
@@ -216,7 +239,7 @@ export class DocumentsService {
           `Traitement du lot ${i / batchSize + 1}/${Math.ceil(textChunks.length / batchSize)}`,
         );
 
-        const batchResults = await Promise.all(
+        await Promise.all(
           batch.map(async (chunk, batchIndex) => {
             const index = i + batchIndex;
             try {
@@ -229,9 +252,10 @@ export class DocumentsService {
               });
 
               // 2. Générer l'embedding pour ce chunk
+              const cleanedText = this.cleanTextForEmbedding(chunk.text);
               const { embedding: embeddingVector, usage } = await embed({
                 model: openai.embedding(modelName),
-                value: chunk.text,
+                value: cleanedText,
               });
 
               // 3. Créer l'embedding dans la base de données
@@ -254,8 +278,6 @@ export class DocumentsService {
                 type: 'EMBEDDING',
                 projectId: projectId,
               });
-
-              return { id: createdChunk.id, text: createdChunk.text };
             } catch (error) {
               console.error(
                 `Erreur lors de la création du chunk et de l'embedding: ${
@@ -266,20 +288,16 @@ export class DocumentsService {
             }
           }),
         );
-
-        allCreatedChunks.push(...batchResults);
       }
 
-      console.log(
-        `${allCreatedChunks.length} chunks et embeddings créés avec succès.`,
-      );
-      return allCreatedChunks;
+      await this.updateIndexationStatus(documentId, 'COMPLETED' as Status);
     } catch (error) {
       console.error(
         `Erreur lors de la création des chunks et embeddings: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
+      await this.updateIndexationStatus(documentId, 'ERROR' as Status);
       throw error;
     }
   }
@@ -686,12 +704,10 @@ export class DocumentsService {
 
   /**
    * Confirme l'upload de plusieurs fichiers sur S3 et crée des documents dans la base de données
+   * Permet jusqu'à 5 processus d'indexation en parallèle, au-delà les requêtes sont mises en attente
    * @param dto Informations sur les fichiers uploadés
    * @param organizationId ID de l'organisation qui fait la demande
    * @returns Les documents créés
-   * @throws NotFoundException si le projet n'existe pas ou si un fichier n'est pas trouvé sur S3
-   * @throws ForbiddenException si le projet n'appartient pas à l'organisation
-   * @throws BadRequestException si une erreur survient lors de la vérification des fichiers
    */
   async confirmMultipleUploads(
     dto: ConfirmMultipleUploadsDto,
@@ -714,190 +730,336 @@ export class DocumentsService {
     }
 
     try {
-      // Traiter tous les fichiers en parallèle pour créer les documents et télécharger les fichiers
-      const documentPromises = dto.fileNames.map(async (fileName) => {
-        // Construire le chemin du fichier sur S3
-        const filePath = `ct-toolbox/${dto.projectId}/${fileName}`;
-
-        try {
-          // Vérifier si le fichier existe sur S3
-          const headObjectCommand = new HeadObjectCommand({
-            Bucket: this.bucketName,
-            Key: filePath,
-          });
-
-          await this.s3Client.send(headObjectCommand);
-
-          // Si le fichier existe, créer un document dans la base de données
-          const document = await this.create({
-            filename: fileName,
-            path: filePath,
-            mimetype: 'application/octet-stream',
-            size: 0,
-            projectId: dto.projectId,
-            status: 'PROGRESS',
-          });
-
-          // Télécharger et extraire le texte seulement pour PDF ou DOCX
-          const fileExt = path.extname(fileName).toLowerCase();
-          if (fileExt === '.pdf' || fileExt === '.docx' || fileExt === '.doc') {
-            // Télécharger le document depuis S3
-            const tempDir = `/tmp/document-processing/${document.id}`;
-            const tempFilePath = await this.downloadDocumentFromS3(
-              document.path,
-              tempDir,
-            );
-
-            // Convertir le document si nécessaire
-            const pdfFilePath = await this.convertToPdfIfNeeded(tempFilePath);
-
-            // Extraire le texte du PDF
-            const extractedText = await this.extractTextFromPdf(pdfFilePath);
-
-            // Concaténer le texte de toutes les pages
-            const fullText = extractedText.map((pt) => pt.text).join('\n\n');
-
-            // Nettoyer les fichiers temporaires après extraction
-            await this.cleanupTempFiles(tempDir);
-
-            return {
-              document,
-              text: fullText,
-              extractedTextPerPage: extractedText,
-            };
-          }
-
-          return {
-            document,
-            text: '',
-            extractedTextPerPage: [],
-          };
-        } catch (error) {
-          if (error instanceof S3ServiceException) {
-            throw new BadRequestException(
-              `Fichier ${fileName} non trouvé sur S3: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
-            );
-          }
-          throw error;
-        }
-      });
-
-      // Attendre que tous les documents soient créés et que le texte soit extrait
-      const documentsWithText = await Promise.all(documentPromises);
-
-      // Préparer les données pour n8n
-      const filteredDocuments = documentsWithText.map((doc) => ({
-        documentId: doc.document.id,
-        name: doc.document.filename,
-        text: doc.text || '',
-      }));
-
-      const result = {
-        projectId: dto.projectId,
-        documents: filteredDocuments,
-      };
-
-      // Préparer la requête n8n
-      const n8nPromise = (async () => {
-        try {
-          // Convertir le payload en JSON
-          const payload = JSON.stringify(result);
-
-          // Calculer la taille du payload en octets
-          const payloadSizeInBytes = new TextEncoder().encode(payload).length;
-
-          // Convertir en KB et MB pour une meilleure lisibilité
-          const payloadSizeInKB = payloadSizeInBytes / 1024;
-          const payloadSizeInMB = payloadSizeInKB / 1024;
-
-          // Afficher la taille du payload
-          console.log('Nombre de documents:', documentsWithText.length);
-          console.log(
-            `Taille du payload: ${payloadSizeInBytes} octets (${payloadSizeInKB.toFixed(2)} KB, ${payloadSizeInMB.toFixed(2)} MB)`,
-          );
-
-          const n8nWebhookUrl =
-            this.configService.get<string>('N8N_WEBHOOK_URL');
-
-          if (!n8nWebhookUrl) {
-            console.warn(
-              'N8N_WEBHOOK_URL is not defined in environment variables',
-            );
-            return;
-          }
-
-          console.log('n8nWebhookUrl', `${n8nWebhookUrl}/documate`);
-          console.log('Sending data to n8n webhook...');
-
-          // Créer une promesse pour la requête n8n
-          const n8nResponse = await (async () => {
-            try {
-              const res = await fetch(`${n8nWebhookUrl}/documate`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: payload,
-              });
-
-              if (res.ok) {
-                console.log('Data successfully sent to n8n webhook.');
-              } else {
-                console.error(
-                  'Error sending data to n8n webhook:',
-                  res.status,
-                  res.statusText,
-                );
-              }
-              return res;
-            } catch (error) {
-              console.error('Error sending data to n8n webhook:', error);
-              throw error;
-            }
-          })();
-
-          if (n8nResponse.ok) {
-            console.log('Webhook n8n completed successfully.');
-          } else {
-            console.error('Webhook n8n failed.');
-          }
-        } catch (error) {
-          console.error('Error sending data to n8n webhook:', error);
-        }
-      })();
-
-      // Au lieu d'appeler directement processDocumentsInBackground,
-      // nous allons ajouter cette tâche à notre queue d'indexation
-      const processingPromise = new Promise<void>((resolve) => {
-        // Ajouter la tâche d'indexation à la queue
-        void this.indexationQueueService.addTask(async () => {
-          try {
-            // Exécuter le traitement des documents
-            await this.processDocumentsInBackground(documentsWithText);
-            resolve();
-          } catch (error) {
-            console.error('Erreur lors du traitement des documents:', error);
-            resolve(); // Résoudre même en cas d'erreur pour ne pas bloquer
-          }
-        });
-      });
-
-      // Attendre que les deux opérations soient terminées
-      await Promise.all([n8nPromise, processingPromise]);
-
-      console.log('End of documents processing. It is successfully.');
-
-      // Calculer le temps d'exécution
-      const endTime = Date.now();
-      const executionTimeMs = endTime - startTime;
-      const executionTimeSec = (executionTimeMs / 1000).toFixed(2);
-
+      // Créer un nouvel identifiant unique pour cette tâche d'indexation
+      const indexationId = `${dto.projectId}_${Date.now()}`;
       console.log(
-        `Fin d'exécution => temps d'exécution de confirmMultipleUploads: ${executionTimeMs}ms (${executionTimeSec}s)`,
+        `Nouvelle demande d'indexation: ${indexationId} (${dto.fileNames.length} fichiers)`,
       );
 
-      // Retourner simplement un statut OK
-      return { status: 'OK' };
+      // Vérifier si nous pouvons démarrer immédiatement ou s'il faut mettre en attente
+      const canStartImmediately =
+        DocumentsService.activeIndexations <
+        DocumentsService.maxConcurrentIndexations;
+      const queuePosition =
+        DocumentsService.indexationQueue.length + (canStartImmediately ? 0 : 1);
+
+      // Créer une promesse qui représente cette tâche d'indexation
+      const indexationTask = new Promise<{ status: string; message?: string }>(
+        (resolve, reject) => {
+          // Fonction interne asynchrone
+          const processIndexation = async () => {
+            try {
+              // Attendre qu'il y ait de la place dans la limite de concurrence
+              while (
+                DocumentsService.activeIndexations >=
+                DocumentsService.maxConcurrentIndexations
+              ) {
+                // Attendre un peu avant de vérifier à nouveau
+                console.log(
+                  `[${indexationId}] En attente d'une place dans la queue (${DocumentsService.activeIndexations}/${DocumentsService.maxConcurrentIndexations} actifs)`,
+                );
+                await new Promise((r) => setTimeout(r, 1000));
+              }
+
+              // Démarrer l'indexation
+              DocumentsService.activeIndexations++;
+              console.log(
+                `[${indexationId}] Démarrage de l'indexation (${DocumentsService.activeIndexations}/${DocumentsService.maxConcurrentIndexations} actifs)`,
+              );
+
+              try {
+                // Traiter tous les fichiers en parallèle pour créer les documents et télécharger les fichiers
+                const documentPromises = dto.fileNames.map(async (fileName) => {
+                  // Construire le chemin du fichier sur S3
+                  const filePath = `ct-toolbox/${dto.projectId}/${fileName}`;
+
+                  try {
+                    // Vérifier si le fichier existe sur S3
+                    const headObjectCommand = new HeadObjectCommand({
+                      Bucket: this.bucketName,
+                      Key: filePath,
+                    });
+
+                    await this.s3Client.send(headObjectCommand);
+
+                    // Si le fichier existe, créer un document dans la base de données
+                    const document = await this.create({
+                      filename: fileName,
+                      path: filePath,
+                      mimetype: 'application/octet-stream',
+                      size: 0,
+                      projectId: dto.projectId,
+                      status: 'PROGRESS',
+                    });
+
+                    // Télécharger et extraire le texte seulement pour PDF ou DOCX
+                    const fileExt = path.extname(fileName).toLowerCase();
+                    if (
+                      fileExt === '.pdf' ||
+                      fileExt === '.docx' ||
+                      fileExt === '.doc'
+                    ) {
+                      // Télécharger le document depuis S3
+                      const tempDir = `/tmp/document-processing/${document.id}`;
+                      const tempFilePath = await this.downloadDocumentFromS3(
+                        document.path,
+                        tempDir,
+                      );
+
+                      // Convertir le document si nécessaire
+                      const pdfFilePath =
+                        await this.convertToPdfIfNeeded(tempFilePath);
+
+                      // Extraire le texte du PDF
+                      const extractedText =
+                        await this.extractTextFromPdf(pdfFilePath);
+
+                      // Nettoyer les fichiers temporaires après extraction
+                      await this.cleanupTempFiles(tempDir);
+
+                      return {
+                        document,
+                        text: extractedText.map((pt) => pt.text).join('\n\n'),
+                        extractedTextPerPage: extractedText,
+                      };
+                    }
+
+                    return {
+                      document,
+                      text: '',
+                      extractedTextPerPage: [],
+                    };
+                  } catch (error) {
+                    if (error instanceof S3ServiceException) {
+                      throw new BadRequestException(
+                        `Fichier ${fileName} non trouvé sur S3: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+                      );
+                    }
+                    throw error;
+                  }
+                });
+
+                // Attendre que tous les documents soient créés et que le texte soit extrait
+                const documentsWithText = await Promise.all(documentPromises);
+
+                // Préparer les données pour n8n
+                const filteredDocuments = documentsWithText.map((doc) => ({
+                  documentId: doc.document.id,
+                  name: doc.document.filename,
+                  text: doc.text || '',
+                }));
+
+                const result = {
+                  projectId: dto.projectId,
+                  documents: filteredDocuments,
+                };
+
+                // Exécuter la requête n8n et le processus d'indexation en parallèle
+                console.log(
+                  `[${indexationId}] Démarrage des processus en parallèle: requête n8n et indexation des documents`,
+                );
+
+                // Créer une promesse pour la requête n8n
+                const n8nPromise = (async () => {
+                  try {
+                    console.log(`[${indexationId}] Envoi des données à n8n...`);
+                    // Convertir le payload en JSON
+                    const payload = JSON.stringify(result);
+
+                    // Calculer la taille du payload en octets
+                    const payloadSizeInBytes = new TextEncoder().encode(
+                      payload,
+                    ).length;
+
+                    // Convertir en KB et MB pour une meilleure lisibilité
+                    const payloadSizeInKB = payloadSizeInBytes / 1024;
+                    const payloadSizeInMB = payloadSizeInKB / 1024;
+
+                    // Afficher la taille du payload
+                    console.log(
+                      `[${indexationId}] Nombre de documents:`,
+                      documentsWithText.length,
+                    );
+                    console.log(
+                      `[${indexationId}] Taille du payload: ${payloadSizeInBytes} octets (${payloadSizeInKB.toFixed(2)} KB, ${payloadSizeInMB.toFixed(2)} MB)`,
+                    );
+
+                    const n8nWebhookUrl =
+                      this.configService.get<string>('N8N_WEBHOOK_URL');
+
+                    if (!n8nWebhookUrl) {
+                      console.warn(
+                        `[${indexationId}] N8N_WEBHOOK_URL is not defined in environment variables`,
+                      );
+                      return { success: false, reason: 'webhook_url_missing' };
+                    }
+
+                    console.log(
+                      `[${indexationId}] n8nWebhookUrl`,
+                      `${n8nWebhookUrl}/documate`,
+                    );
+                    console.log(
+                      `[${indexationId}] Sending data to n8n webhook...`,
+                    );
+
+                    // Envoyer la requête n8n
+                    const res = await fetch(`${n8nWebhookUrl}/documate`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: payload,
+                    });
+
+                    if (res.ok) {
+                      console.log(
+                        `[${indexationId}] Data successfully sent to n8n webhook.`,
+                      );
+                      return { success: true };
+                    } else {
+                      console.error(
+                        `[${indexationId}] Error sending data to n8n webhook:`,
+                        res.status,
+                        res.statusText,
+                      );
+                      return {
+                        success: false,
+                        reason: 'webhook_error',
+                        status: res.status,
+                        statusText: res.statusText,
+                      };
+                    }
+                  } catch (error) {
+                    console.error(
+                      `[${indexationId}] Error sending data to n8n webhook:`,
+                      error,
+                    );
+                    return {
+                      success: false,
+                      reason: 'exception',
+                      error:
+                        error instanceof Error ? error.message : String(error),
+                    };
+                  }
+                })();
+
+                // Créer une promesse pour l'indexation des documents
+                const indexationPromise = (async () => {
+                  try {
+                    console.log(
+                      `[${indexationId}] Début du processus d'indexation des documents...`,
+                    );
+                    await this.processDocumentsInBackground(documentsWithText);
+                    console.log(
+                      `[${indexationId}] Indexation des documents terminée avec succès`,
+                    );
+                    return { success: true };
+                  } catch (error) {
+                    console.error(
+                      `[${indexationId}] Erreur lors de l'indexation des documents:`,
+                      error,
+                    );
+                    return {
+                      success: false,
+                      error:
+                        error instanceof Error ? error.message : String(error),
+                    };
+                  }
+                })();
+
+                // Attendre que les deux processus soient terminés
+                const [n8nResult, indexationResult] = await Promise.all([
+                  n8nPromise,
+                  indexationPromise,
+                ]);
+
+                // Vérifier les résultats
+                if (!n8nResult.success) {
+                  console.warn(
+                    `[${indexationId}] La requête n8n a échoué: ${n8nResult.reason || 'raison inconnue'}`,
+                  );
+                }
+
+                if (!indexationResult.success) {
+                  console.error(
+                    `[${indexationId}] L'indexation a échoué: ${indexationResult.error || 'erreur inconnue'}`,
+                  );
+                }
+
+                // Calculer le temps d'exécution
+                const endTime = Date.now();
+                const executionTimeMs = endTime - startTime;
+                const executionTimeSec = (executionTimeMs / 1000).toFixed(2);
+
+                console.log(
+                  `[${indexationId}] Fin d'exécution => temps d'exécution: ${executionTimeMs}ms (${executionTimeSec}s)`,
+                );
+
+                // Résoudre la promesse avec le résultat
+                resolve({ status: 'OK' });
+              } finally {
+                // Réduire le compteur d'indexations actives
+                DocumentsService.activeIndexations--;
+                console.log(
+                  `[${indexationId}] Fin de l'indexation (${DocumentsService.activeIndexations}/${DocumentsService.maxConcurrentIndexations} actifs)`,
+                );
+
+                // Retirer cette tâche de la file d'attente
+                const taskIndex =
+                  DocumentsService.indexationQueue.indexOf(indexationTask);
+                if (taskIndex !== -1) {
+                  DocumentsService.indexationQueue.splice(taskIndex, 1);
+                }
+              }
+            } catch (error) {
+              console.error(
+                `[${indexationId}] Erreur critique lors de l'indexation:`,
+                error,
+              );
+              // En cas d'erreur, réduire le compteur
+              DocumentsService.activeIndexations = Math.max(
+                0,
+                DocumentsService.activeIndexations - 1,
+              );
+
+              // Retirer cette tâche de la file d'attente
+              const taskIndex =
+                DocumentsService.indexationQueue.indexOf(indexationTask);
+              if (taskIndex !== -1) {
+                DocumentsService.indexationQueue.splice(taskIndex, 1);
+              }
+
+              // S'assurer que l'erreur est une instance d'Error
+              const errorToReject =
+                error instanceof Error
+                  ? error
+                  : new Error(
+                      typeof error === 'string' ? error : 'Erreur inconnue',
+                    );
+
+              reject(errorToReject);
+            }
+          };
+
+          void processIndexation();
+        },
+      );
+
+      // Ajouter la tâche à la file d'attente
+      DocumentsService.indexationQueue.push(indexationTask);
+
+      // Indiquer à l'utilisateur que sa demande a été prise en compte
+      const queueStatus = canStartImmediately
+        ? 'Traitement démarré immédiatement'
+        : `En attente, position ${queuePosition} dans la file d'attente`;
+
+      return {
+        status: 'QUEUED',
+        message: queueStatus,
+        position: queuePosition,
+        projectId: dto.projectId,
+        fileCount: dto.fileNames.length,
+      };
     } catch (error) {
       // Calculer le temps d'exécution même en cas d'erreur
       const endTime = Date.now();
@@ -943,11 +1105,19 @@ export class DocumentsService {
         const chunks = this.chunkText(extractedTextPerPage, 1000);
 
         // Créer les chunks et les embeddings
-        await this.createChunksWithEmbeddings(
-          chunks,
-          document.id,
-          document.projectId,
-        );
+        try {
+          await this.createChunksWithEmbeddings(
+            chunks,
+            document.id,
+            document.projectId,
+          );
+        } catch (e) {
+          console.error(
+            `Erreur lors de la création des chunks et embeddings pour le document ${document.id}:`,
+            e,
+          );
+          throw e;
+        }
       } catch (error) {
         console.error(
           `Erreur lors du traitement du document ${docData.document.id}:`,
@@ -971,5 +1141,44 @@ export class DocumentsService {
       projectId,
       fileName,
     );
+  }
+
+  /**
+   * Nettoie le texte pour le rendre compatible avec l'API d'embeddings d'OpenAI
+   * Supprime les caractères problématiques et formate le texte pour éviter les erreurs 400
+   * @param text Texte à nettoyer
+   * @returns Texte nettoyé
+   */
+  private cleanTextForEmbedding(text: string): string {
+    if (!text) return '';
+
+    // Remplacer les retours à la ligne par des espaces
+    let cleaned = text.replace(/\n/g, ' ');
+
+    // Supprimer les espaces multiples
+    cleaned = cleaned.replace(/\s+/g, ' ');
+
+    // Supprimer les caractères de contrôle (en utilisant une méthode différente pour éviter les erreurs)
+    cleaned = cleaned
+      .split('')
+      .filter((char) => {
+        const code = char.charCodeAt(0);
+        return !(code <= 0x1f || (code >= 0x7f && code <= 0x9f));
+      })
+      .join('');
+
+    // Supprimer les espaces en début et fin de chaîne
+    cleaned = cleaned.trim();
+
+    // Vérifier si le texte est trop long (OpenAI a une limite de tokens)
+    // Une approximation grossière est de compter les caractères
+    if (cleaned.length > 8000) {
+      console.warn(
+        `Le texte a été tronqué car il dépasse 8000 caractères (longueur: ${cleaned.length})`,
+      );
+      cleaned = cleaned.substring(0, 8000);
+    }
+
+    return cleaned;
   }
 }

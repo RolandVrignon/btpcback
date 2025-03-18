@@ -134,11 +134,6 @@ export class DocumentsRepository {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { projectId, ...updateDataWithoutProjectId } = updateData;
 
-      console.log(
-        'updateDataWithoutProjectId.ai_metadata:',
-        JSON.stringify(updateDataWithoutProjectId.ai_metadata, null, 2),
-      );
-
       // Traitement spécial pour ai_metadata qui doit être converti en format JSON compatible avec Prisma
       // et préserver l'ordre des champs
       const prismaUpdateData: any = { ...updateDataWithoutProjectId };
@@ -150,12 +145,6 @@ export class DocumentsRepository {
           updateDataWithoutProjectId.ai_metadata,
         );
       }
-
-      console.log(
-        'prismaUpdateData.ai_metadata:',
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        JSON.stringify(prismaUpdateData.ai_metadata, null, 2),
-      );
 
       const result = await this.prisma.executeWithQueue(() =>
         this.prisma.document.update({
@@ -368,12 +357,45 @@ export class DocumentsRepository {
         this.prisma.document.update({
           where: { id: documentId },
           data: {
-            status: status as
-              | 'DRAFT'
-              | 'PROGRESS'
-              | 'PENDING'
-              | 'COMPLETED'
-              | 'ERROR',
+            status: status,
+          },
+          include: {
+            project: true,
+          },
+        }),
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error(
+        `Erreur lors de la mise à jour du statut du document: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  async updateIndexationStatus(
+    documentId: string,
+    status: Status,
+  ): Promise<Document> {
+    try {
+      const document = await this.prisma.executeWithQueue(() =>
+        this.prisma.document.findUnique({
+          where: { id: documentId },
+        }),
+      );
+
+      if (!document) {
+        throw new NotFoundException(
+          `Document avec l'ID ${documentId} non trouvé`,
+        );
+      }
+
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.document.update({
+          where: { id: documentId },
+          data: {
+            indexation_status: status,
           },
           include: {
             project: true,

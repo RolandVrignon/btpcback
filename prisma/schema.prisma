@@ -122,12 +122,13 @@ model Project {
 }
 
 model Document {
-  id       String @id @unique @default(uuid())
-  filename String
-  path     String
-  mimetype String
-  size     Int
-  status   Status @default(DRAFT)
+  id                String @id @unique @default(uuid())
+  filename          String
+  path              String
+  mimetype          String
+  size              Int
+  status            Status @default(DRAFT)
+  indexation_status Status @default(PENDING)
 
   // Catégorisation du document
   category DocumentCategory @default(PROJECT)
@@ -232,8 +233,8 @@ model Deliverable {
   // Document references
   documents DocumentDeliverable[]
 
-  short_result Json? @db.JsonB @default("{}")
-  long_result  Json? @db.JsonB @default("{}")
+  short_result Json? @default("{}") @db.JsonB
+  long_result  Json? @default("{}") @db.JsonB
 
   @@index([projectId])
   @@index([type])
