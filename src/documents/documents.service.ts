@@ -257,7 +257,6 @@ export class DocumentsService {
                 model: openai.embedding(modelName),
                 value: cleanedText,
               });
-
               // 3. Créer l'embedding dans la base de données
               await this.embeddingsService.create({
                 provider: AI_Provider.OPENAI,
