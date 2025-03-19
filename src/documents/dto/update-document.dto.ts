@@ -15,7 +15,7 @@ export class UpdateDocumentDto extends PartialType(CreateDocumentDto) {
   @ApiProperty({
     description: 'Le statut du document',
     enum: Status,
-    example: 'PROCESSING',
+    example: Status.PROGRESS,
     required: false,
   })
   @IsEnum(Status)

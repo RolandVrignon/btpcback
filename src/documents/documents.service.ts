@@ -788,7 +788,7 @@ export class DocumentsService {
                       mimetype: 'application/octet-stream',
                       size: 0,
                       projectId: dto.projectId,
-                      status: 'PROGRESS',
+                      status: Status.PENDING,
                     });
 
                     // Télécharger et extraire le texte seulement pour PDF ou DOCX
