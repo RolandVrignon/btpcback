@@ -18,7 +18,6 @@ export class PrismaService
   private readonly logger = new Logger(PrismaService.name);
 
   constructor(private configService?: ConfigService) {
-    /* eslint-disable @typescript-eslint/no-unsafe-call */
     const dbUrl = process.env.DATABASE_URL || '';
 
     // Récupérer la taille du pool de connexions depuis la variable d'environnement
