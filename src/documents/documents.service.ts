@@ -244,46 +244,84 @@ export class DocumentsService {
             const index = i + batchIndex;
             try {
               // 1. Créer le chunk dans la base de données
-              const createdChunk = await this.chunksService.create({
-                text: chunk.text,
-                page: chunk.page,
-                documentId,
-                order: index,
-              });
+              let createdChunk;
+              try {
+                createdChunk = await this.chunksService.create({
+                  text: chunk.text,
+                  page: chunk.page,
+                  documentId,
+                  order: index,
+                });
+              } catch {
+                throw new Error(
+                  `Erreur lors de la création du chunk: ${chunk.text}`,
+                );
+              }
 
-              // 2. Générer l'embedding pour ce chunk
+              // 2. Nettoyer le texte pour l'embedding
               const cleanedText = this.cleanTextForEmbedding(chunk.text);
-              const { embedding: embeddingVector, usage } = await embed({
-                model: openai.embedding(modelName),
-                value: cleanedText,
-              });
-              // 3. Créer l'embedding dans la base de données
-              await this.embeddingsService.create({
-                provider: AI_Provider.OPENAI,
-                vector: embeddingVector,
-                modelName: modelName,
-                modelVersion: 'v1',
-                dimensions: embeddingVector.length,
-                chunkId: createdChunk.id,
-                usage: usage.tokens,
-                projectId: projectId,
-              });
+              if (cleanedText.length === 0) {
+                console.error(
+                  `Texte vide pour le chunk ${index}, page ${chunk.page}`,
+                );
+                return;
+              }
+
+              // 3. Générer l'embedding pour ce chunk
+              let embeddingVector: number[];
+              let usage: { tokens: number };
+              try {
+                const { embedding: embeddingVector_, usage: usage_ } =
+                  await embed({
+                    model: openai.embedding(modelName),
+                    value: cleanedText,
+                  });
+                embeddingVector = embeddingVector_;
+                usage = usage_;
+              } catch {
+                throw new Error(
+                  `Erreur lors de la génération de l'embedding: ${chunk.text}`,
+                );
+              }
+
+              // 4. Créer l'embedding dans la base de données
+              let createdEmbedding;
+              try {
+                createdEmbedding = await this.embeddingsService.create({
+                  provider: AI_Provider.OPENAI,
+                  vector: embeddingVector,
+                  modelName: modelName,
+                  modelVersion: 'v1',
+                  dimensions: embeddingVector.length,
+                  chunkId: createdChunk.id,
+                  usage: usage.tokens,
+                  projectId: projectId,
+                });
+              } catch {
+                throw new Error(
+                  `Erreur lors de la création de l'embedding: ${chunk.text}`,
+                );
+              }
 
               // Enregistrer l'utilisation pour l'embedding
-              await this.usageService.create({
-                provider: AI_Provider.OPENAI,
-                modelName: modelName,
-                totalTokens: usage.tokens,
-                type: 'EMBEDDING',
-                projectId: projectId,
-              });
+              let createdUsage;
+              try {
+                createdUsage = await this.usageService.create({
+                  provider: AI_Provider.OPENAI,
+                  modelName: modelName,
+                  totalTokens: usage.tokens,
+                  type: 'EMBEDDING',
+                  projectId: projectId,
+                });
+              } catch {
+                throw new Error(
+                  `Erreur lors de la création de l'utilisation: ${chunk.text}`,
+                );
+              }
             } catch (error) {
               console.error(
-                `Erreur lors de la création du chunk et de l'embedding: ${
-                  error instanceof Error ? error.message : String(error)
-                }`,
+                `Erreur lors de la création du chunk et de l'embedding: ${chunk.text}\n${error}`,
               );
-              throw error;
             }
           }),
         );
@@ -472,7 +510,7 @@ export class DocumentsService {
     const fileExt = path.extname(filePath).toLowerCase();
 
     // Si c'est déjà un PDF, retourner le chemin tel quel
-    if (fileExt === '.pdf') {
+    if (fileExt.toLowerCase() === '.pdf') {
       return filePath;
     }
 
@@ -794,9 +832,9 @@ export class DocumentsService {
                     // Télécharger et extraire le texte seulement pour PDF ou DOCX
                     const fileExt = path.extname(fileName).toLowerCase();
                     if (
-                      fileExt === '.pdf' ||
-                      fileExt === '.docx' ||
-                      fileExt === '.doc'
+                      fileExt.toLowerCase() === '.pdf' ||
+                      fileExt.toLowerCase() === '.docx' ||
+                      fileExt.toLowerCase() === '.doc'
                     ) {
                       // Télécharger le document depuis S3
                       const tempDir = `/tmp/document-processing/${document.id}`;
