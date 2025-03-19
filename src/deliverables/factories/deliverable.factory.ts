@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { DeliverablesRepository } from '../deliverables.repository';
 import { DeliverableType } from '@prisma/client';
 import { DescriptifSommaireDesTravauxStrategy } from '../strategies/descriptif-sommaire-des-travaux.strategy';
+import { TableauDesDocumentsExaminesStrategy } from '../strategies/tableau-des-documents-examines.strategy';
 import { DocumentsRepository } from '../../documents/documents.repository';
 import { ProjectsRepository } from '../../projects/projects.repository';
 import { ChunksRepository } from '../../chunks/chunks.repository';
@@ -31,7 +32,14 @@ export class DeliverableFactory {
           this.projectsRepository,
           this.configService,
         );
-      // Add other cases as needed
+      case DeliverableType.TABLEAU_DES_DOCUMENTS_EXAMINES:
+        return new TableauDesDocumentsExaminesStrategy(
+          this.prisma,
+          this.deliverablesRepository,
+          this.documentsRepository,
+          this.projectsRepository,
+          this.configService,
+        );
       default:
         throw new Error(`Unsupported deliverable type: ${type}`);
     }

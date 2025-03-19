@@ -69,6 +69,7 @@ export class DeliverablesService {
     const project = await this.projectsRepository.findById(
       createDeliverableDto.projectId,
     );
+
     if (project.organizationId !== organization.id) {
       throw new ForbiddenException('Accès non autorisé au projet');
     }
@@ -95,10 +96,10 @@ export class DeliverablesService {
       }
     }
 
-    const deliverable = (await this.deliverablesRepository.create({
+    const deliverable = await this.deliverablesRepository.create({
       type,
       projectId,
-    })) as Deliverable;
+    });
 
     if (!deliverable) {
       throw new BadRequestException('Failed to create deliverable');
@@ -110,9 +111,6 @@ export class DeliverablesService {
       projectId: deliverable.projectId,
       documentIds,
     });
-
-    const currentLoad = this.queueService.getCurrentLoad();
-    const availableSlots = this.queueService.getAvailableSlots();
 
     return deliverable;
   }

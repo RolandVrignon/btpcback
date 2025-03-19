@@ -40,8 +40,15 @@ export class DeliverablesRepository {
   }
 
   async update(id: string, dto: UpdateDeliverableDto): Promise<Deliverable> {
+    // Create a copy of DTO to safely modify
+    const dtoCopy = { ...dto };
+
+    // Remove fields that are not part of the Prisma schema
+    delete dtoCopy.projectId;
+    delete dtoCopy.deliverableId;
+
     const updateData: Prisma.DeliverableUpdateInput = {
-      ...dto,
+      ...dtoCopy,
       updatedAt: new Date(),
     };
 

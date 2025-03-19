@@ -32,7 +32,7 @@ export class UpdateDeliverableDto {
   @ApiProperty({
     description: 'The status of the deliverable',
     enum: Status,
-    example: 'COMPLETED',
+    example: Status.COMPLETED,
     required: false,
   })
   @IsOptional()
