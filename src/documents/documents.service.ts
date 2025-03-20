@@ -885,41 +885,42 @@ export class DocumentsService {
                   name: doc.document.filename,
                   text: doc.text || '',
                 }));
-
-                const result = {
-                  projectId: dto.projectId,
-                  documents: filteredDocuments,
-                };
-
                 // Exécuter la requête n8n et le processus d'indexation en parallèle
                 console.log(
                   `[${indexationId}] Démarrage des processus en parallèle: requête n8n et indexation des documents`,
                 );
 
-                // Créer une promesse pour la requête n8n
-                const n8nPromise = (async () => {
+                //******************************************************//
+                // Requête n8n pour l'extraction du projet              //
+                //******************************************************//
+
+                // Créer une promesse pour la requête projet sur n8n
+                const n8nProjectExtraction = (async () => {
                   try {
-                    console.log(`[${indexationId}] Envoi des données à n8n...`);
-                    // Convertir le payload en JSON
-                    const payload = JSON.stringify(result);
-
-                    // Calculer la taille du payload en octets
-                    const payloadSizeInBytes = new TextEncoder().encode(
-                      payload,
-                    ).length;
-
-                    // Convertir en KB et MB pour une meilleure lisibilité
-                    const payloadSizeInKB = payloadSizeInBytes / 1024;
-                    const payloadSizeInMB = payloadSizeInKB / 1024;
-
-                    // Afficher la taille du payload
                     console.log(
-                      `[${indexationId}] Nombre de documents:`,
-                      documentsWithText.length,
+                      `[${indexationId}] Envoi des données du projet à n8n...`,
                     );
-                    console.log(
-                      `[${indexationId}] Taille du payload: ${payloadSizeInBytes} octets (${payloadSizeInKB.toFixed(2)} KB, ${payloadSizeInMB.toFixed(2)} MB)`,
-                    );
+
+                    // S'assurer qu'il y a au moins un document
+                    if (filteredDocuments.length === 0) {
+                      console.warn(
+                        `[${indexationId}] Aucun document à envoyer au webhook du projet`,
+                      );
+                      return {
+                        success: false,
+                        reason: 'no_documents',
+                      };
+                    }
+
+                    const firstDocument = filteredDocuments[0];
+
+                    // Préparer le payload pour le projet
+                    const payload = JSON.stringify({
+                      projectId: dto.projectId,
+                      documentId: firstDocument.documentId,
+                      name: firstDocument.name,
+                      text: firstDocument.text,
+                    });
 
                     const n8nWebhookUrl =
                       this.configService.get<string>('N8N_WEBHOOK_URL');
@@ -928,47 +929,87 @@ export class DocumentsService {
                       console.warn(
                         `[${indexationId}] N8N_WEBHOOK_URL is not defined in environment variables`,
                       );
-                      return { success: false, reason: 'webhook_url_missing' };
+                      return {
+                        success: false,
+                        reason: 'webhook_url_missing',
+                      };
                     }
 
                     console.log(
-                      `[${indexationId}] n8nWebhookUrl`,
-                      `${n8nWebhookUrl}/documate`,
-                    );
-                    console.log(
-                      `[${indexationId}] Sending data to n8n webhook...`,
+                      `[${indexationId}] Sending project data to n8n webhook...`,
                     );
 
-                    // Envoyer la requête n8n
-                    const res = await fetch(`${n8nWebhookUrl}/documate`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: payload,
-                    });
+                    // Configurer un timeout de 15 minutes (900000 ms)
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(
+                      () => controller.abort(),
+                      900000, // 15 minutes en ms
+                    );
 
-                    if (res.ok) {
-                      console.log(
-                        `[${indexationId}] Data successfully sent to n8n webhook.`,
-                      );
-                      return { success: true };
-                    } else {
+                    // Enregistrer le temps de début pour cette requête
+                    const webhookStartTime = Date.now();
+
+                    try {
+                      // Envoyer la requête n8n pour le projet avec fetch (natif)
+                      const res = await fetch(`${n8nWebhookUrl}/documate`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: payload,
+                        signal: controller.signal,
+                      });
+
+                      clearTimeout(timeoutId);
+
+                      // Calculer le temps d'exécution
+                      const webhookEndTime = Date.now();
+                      const webhookDurationMs =
+                        webhookEndTime - webhookStartTime;
+                      const webhookDurationSec = (
+                        webhookDurationMs / 1000
+                      ).toFixed(2);
+
+                      if (res.ok) {
+                        console.log(
+                          `[${indexationId}] Project data successfully sent to n8n webhook. Durée: ${webhookDurationSec}s`,
+                        );
+                        return { success: true };
+                      } else {
+                        console.error(
+                          `${res.status} - ${res.statusText} - [${indexationId}] Error sending project data to n8n webhook. Durée: ${webhookDurationSec}s`,
+                        );
+                        return {
+                          success: false,
+                          reason: 'webhook_error',
+                          status: res.status,
+                          statusText: res.statusText,
+                        };
+                      }
+                    } catch (error) {
+                      // Calculer le temps d'exécution même en cas d'erreur
+                      const webhookEndTime = Date.now();
+                      const webhookDurationMs =
+                        webhookEndTime - webhookStartTime;
+                      const webhookDurationSec = (
+                        webhookDurationMs / 1000
+                      ).toFixed(2);
+
                       console.error(
-                        `[${indexationId}] Error sending data to n8n webhook:`,
-                        res.status,
-                        res.statusText,
+                        `${error} - [${indexationId}] Error sending project data to n8n webhook. Durée: ${webhookDurationSec}s`,
                       );
                       return {
                         success: false,
-                        reason: 'webhook_error',
-                        status: res.status,
-                        statusText: res.statusText,
+                        reason: 'exception',
+                        error:
+                          error instanceof Error
+                            ? error.message
+                            : String(error),
                       };
                     }
                   } catch (error) {
                     console.error(
-                      `[${indexationId}] Error sending data to n8n webhook:`,
+                      `[${indexationId}] Error sending project data to n8n webhook:`,
                       error,
                     );
                     return {
@@ -979,6 +1020,131 @@ export class DocumentsService {
                     };
                   }
                 })();
+
+                // Créer une promesse pour les requetes d'extraction de documents sur n8n
+                const n8nExtractionPromises = filteredDocuments.map(
+                  async (document) => {
+                    try {
+                      // Préparer le payload pour ce document spécifique
+                      const payload = JSON.stringify({
+                        documentId: document.documentId,
+                        name: document.name,
+                        text: document.text,
+                      });
+
+                      const n8nWebhookUrl =
+                        this.configService.get<string>('N8N_WEBHOOK_URL');
+
+                      if (!n8nWebhookUrl) {
+                        console.warn(
+                          `[${indexationId}] N8N_WEBHOOK_URL is not defined in environment variables`,
+                        );
+                        return {
+                          success: false,
+                          reason: 'webhook_url_missing',
+                          document: document.name,
+                        };
+                      }
+
+                      console.log(
+                        `[${indexationId}] Sending document ${document.name} to n8n webhook...`,
+                      );
+
+                      const apiUrl = `${n8nWebhookUrl}/index-process`;
+
+                      // Configurer un timeout de 15 minutes (900000 ms)
+                      const controller = new AbortController();
+                      const timeoutId = setTimeout(
+                        () => controller.abort(),
+                        900000, // 15 minutes en ms
+                      );
+
+                      // Enregistrer le temps de début pour cette requête
+                      const webhookStartTime = Date.now();
+
+                      try {
+                        // Envoyer la requête n8n pour ce document avec fetch (natif)
+                        const res = await fetch(apiUrl, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                          },
+                          body: payload,
+                          signal: controller.signal,
+                        });
+
+                        // Effacer le timeout si la requête se termine avant
+                        clearTimeout(timeoutId);
+
+                        // Calculer le temps d'exécution
+                        const webhookEndTime = Date.now();
+                        const webhookDurationMs =
+                          webhookEndTime - webhookStartTime;
+                        const webhookDurationSec = (
+                          webhookDurationMs / 1000
+                        ).toFixed(2);
+
+                        if (res.ok) {
+                          console.log(
+                            `[${indexationId}] Document ${document.name} successfully managed by n8n. Durée: ${webhookDurationSec}s`,
+                          );
+
+                          return { success: true, document: document.name };
+                        } else {
+                          console.error(
+                            `[${indexationId}] Error sending document ${document.name} to n8n webhook:`,
+                            res.status,
+                            res.statusText,
+                            `Durée: ${webhookDurationSec}s`,
+                          );
+
+                          return {
+                            success: false,
+                            reason: 'webhook_error',
+                            status: res.status,
+                            statusText: res.statusText,
+                            document: document.name,
+                          };
+                        }
+                      } catch (error) {
+                        // Calculer le temps d'exécution même en cas d'erreur
+                        const webhookEndTime = Date.now();
+                        const webhookDurationMs =
+                          webhookEndTime - webhookStartTime;
+                        const webhookDurationSec = (
+                          webhookDurationMs / 1000
+                        ).toFixed(2);
+
+                        console.error(
+                          `[${indexationId}] Error sending document ${document.name} to n8n webhook: ${error}. Durée: ${webhookDurationSec}s`,
+                        );
+                        return {
+                          success: false,
+                          reason: 'exception',
+                          error:
+                            error instanceof Error
+                              ? error.message
+                              : String(error),
+                          document: document.name,
+                        };
+                      }
+                    } catch (error) {
+                      console.error(
+                        `[${indexationId}] Error de catch externe - Webhook non atteint pour ${document.name}:`,
+                        error,
+                      );
+                      return {
+                        success: false,
+                        reason: 'exception_externe',
+                        error:
+                          error instanceof Error
+                            ? error.message
+                            : String(error),
+                        document: document.name,
+                      };
+                    }
+                  },
+                );
 
                 // Créer une promesse pour l'indexation des documents
                 const indexationPromise = (async () => {
@@ -1004,16 +1170,43 @@ export class DocumentsService {
                   }
                 })();
 
-                // Attendre que les deux processus soient terminés
-                const [n8nResult, indexationResult] = await Promise.all([
-                  n8nPromise,
+                // Attendre que les trois processus soient terminés
+                const [
+                  projectExtractionResult,
+                  n8nExtractionResults,
+                  indexationResult,
+                ] = await Promise.all([
+                  n8nProjectExtraction,
+                  Promise.all(n8nExtractionPromises),
                   indexationPromise,
                 ]);
 
                 // Vérifier les résultats
-                if (!n8nResult.success) {
+                if (!projectExtractionResult.success) {
                   console.warn(
-                    `[${indexationId}] La requête n8n a échoué: ${n8nResult.reason || 'raison inconnue'}`,
+                    `[${indexationId}] La requête d'extraction du projet a échoué: ${projectExtractionResult.reason || 'raison inconnue'}`,
+                  );
+                } else {
+                  console.log(
+                    `[${indexationId}] Requête d'extraction du projet réussie`,
+                  );
+                }
+
+                const failedN8nRequests = n8nExtractionResults.filter(
+                  (result) => !result.success,
+                );
+                if (failedN8nRequests.length > 0) {
+                  console.warn(
+                    `[${indexationId}] ${failedN8nRequests.length} requêtes n8n ont échoué`,
+                  );
+                  failedN8nRequests.forEach((result) => {
+                    console.warn(
+                      `[${indexationId}] - Document ${result.document}: ${result.reason || 'raison inconnue'}`,
+                    );
+                  });
+                } else {
+                  console.log(
+                    `[${indexationId}] Toutes les requêtes n8n ont réussi (${n8nExtractionResults.length} documents)`,
                   );
                 }
 
@@ -1045,7 +1238,7 @@ export class DocumentsService {
                 const taskIndex =
                   DocumentsService.indexationQueue.indexOf(indexationTask);
                 if (taskIndex !== -1) {
-                  DocumentsService.indexationQueue.splice(taskIndex, 1);
+                  void DocumentsService.indexationQueue.splice(taskIndex, 1);
                 }
               }
             } catch (error) {
@@ -1063,7 +1256,7 @@ export class DocumentsService {
               const taskIndex =
                 DocumentsService.indexationQueue.indexOf(indexationTask);
               if (taskIndex !== -1) {
-                DocumentsService.indexationQueue.splice(taskIndex, 1);
+                void DocumentsService.indexationQueue.splice(taskIndex, 1);
               }
 
               // S'assurer que l'erreur est une instance d'Error
@@ -1083,7 +1276,7 @@ export class DocumentsService {
       );
 
       // Ajouter la tâche à la file d'attente
-      DocumentsService.indexationQueue.push(indexationTask);
+      void DocumentsService.indexationQueue.push(indexationTask);
 
       // Indiquer à l'utilisateur que sa demande a été prise en compte
       const queueStatus = canStartImmediately
