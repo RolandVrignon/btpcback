@@ -227,7 +227,7 @@ export class EmbeddingsRepository {
         c.text,
         c.page,
         c."documentId",
-        d.name as "documentName",
+        d."filename" as "documentName",
         (e.vector <=> ${vector}::vector) as distance,
         (1 - (e.vector <=> ${vector}::vector)) as similarity
       FROM "Embedding" e
@@ -284,7 +284,7 @@ export class EmbeddingsRepository {
         c.text,
         c.page,
         c."documentId",
-        d.name as "documentName",
+        d."filename" as "documentName",
         (e.vector <#> ${vector}::vector) as similarity
       FROM "Embedding" e
       JOIN "Chunk" c ON e."chunkId" = c.id
@@ -322,7 +322,7 @@ export class EmbeddingsRepository {
         c.text,
         c.page,
         c."documentId",
-        d.name as "documentName",
+        d."filename" as "documentName",
         (e.vector <=> ${vector}::vector) as "vectorDistance",
         ts_rank_cd(to_tsvector('french', c.text), plainto_tsquery('french', ${query})) as "textRank",
         (${vectorWeight} * (1 - (e.vector <=> ${vector}::vector)) +

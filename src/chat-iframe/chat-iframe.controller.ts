@@ -15,9 +15,16 @@ import { ChatIframeService } from './chat-iframe.service';
 import { Response } from 'express';
 import { join } from 'path';
 import { createOpenAI } from '@ai-sdk/openai';
-import { streamText } from 'ai';
+import { streamText, Message } from 'ai';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { SearchService } from '../search/search.service';
+import { z } from 'zod';
+
+interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
 
 @Controller('chat')
 export class ChatIframeController {
@@ -28,6 +35,7 @@ export class ChatIframeController {
     private readonly chatIframeService: ChatIframeService,
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly searchService: SearchService,
   ) {
     const openaiApiKey = this.configService.get<string>('OPENAI_API_KEY');
     if (!openaiApiKey) {
@@ -96,9 +104,7 @@ export class ChatIframeController {
 
       this.logger.debug('Authentification réussie, service iframe');
 
-      return res.sendFile(
-        join(process.cwd(), 'public', 'chat-iframe', 'index.html'),
-      );
+      return res.sendFile(join(process.cwd(), 'public', 'chat', 'index.html'));
     } catch (error) {
       this.logger.error(
         `Erreur iframe: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
@@ -128,12 +134,16 @@ export class ChatIframeController {
   async processMessage(
     @Param('projectId') projectId: string,
     @Query('apiKey') apiKey: string,
-    @Body() body: { message: string },
+    @Body()
+    body: {
+      message: string;
+      conversationHistory: ChatMessage[];
+    },
     @Res() res: Response,
   ) {
     try {
       this.logger.debug(`Réception message pour projectId=${projectId}`);
-      const { project } =
+      const { project, organization } =
         await this.chatIframeService.validateAccessAndGetProject(
           apiKey,
           projectId,
@@ -142,15 +152,70 @@ export class ChatIframeController {
 
       this.setupStreamHeaders(res);
 
+      // Construire les messages pour le modèle avec l'historique
+      const messages: ChatMessage[] = [
+        {
+          role: 'system',
+          content: `Tu es un assistant IA pour un projet nommé "${project.name}". Ton objectif est d'aider l'utilisateur avec ses questions concernant ce projet. Sois concis et précis dans tes réponses. Si tu n'as pas l'information dont tu as besoin, tu peux utiliser l'outil searchDocuments pour chercher des informations dans les documents du projet.`,
+        },
+        ...(body.conversationHistory || []),
+        { role: 'user', content: body.message },
+      ];
+
       const result = streamText({
         model: this.openai('gpt-4o-mini'),
-        messages: [
-          {
-            role: 'system',
-            content: `Tu es un assistant IA pour un projet nommé "${project.name}". Ton objectif est d'aider l'utilisateur avec ses questions concernant ce projet. Sois concis et précis dans tes réponses.`,
+        messages: messages as Message[],
+        tools: {
+          searchDocuments: {
+            description:
+              'Recherche des informations dans les documents du projet',
+            parameters: z.object({
+              query: z.string().describe('La requête de recherche'),
+            }),
+            execute: async ({ query }: { query: string }) => {
+              try {
+                this.logger.debug(
+                  `Exécution de la recherche RAG avec la requête: ${query}`,
+                );
+                const searchResults = await this.searchService.vectorSearch(
+                  {
+                    query,
+                    projectId,
+                    limit: 10,
+                  },
+                  organization.id,
+                );
+
+                // Formater les résultats pour les rendre plus faciles à utiliser par le LLM
+                const formattedResults = searchResults.results.map((r) => ({
+                  text: r.text,
+                  page: r.page,
+                  documentId: r.documentId,
+                  score: r.score,
+                }));
+
+                // Créer un contexte à partir des résultats pour le modèle
+                const context = formattedResults
+                  .map(
+                    (r) =>
+                      `Extrait du document ${r.documentId} (page ${r.page}):\n${r.text}`,
+                  )
+                  .join('\n\n');
+
+                return context.length > 0
+                  ? context
+                  : 'Aucune information pertinente trouvée dans les documents du projet.';
+              } catch (error) {
+                this.logger.error(
+                  `Erreur lors de la recherche RAG: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+                );
+                return 'Une erreur est survenue lors de la recherche dans les documents.';
+              }
+            },
           },
-          { role: 'user', content: body.message },
-        ],
+        },
+        toolCallStreaming: true,
+        maxSteps: 3,
       });
 
       const reader = result.textStream.getReader();

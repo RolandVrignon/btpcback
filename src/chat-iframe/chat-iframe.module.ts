@@ -4,12 +4,14 @@ import { ChatIframeService } from './chat-iframe.service';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { PrismaModule } from '../prisma/prisma.module';
+import { SearchModule } from '../search/search.module';
 
 @Module({
   imports: [
     PrismaModule,
+    SearchModule,
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', '..', 'public', 'chat-iframe'),
+      rootPath: join(process.cwd(), 'public', 'chat'),
       serveRoot: '/chat',
     }),
   ],

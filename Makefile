@@ -152,6 +152,16 @@ build:
 	@echo "Construction de l'application..."
 	@pnpm build
 
+.PHONY: build-chat
+build-chat:
+	@echo "\033[1;36m=== Construction de l'application Chat Iframe ===\033[0m"
+	@cd chat-iframe-client && pnpm build
+	@echo "\033[1;32mApplication Chat Iframe construite avec succès dans le dossier public/chat/\033[0m"
+
+.PHONY: build-all
+build-all: build build-chat
+	@echo "\033[1;32m=== Construction de toutes les applications terminée ===\033[0m"
+
 .PHONY: start
 start:
 	@echo "Lancement du serveur en mode production..."
@@ -270,6 +280,8 @@ help:
 	@echo "  make monitor-db          - Surveiller les connexions à la base de données en temps réel"
 	@echo "  make optimize-db-pool    - Optimiser le pool de connexions à la base de données"
 	@echo "  make script              - Sélectionner et exécuter un script avec explication"
+	@echo "  make build-chat          - Construire l'application Chat Iframe"
+	@echo "  make build-all           - Construire le backend et l'application Chat Iframe"
 
 # Commande par défaut
 .DEFAULT_GOAL := help
