@@ -15,7 +15,7 @@ import { ChatIframeService } from './chat-iframe.service';
 import { Response } from 'express';
 import { join } from 'path';
 import { createOpenAI } from '@ai-sdk/openai';
-import { streamText, Message } from 'ai';
+import { streamText, Message, smoothStream } from 'ai';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchService } from '../search/search.service';
@@ -216,6 +216,10 @@ export class ChatIframeController {
         },
         toolCallStreaming: true,
         maxSteps: 3,
+        experimental_transform: smoothStream({
+          delayInMs: 50, // Délai entre les mots pour un effet plus visible
+          chunking: 'word', // Découpage par mot
+        }),
       });
 
       const reader = result.textStream.getReader();
@@ -224,7 +228,12 @@ export class ChatIframeController {
       try {
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {
+            this.logger.debug('Fin du streaming: done=true');
+            break;
+          }
+
+          // Envoyer le chunk
           res.write(`data: ${JSON.stringify({ text: value })}\n\n`);
         }
 
@@ -238,6 +247,165 @@ export class ChatIframeController {
     } catch (error) {
       this.logger.error(
         `Erreur message: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+      );
+
+      if (!res.headersSent) {
+        if (error instanceof UnauthorizedException) {
+          return res
+            .status(401)
+            .json({ error: 'Accès non autorisé', message: error.message });
+        }
+
+        if (error instanceof NotFoundException) {
+          return res
+            .status(404)
+            .json({ error: 'Ressource non trouvée', message: error.message });
+        }
+
+        return res.status(500).json({
+          error: 'Erreur interne du serveur',
+          message:
+            "Une erreur s'est produite lors du traitement de votre demande",
+        });
+      }
+
+      res.write(
+        `data: ${JSON.stringify({ error: 'Erreur pendant le streaming' })}\n\n`,
+      );
+      res.end();
+    }
+  }
+
+  @Get(':projectId/stream')
+  async streamMessage(
+    @Param('projectId') projectId: string,
+    @Query('apiKey') apiKey: string,
+    @Query('message') message: string,
+    @Query('history') history: string,
+    @Res() res: Response,
+  ) {
+    try {
+      this.logger.debug(
+        `Réception demande de streaming pour projectId=${projectId}`,
+      );
+      const { project, organization } =
+        await this.chatIframeService.validateAccessAndGetProject(
+          apiKey,
+          projectId,
+        );
+      this.logger.debug('Accès validé, préparation du streaming');
+
+      this.setupStreamHeaders(res);
+
+      // Décoder et parser l'historique de la conversation s'il existe
+      let conversationHistory: ChatMessage[] = [];
+      try {
+        if (history) {
+          conversationHistory = JSON.parse(
+            decodeURIComponent(history),
+          ) as ChatMessage[];
+        }
+      } catch {
+        this.logger.warn(
+          "Erreur lors du parsing de l'historique de conversation",
+        );
+      }
+
+      // Construire les messages pour le modèle
+      const messages: ChatMessage[] = [
+        {
+          role: 'system',
+          content: `Tu es un assistant IA pour un projet nommé "${project.name}". Ton objectif est d'aider l'utilisateur avec ses questions concernant ce projet. Sois concis et précis dans tes réponses. Si tu n'as pas l'information dont tu as besoin, tu peux utiliser l'outil searchDocuments pour chercher des informations dans les documents du projet.`,
+        },
+        ...conversationHistory,
+        { role: 'user', content: message },
+      ];
+
+      const result = streamText({
+        model: this.openai('gpt-4o-mini'),
+        messages: messages as Message[],
+        tools: {
+          searchDocuments: {
+            description:
+              'Recherche des informations dans les documents du projet',
+            parameters: z.object({
+              query: z.string().describe('La requête de recherche'),
+            }),
+            execute: async ({ query }: { query: string }) => {
+              try {
+                this.logger.debug(
+                  `Exécution de la recherche RAG avec la requête: ${query}`,
+                );
+                const searchResults = await this.searchService.vectorSearch(
+                  {
+                    query,
+                    projectId,
+                    limit: 10,
+                  },
+                  organization.id,
+                );
+
+                // Formater les résultats
+                const formattedResults = searchResults.results.map((r) => ({
+                  text: r.text,
+                  page: r.page,
+                  documentId: r.documentId,
+                  score: r.score,
+                }));
+
+                const context = formattedResults
+                  .map(
+                    (r) =>
+                      `Extrait du document ${r.documentId} (page ${r.page}):\n${r.text}`,
+                  )
+                  .join('\n\n');
+
+                return context.length > 0
+                  ? context
+                  : 'Aucune information pertinente trouvée dans les documents du projet.';
+              } catch (error) {
+                this.logger.error(
+                  `Erreur lors de la recherche RAG: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+                );
+                return 'Une erreur est survenue lors de la recherche dans les documents.';
+              }
+            },
+          },
+        },
+        toolCallStreaming: true,
+        maxSteps: 3,
+        experimental_transform: smoothStream({
+          delayInMs: 50, // Délai entre les mots pour un effet plus visible
+          chunking: 'word', // Découpage par mot
+        }),
+      });
+
+      this.logger.debug('Début du streaming SSE');
+      const reader = result.textStream.getReader();
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            this.logger.debug('Fin du streaming SSE: done=true');
+            break;
+          }
+
+          // Envoyer chaque valeur comme un événement SSE
+          // Format compatible avec EventSource
+          res.write(`data: ${JSON.stringify({ text: value })}\n\n`);
+        }
+
+        res.write('data: [DONE]\n\n');
+        res.end();
+        this.logger.debug('Streaming SSE terminé avec succès');
+        await this.logUsage(projectId);
+      } catch (streamError) {
+        await this.handleStreamError(streamError, res);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Erreur stream: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
       );
 
       if (!res.headersSent) {

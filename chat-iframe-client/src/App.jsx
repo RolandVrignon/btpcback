@@ -1,12 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 function App() {
   // États
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const [projectId, setProjectId] = useState(null);
   const [apiKey, setApiKey] = useState(null);
+  const messagesEndRef = useRef(null);
+
+  // Fonction pour scroller automatiquement vers le dernier message
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Effet pour scroller lorsque les messages changent
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   // Effet pour extraire les paramètres d'URL
   useEffect(() => {
@@ -22,51 +33,120 @@ function App() {
 
     // Si un message initial est fourni et que les identifiants sont valides
     if (initialMessage && extractedProjectId && extractedApiKey) {
-      setMessages([{ text: initialMessage, isUser: true }]);
+      setMessages([{ content: initialMessage, isUser: true }]);
       sendMessage(initialMessage, extractedProjectId, extractedApiKey);
     }
   }, []);
 
-  // Fonction pour envoyer un message
+  // Fonction pour envoyer un message au serveur
   const sendMessage = async (message, projId, key) => {
-    if (!message.trim() || !projId || !key) return;
-
-    setLoading(true);
-
     try {
-      const response = await fetch(`/chat/${projId}/message?apiKey=${key}`, {
+      setIsTyping(true);
+
+      // Construire l'URL de l'API avec les paramètres
+      const apiUrl = `/chat/${projId}/message?apiKey=${key}`;
+      console.log('Envoi de la requête à:', apiUrl);
+
+      // Faire la requête en mode streaming
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
         },
         body: JSON.stringify({
           message,
           conversationHistory: messages.map(msg => ({
             role: msg.isUser ? 'user' : 'assistant',
-            content: msg.text
+            content: msg.content
           }))
         }),
       });
 
+      console.log('Statut de la réponse:', response.status);
+      console.log('Headers de la réponse:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+        const errorData = await response.text();
+        console.error('Erreur de réponse:', {
+          status: response.status,
+          statusText: response.statusText,
+          data: errorData
+        });
+        throw new Error(`Erreur: ${response.status} - ${errorData}`);
       }
 
-      const data = await response.json();
+      // Préparer l'objet pour la réponse du bot
+      setMessages(prev => [...prev, { content: '', isUser: false }]);
 
-      // Ajouter la réponse aux messages
-      setMessages(prevMessages => [
-        ...prevMessages,
-        { text: data.response || data.message || "Pas de réponse", isUser: false }
-      ]);
+      // Lire le stream
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+      let text = '';
+
+      while (!done) {
+        try {
+          const { value, done: doneReading } = await reader.read();
+          done = doneReading;
+
+          if (done) {
+            console.log('Streaming terminé');
+            break;
+          }
+
+          // Décoder le chunk et l'ajouter au texte
+          const chunk = decoder.decode(value, { stream: true });
+          console.log('Chunk reçu:', chunk);
+
+          // Analyser le chunk pour récupérer les données
+          const lines = chunk.split('\n');
+          let aiResponseText = '';
+
+          for (const line of lines) {
+            if (line.startsWith('data:')) {
+              try {
+                const data = JSON.parse(line.slice(5));
+                console.log('Données JSON reçues:', data);
+                if (data && data.text) {
+                  aiResponseText += data.text || '';
+                }
+                if (data && data.error) {
+                  console.error('Erreur reçue du serveur:', data.error);
+                  throw new Error(data.error);
+                }
+              } catch (e) {
+                console.warn('Erreur de parsing JSON:', e);
+                // Continuer si ce n'est pas du JSON valide
+              }
+            }
+          }
+
+          text += aiResponseText;
+
+          // Mettre à jour le dernier message (celui du bot)
+          setMessages(prev => {
+            const newMessages = [...prev];
+            newMessages[newMessages.length - 1].content = text;
+            return newMessages;
+          });
+
+          // Scroller vers le bas à chaque mise à jour
+          scrollToBottom();
+        } catch (streamError) {
+          console.error('Erreur pendant la lecture du stream:', streamError);
+          break;
+        }
+      }
+
+      setIsTyping(false);
     } catch (error) {
       console.error('Erreur lors de l\'envoi du message:', error);
-      setMessages(prevMessages => [
-        ...prevMessages,
-        { text: "Désolé, une erreur s'est produite lors de l'envoi du message.", isUser: false }
-      ]);
-    } finally {
-      setLoading(false);
+      setMessages(prev => [...prev, {
+        content: "Désolé, une erreur s'est produite lors de la communication avec le serveur.",
+        isUser: false
+      }]);
+      setIsTyping(false);
     }
   };
 
@@ -77,7 +157,7 @@ function App() {
     // Ajouter le message de l'utilisateur
     setMessages(prevMessages => [
       ...prevMessages,
-      { text: inputValue, isUser: true }
+      { content: inputValue, isUser: true }
     ]);
 
     // Envoyer le message au serveur
@@ -108,19 +188,27 @@ function App() {
           messages.map((msg, index) => (
             <div
               key={index}
-              className={`p-3 rounded-lg ${msg.isUser ? 'bg-blue-500 ml-auto text-white text-right' : 'bg-stone-200 text-black text-left'}`}
+              className={`p-3 rounded-lg max-w-[80%] break-words ${
+                msg.isUser
+                  ? 'bg-blue-500 ml-auto text-white text-right'
+                  : 'bg-stone-200 mr-auto text-black text-left'
+              }`}
             >
-              {msg.text}
+              {msg.content}
+              {!msg.isUser && index === messages.length - 1 && isTyping && (
+                <span className="inline-block w-1.5 h-4 ml-1 bg-gray-500 animate-pulse" />
+              )}
             </div>
           ))
         )}
-        {loading && (
-          <div className="flex space-x-2 justify-center items-center py-2">
-            <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce"></div>
-            <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce delay-75"></div>
-            <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce delay-150"></div>
+        {isTyping && messages.length > 0 && messages[messages.length - 1].isUser && (
+          <div className="flex space-x-2 items-center py-2 px-3 bg-stone-200 rounded-lg w-auto inline-block">
+            <div className="h-2 w-2 bg-gray-500 rounded-full animate-bounce"></div>
+            <div className="h-2 w-2 bg-gray-500 rounded-full animate-bounce delay-75"></div>
+            <div className="h-2 w-2 bg-gray-500 rounded-full animate-bounce delay-150"></div>
           </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Saisie du message */}
@@ -132,12 +220,12 @@ function App() {
           onChange={(e) => setInputValue(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
           placeholder="Écrivez votre message..."
-          disabled={loading || !projectId || !apiKey}
+          disabled={isTyping || !projectId || !apiKey}
         />
         <button
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
           onClick={handleSendMessage}
-          disabled={loading || !inputValue.trim() || !projectId || !apiKey}
+          disabled={isTyping || !inputValue.trim() || !projectId || !apiKey}
         >
           Envoyer
         </button>
