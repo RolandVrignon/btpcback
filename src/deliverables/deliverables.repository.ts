@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Deliverable, Prisma } from '@prisma/client';
+import { Deliverable, Prisma, Status } from '@prisma/client';
 import { UpdateDeliverableDto } from './dto/update-deliverable.dto';
 import { CreateDeliverableDto } from './dto/create-deliverable.dto';
+import { JsonValue } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class DeliverablesRepository {
@@ -56,6 +57,63 @@ export class DeliverablesRepository {
       this.prisma.deliverable.update({
         where: { id },
         data: updateData,
+        include: {
+          documents: {
+            include: {
+              document: true,
+            },
+          },
+        },
+      }),
+    );
+  }
+
+  /**
+   * Update only the status of a deliverable
+   * @param id Deliverable ID
+   * @param status New status
+   * @returns Updated deliverable
+   */
+  async updateStatus(id: string, status: Status): Promise<Deliverable> {
+    return this.prisma.executeWithQueue(() =>
+      this.prisma.deliverable.update({
+        where: { id },
+        data: {
+          status,
+          updatedAt: new Date(),
+        },
+        include: {
+          documents: {
+            include: {
+              document: true,
+            },
+          },
+        },
+      }),
+    );
+  }
+
+  /**
+   * Update the result of a deliverable
+   * @param id Deliverable ID
+   * @param status New status
+   * @param result Result data
+   * @returns Updated deliverable
+   */
+  async updateResult(
+    id: string,
+    status: Status,
+    result: JsonValue,
+  ): Promise<Deliverable> {
+    return this.prisma.executeWithQueue(() =>
+      this.prisma.deliverable.update({
+        where: { id },
+        data: {
+          status,
+          short_result: result,
+          long_result: result,
+          updatedAt: new Date(),
+        },
         include: {
           documents: {
             include: {

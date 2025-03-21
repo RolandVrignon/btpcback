@@ -9,6 +9,8 @@ import { ProjectsRepository } from '../../projects/projects.repository';
 import { ChunksRepository } from '../../chunks/chunks.repository';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
+import { DocumentsPubliquesStrategy } from '../strategies/documents-publiques.strategy';
+import { GeorisquesStrategy } from '../strategies/georisques.strategy';
 
 @Injectable()
 export class DeliverableFactory {
@@ -34,6 +36,22 @@ export class DeliverableFactory {
         );
       case DeliverableType.TABLEAU_DES_DOCUMENTS_EXAMINES:
         return new TableauDesDocumentsExaminesStrategy(
+          this.prisma,
+          this.deliverablesRepository,
+          this.documentsRepository,
+          this.projectsRepository,
+          this.configService,
+        );
+      case DeliverableType.DOCUMENTS_PUBLIQUES:
+        return new DocumentsPubliquesStrategy(
+          this.prisma,
+          this.deliverablesRepository,
+          this.documentsRepository,
+          this.projectsRepository,
+          this.configService,
+        );
+      case DeliverableType.GEORISQUES:
+        return new GeorisquesStrategy(
           this.prisma,
           this.deliverablesRepository,
           this.documentsRepository,

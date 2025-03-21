@@ -1,0 +1,71 @@
+import { PrismaService } from '../../prisma/prisma.service';
+import { DeliverablesRepository } from '../deliverables.repository';
+import { DocumentsRepository } from '../../documents/documents.repository';
+import { ProjectsRepository } from '../../projects/projects.repository';
+import { ConfigService } from '@nestjs/config';
+import { DeliverableStrategy } from '../interfaces/deliverable-strategy.interface';
+import { DeliverableContext } from '../interfaces/deliverable-context.interface';
+import { Status } from '@prisma/client';
+import { PublicDataResponse } from '../interfaces/public-data.interface';
+import { JsonValue } from '@prisma/client/runtime/library';
+
+export class GeorisquesStrategy implements DeliverableStrategy {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly deliverablesRepository: DeliverablesRepository,
+    private readonly documentsRepository: DocumentsRepository,
+    private readonly projectsRepository: ProjectsRepository,
+    private readonly configService: ConfigService,
+  ) {}
+
+  async generate(context: DeliverableContext): Promise<void> {
+    try {
+      // Update deliverable status to PROGRESS
+      await this.deliverablesRepository.updateStatus(
+        context.id,
+        Status.PROGRESS,
+      );
+
+      // Get project info to retrieve city and address
+      const project = await this.projectsRepository.findById(context.projectId);
+
+      if (!project.ai_city || !project.ai_address) {
+        throw new Error('Project city or address is not defined');
+      }
+
+      // Call the n8n webhook to get georisques data
+      const n8nUrl = this.configService.get<string>('N8N_WEBHOOK_URL_PROD');
+      const address = `${project.ai_address}, ${project.ai_city}`;
+      const url = `${n8nUrl}/public-data`;
+
+      const payload = {
+        address,
+        publicDataType: 'GEORISQUES',
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = (await response.json()) as PublicDataResponse;
+
+      if (!data) {
+        throw new Error('Failed to retrieve georisques data');
+      }
+
+      // Update deliverable with the result
+      await this.deliverablesRepository.updateResult(
+        context.id,
+        Status.COMPLETED,
+        data as unknown as JsonValue,
+      );
+    } catch (error) {
+      console.error('Error generating GEORISQUES deliverable:', error);
+      await this.deliverablesRepository.updateStatus(context.id, Status.ERROR);
+    }
+  }
+}

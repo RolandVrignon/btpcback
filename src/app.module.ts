@@ -15,7 +15,6 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DeliverablesModule } from './deliverables/deliverables.module';
 import { SharedModule } from './shared/shared.module';
-import { ToolsModule } from './tools/tools.module';
 
 @Module({
   imports: [
@@ -35,7 +34,6 @@ import { ToolsModule } from './tools/tools.module';
     UsageModule,
     SearchModule,
     DeliverablesModule,
-    ToolsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
