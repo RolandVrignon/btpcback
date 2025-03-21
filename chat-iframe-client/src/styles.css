@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Styles de base */
 body {
@@ -265,4 +268,460 @@ h1 {
   .message {
     max-width: 90%;
   }
+}
+
+/* Ajout de styles pour le markdown */
+.markdown-content {
+  /* Styles généraux */
+  @apply text-left leading-relaxed;
+}
+
+/* Titres */
+.markdown-content h1 {
+  @apply text-xl font-bold mt-6 mb-4;
+}
+
+.markdown-content h2 {
+  @apply text-lg font-bold mt-5 mb-3;
+}
+
+.markdown-content h3 {
+  @apply text-base font-bold mt-4 mb-2;
+}
+
+.markdown-content h4, .markdown-content h5, .markdown-content h6 {
+  @apply font-semibold mt-3 mb-2;
+}
+
+/* Paragraphes et listes */
+.markdown-content p {
+  @apply mb-6;
+}
+
+.markdown-content ul, .markdown-content ol {
+  @apply pl-5 my-6;
+}
+
+.markdown-content li {
+  @apply my-2;
+}
+
+.markdown-content ul {
+  @apply list-disc;
+}
+
+.markdown-content ol {
+  @apply list-decimal;
+}
+
+/* Tableaux */
+.markdown-content table {
+  @apply w-full border-collapse my-6 bg-white;
+}
+
+.markdown-content th {
+  @apply font-bold border py-2 px-3 bg-blue-50;
+}
+
+.markdown-content td {
+  @apply border py-1.5 px-3;
+}
+
+/* Code */
+.markdown-content pre {
+  @apply bg-slate-800 text-white p-3 rounded-md my-6 overflow-x-auto;
+}
+
+.markdown-content code {
+  @apply font-mono text-sm bg-slate-100 px-1.5 py-0.5 rounded;
+}
+
+.markdown-content pre code {
+  @apply bg-transparent text-white p-0;
+}
+
+/* Blockquotes */
+.markdown-content blockquote {
+  @apply border-l-4 border-blue-200 pl-4 py-2 my-6 bg-blue-50 rounded-r;
+}
+
+/* Liens */
+.markdown-content a {
+  @apply text-blue-600 underline hover:text-blue-800;
+}
+
+/* Règles horizontales */
+.markdown-content hr {
+  @apply border-t-2 border-slate-200 my-8;
+}
+
+/* Images */
+.markdown-content img {
+  @apply max-w-full my-6 rounded-md shadow-sm;
+}
+
+/* Styles pour KaTeX (formules mathématiques) */
+.markdown-content .math {
+  @apply my-4;
+}
+
+.markdown-content .math-inline {
+  @apply mx-1;
+}
+
+/* Styles pour les tables des matières */
+.markdown-content .table-of-contents {
+  @apply bg-slate-50 p-4 my-6 rounded-md;
+}
+
+.markdown-content .table-of-contents::before {
+  content: "Table des matières";
+  @apply font-bold text-lg block mb-2;
+}
+
+.markdown-content .table-of-contents ol {
+  @apply list-decimal pl-5;
+}
+
+.markdown-content .table-of-contents li {
+  @apply my-1;
+}
+
+.markdown-content .table-of-contents a {
+  @apply no-underline text-blue-600 hover:underline;
+}
+
+/* Styles améliorés pour le code en ligne et les blocs de code */
+.markdown-content .hljs {
+  @apply rounded-md p-4 my-6;
+}
+
+.markdown-content .hljs-comment,
+.markdown-content .hljs-quote {
+  @apply italic;
+}
+
+/* Styles pour les emojis */
+.markdown-content .emoji {
+  @apply text-xl align-middle;
+}
+
+/* Styles pour la mise en évidence des sections avec IDs (via rehype-slug) */
+.markdown-content h1[id]:hover::after,
+.markdown-content h2[id]:hover::after,
+.markdown-content h3[id]:hover::after,
+.markdown-content h4[id]:hover::after,
+.markdown-content h5[id]:hover::after,
+.markdown-content h6[id]:hover::after {
+  content: " 🔗";
+  @apply text-blue-400 cursor-pointer;
+}
+
+/* Styles pour les diagrammes et tableaux */
+.markdown-content table {
+  @apply w-full border-collapse my-6 rounded-lg overflow-hidden shadow-sm;
+}
+
+.markdown-content thead {
+  @apply bg-blue-100;
+}
+
+.markdown-content th {
+  @apply font-bold py-3 px-4 text-left;
+}
+
+.markdown-content td {
+  @apply py-2.5 px-4 border-t border-slate-200;
+}
+
+.markdown-content tr:nth-child(even) {
+  @apply bg-slate-50;
+}
+
+/* Styles pour les définitions et abréviations */
+.markdown-content dfn {
+  @apply font-bold italic;
+}
+
+.markdown-content abbr {
+  @apply border-b border-dotted border-slate-400 cursor-help;
+}
+
+/* Ajout des classes prose pour le styling de Markdown */
+@layer components {
+  .prose {
+    @apply max-w-none leading-normal text-slate-800;
+  }
+
+  .prose a {
+    @apply text-blue-600 hover:text-blue-800 hover:underline;
+  }
+
+  .prose strong {
+    @apply font-bold text-slate-900;
+  }
+
+  .prose ol {
+    @apply list-decimal pl-6 my-4 space-y-2;
+  }
+
+  .prose ul {
+    @apply list-disc pl-6 my-4 space-y-2;
+  }
+
+  .prose h1,
+  .prose h2,
+  .prose h3,
+  .prose h4,
+  .prose h5,
+  .prose h6 {
+    @apply font-semibold text-slate-900 mt-6 mb-4;
+  }
+
+  .prose blockquote {
+    @apply border-l-4 border-blue-500 bg-blue-50 pl-4 py-1 my-4 rounded-r-md italic text-slate-700;
+  }
+
+  .prose code {
+    @apply bg-gray-100 text-red-500 px-1 py-0.5 rounded text-sm font-mono;
+  }
+
+  .prose pre {
+    @apply bg-gray-800 text-gray-100 p-4 rounded-md overflow-x-auto my-4 text-sm font-mono;
+  }
+
+  .prose table {
+    @apply w-full my-4 border-collapse;
+  }
+
+  .prose th {
+    @apply border border-gray-300 bg-gray-100 p-3 font-semibold text-left text-slate-800;
+  }
+
+  .prose td {
+    @apply border border-gray-300 p-3 text-slate-700;
+  }
+
+  .prose img {
+    @apply max-w-full rounded-md;
+  }
+
+  .prose p {
+    @apply my-4 text-slate-800;
+  }
+}
+
+/* Styles pour le loader avancé */
+@keyframes pulseWave {
+  0%, 100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+.animate-pulse {
+  animation: pulseWave 1.5s ease-in-out infinite;
+}
+
+.delay-150 {
+  animation-delay: 0.15s;
+}
+
+.delay-300 {
+  animation-delay: 0.3s;
+}
+
+.delay-500 {
+  animation-delay: 0.5s;
+}
+
+.delay-700 {
+  animation-delay: 0.7s;
+}
+
+/* Style pour l'apparition du loader */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.flex.flex-col.items-start.py-3.px-4.bg-slate-100 {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Styles pour fixer la zone d'input et améliorer le scrolling */
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Style pour les scrollbars */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 10px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Fix pour Firefox */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+/* Styles spécifiques pour la disposition fixe de la barre de saisie */
+.h-full.w-full.bg-white.flex.flex-col.overflow-hidden.relative {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Assurer que la zone de messages prend toute la hauteur disponible */
+.flex-1.overflow-y-auto.p-4.space-y-6.scrollbar-thin.scrollbar-thumb-gray-300.pb-24 {
+  height: calc(100vh - 60px); /* 60px est approximativement la hauteur de l'en-tête */
+  overflow-y: auto;
+  padding-bottom: 80px; /* Espace supplémentaire pour éviter que le contenu ne soit caché derrière la barre de saisie */
+}
+
+/* Styles pour la barre de saisie flottante */
+.border-t.border-gray-200.p-4.bg-white.flex.justify-center.space-x-2.w-full.absolute.bottom-0.left-0.right-0.shadow-md {
+  background-color: transparent;
+  z-index: 10;
+  box-shadow: none;
+  padding: 10px 20px 20px;
+  animation: floatUp 0.3s ease-out;
+}
+
+@keyframes floatUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Style pour le conteneur d'input pleine largeur */
+.w-full.max-w-4xl.px-4.flex.relative {
+  width: 100%;
+  max-width: 100%;
+  padding-left: 20px;
+  padding-right: 20px;
+  transition: all 0.3s ease;
+  padding-bottom: 5px;
+}
+
+/* Style pour l'input épuré */
+input[type="text"].rounded-full {
+  background-color: transparent;
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s ease;
+  box-shadow: none;
+  width: 100%;
+}
+
+input[type="text"].rounded-full:focus {
+  border-color: #9ca3af;
+  box-shadow: none;
+}
+
+/* Style pour le bouton d'envoi */
+button.rounded-full {
+  transition: all 0.2s ease;
+  background-color: black;
+  width: 36px;
+  height: 36px;
+}
+
+button.rounded-full:hover:not(:disabled) {
+  transform: translateY(-50%) scale(1.05);
+}
+
+/* Styles pour les bulles de message */
+.message-bubble {
+  position: relative;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+}
+
+.message-bubble:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.user-message {
+  border-radius: 18px 18px 4px 18px;
+}
+
+.ai-message {
+  border-radius: 18px 18px 18px 4px;
+}
+
+/* Ajouter une petite pointe aux bulles */
+.user-message::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: -10px;
+  width: 0;
+  height: 0;
+  border: 10px solid transparent;
+  border-top-color: #2563eb; /* blue-600 */
+  border-bottom: 0;
+  border-right: 0;
+  margin-left: -5px;
+  margin-bottom: -10px;
+}
+
+.ai-message::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: -10px;
+  width: 0;
+  height: 0;
+  border: 10px solid transparent;
+  border-top-color: #f1f5f9; /* slate-100 */
+  border-bottom: 0;
+  border-left: 0;
+  margin-right: -5px;
+  margin-bottom: -10px;
+}
+
+/* Style pour le textarea */
+textarea.rounded-full {
+  background-color: transparent;
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s ease;
+  box-shadow: none;
+  width: 100%;
+  line-height: 1.5;
+  border-radius: 24px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+textarea.rounded-full:focus {
+  border-color: #9ca3af;
+  box-shadow: none;
+}
+
+/* Ajuster la position du bouton quand le textarea grandit */
+.absolute.right-6.top-\[24px\] {
+  top: 24px;
+}
+
+/* Animation de transition pour les changements de hauteur */
+textarea {
+  transition: height 0.2s ease;
 }
