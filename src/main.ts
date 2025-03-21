@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import { Server } from 'http';
+import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -28,14 +29,22 @@ async function bootstrap() {
   );
 
   // Configuration CORS
-  app.enableCors();
+  app.enableCors({
+    origin: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    allowedHeaders: ['Content-Type', 'Accept'],
+    credentials: true,
+  });
 
   // Configuration du timeout HTTP pour les requêtes longues (15 minutes)
   const httpServer = app.getHttpServer() as Server;
-  httpServer.setTimeout(900000); // 15 minutes en millisecondes
+  httpServer.timeout = 900000; // 15 minutes en millisecondes
   console.log('HTTP server timeout set to 900000ms (15 minutes)');
 
-  await app.listen(process.env.PORT ?? 3000);
+  const configService = app.get(ConfigService);
+  const port = configService.get<number>('PORT') || 8080;
+
+  await app.listen(port);
 }
 
 void bootstrap();
