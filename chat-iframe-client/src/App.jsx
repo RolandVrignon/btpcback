@@ -88,46 +88,46 @@ function App() {
   };
 
   return (
-    <div className="chat-container h-full w-full bg-green-500">
+    <div className="h-full w-full bg-white flex flex-col">
       {/* Informations de connexion */}
-      <div className="connection-info">
+      <div className="bg-white p-4 shadow-sm">
         {projectId && apiKey ? (
-          <p style={{ color: 'green' }}>Connecté au projet: {projectId}</p>
+          <p className="text-green-600 text-sm">Connecté au projet: {projectId}</p>
         ) : (
-          <p style={{ color: 'red' }}>
+          <p className="text-red-600 text-sm">
             Paramètres manquants. URL attendue: /chat/[projectId]?apiKey=[apiKey]
           </p>
         )}
       </div>
 
       {/* Messages */}
-      <div className="chat-messages">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
-          <p className="empty-chat">Pas de messages. Commencez la conversation!</p>
+          <p className="text-gray-500 text-center py-8">Pas de messages. Commencez la conversation!</p>
         ) : (
           messages.map((msg, index) => (
             <div
               key={index}
-              className={`message ${msg.isUser ? 'user' : 'ai'}`}
+              className={`p-3 rounded-lg ${msg.isUser ? 'bg-blue-500 ml-auto text-white text-right' : 'bg-stone-200 text-black text-left'}`}
             >
               {msg.text}
             </div>
           ))
         )}
         {loading && (
-          <div className="typing-indicator">
-            <div className="typing-dot"></div>
-            <div className="typing-dot"></div>
-            <div className="typing-dot"></div>
+          <div className="flex space-x-2 justify-center items-center py-2">
+            <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce"></div>
+            <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce delay-75"></div>
+            <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce delay-150"></div>
           </div>
         )}
       </div>
 
       {/* Saisie du message */}
-      <div className="input-area">
+      <div className="border-t border-gray-200 p-4 bg-white flex space-x-2">
         <input
           type="text"
-          className="message-input"
+          className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
@@ -135,7 +135,7 @@ function App() {
           disabled={loading || !projectId || !apiKey}
         />
         <button
-          className="send-button"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
           onClick={handleSendMessage}
           disabled={loading || !inputValue.trim() || !projectId || !apiKey}
         >
