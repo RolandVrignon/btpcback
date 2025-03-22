@@ -3,6 +3,7 @@ npm-debug.log
 pnpm-debug.log
 yarn-debug.log
 yarn-error.log
+chat-iframe-client
 
 # Fichiers de build
 dist

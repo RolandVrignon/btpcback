@@ -21,7 +21,13 @@ COPY . .
 ENV DATABASE_URL="postgresql://fake:fake@localhost:5432/fake"
 RUN npx prisma generate
 
-# Construire l'application
+# Builder l'iframe client
+WORKDIR /app/chat-iframe-client
+RUN pnpm install
+RUN pnpm build
+
+# Retourner au répertoire principal et construire l'application backend
+WORKDIR /app
 RUN pnpm run build
 
 # Étape de production
@@ -44,6 +50,7 @@ RUN pnpm install
 
 # Copier les fichiers générés depuis l'étape de build
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/public ./public
 COPY prisma ./prisma
 COPY scripts ./scripts
 COPY tsconfig.json ./
