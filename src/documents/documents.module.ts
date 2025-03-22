@@ -27,7 +27,7 @@ import { GuardsModule } from '../common/guards/guards.module';
   ],
   controllers: [DocumentsController],
   providers: [DocumentsService, DocumentsRepository],
-  exports: [DocumentsRepository],
+  exports: [DocumentsRepository, DocumentsService],
 })
 export class DocumentsModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

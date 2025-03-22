@@ -19,7 +19,8 @@ import { streamText, Message, smoothStream } from 'ai';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchService } from '../search/search.service';
-import { z } from 'zod';
+import { DocumentsService } from '../documents/documents.service';
+import { createChatTools, DEFAULT_STREAM_CONFIG } from './tools';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -36,6 +37,7 @@ export class ChatIframeController {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly searchService: SearchService,
+    private readonly documentsService: DocumentsService,
   ) {
     const openaiApiKey = this.configService.get<string>('OPENAI_API_KEY');
     if (!openaiApiKey) {
@@ -152,80 +154,70 @@ export class ChatIframeController {
 
       this.setupStreamHeaders(res);
 
-      // Construire les messages pour le modèle avec l'historique
+      // Envoi d'un message test pour vérifier la connexion
+      res.write(
+        `data: ${JSON.stringify({ text: 'Connexion établie. Traitement de votre requête...' })}\n\n`,
+      );
+
+      // Message système et historique
       const messages: ChatMessage[] = [
         {
           role: 'system',
-          content: `Tu es un assistant IA pour un projet nommé "${project.name}". Ton objectif est d'aider l'utilisateur avec ses questions concernant ce projet. Sois concis et précis dans tes réponses. Si tu n'as pas l'information dont tu as besoin, tu peux utiliser l'outil searchDocuments pour chercher des informations dans les documents du projet.`,
+          content: `Tu es un assistant IA pour un projet nommé "${project.name}". Ton objectif est d'aider l'utilisateur avec ses questions concernant ce projet. Sois concis et précis dans tes réponses.
+
+Si tu n'as pas l'information dont tu as besoin, tu peux utiliser les outils suivants:
+- searchDocuments: pour chercher des informations précises dans les documents du projet
+- listProjectDocuments: pour voir la liste des documents disponibles dans le projet
+- summarizeDocument: pour obtenir le contenu complet d'un document et le résumer (nécessite l'ID du document)
+
+Pour les questions complexes qui nécessitent une compréhension globale du projet, suis cette méthodologie en étapes:
+1. Utilise listProjectDocuments pour obtenir la liste complète des documents
+2. Pour chaque document important, utilise summarizeDocument pour accéder à son contenu complet
+3. Analyse chaque document individuellement avant de formuler une synthèse globale
+4. Organise les informations de façon logique (chronologique, thématique, etc.)
+5. Présente un résumé qui couvre les aspects essentiels du projet
+
+N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire ta compréhension étape par étape.`,
         },
         ...(body.conversationHistory || []),
         { role: 'user', content: body.message },
       ];
 
-      const result = streamText({
-        model: this.openai('gpt-4o-mini'),
-        messages: messages as Message[],
-        tools: {
-          searchDocuments: {
-            description:
-              'Recherche des informations dans les documents du projet',
-            parameters: z.object({
-              query: z.string().describe('La requête de recherche'),
-            }),
-            execute: async ({ query }: { query: string }) => {
-              try {
-                this.logger.debug(
-                  `Exécution de la recherche RAG avec la requête: ${query}`,
-                );
-                const searchResults = await this.searchService.vectorSearch(
-                  {
-                    query,
-                    projectId,
-                    limit: 10,
-                  },
-                  organization.id,
-                );
+      // Création des outils avec la nouvelle fonction unifiée
+      const tools = createChatTools(
+        this.searchService,
+        this.documentsService,
+        projectId,
+        organization.id,
+      );
 
-                // Formater les résultats pour les rendre plus faciles à utiliser par le LLM
-                const formattedResults = searchResults.results.map((r) => ({
-                  text: r.text,
-                  page: r.page,
-                  documentId: r.documentId,
-                  score: r.score,
-                }));
+      // Log pour vérifier les outils disponibles
+      this.logger.debug(`Outils disponibles: ${Object.keys(tools).join(', ')}`);
+      this.logger.debug(JSON.stringify(tools, null, 2));
 
-                // Créer un contexte à partir des résultats pour le modèle
-                const context = formattedResults
-                  .map(
-                    (r) =>
-                      `Extrait du document ${r.documentId} (page ${r.page}):\n${r.text}`,
-                  )
-                  .join('\n\n');
-
-                return context.length > 0
-                  ? context
-                  : 'Aucune information pertinente trouvée dans les documents du projet.';
-              } catch (error) {
-                this.logger.error(
-                  `Erreur lors de la recherche RAG: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
-                );
-                return 'Une erreur est survenue lors de la recherche dans les documents.';
-              }
-            },
-          },
-        },
-        toolCallStreaming: true,
-        maxSteps: 3,
-        experimental_transform: smoothStream({
-          delayInMs: 50, // Délai entre les mots pour un effet plus visible
-          chunking: 'word', // Découpage par mot
-        }),
-      });
-
-      const reader = result.textStream.getReader();
-      this.logger.debug('Début du streaming');
-
+      // Configuration du streaming simple
       try {
+        const result = streamText({
+          model: this.openai('gpt-4o-mini'),
+          messages: messages as Message[],
+          tools,
+          toolCallStreaming: true,
+          maxSteps: 15,
+        });
+
+        // Logs pour déboguer les propriétés du résultat
+        this.logger.debug(`Type de result: ${typeof result}`);
+        this.logger.debug(
+          `Propriétés de result: ${Object.keys(result).join(', ')}`,
+        );
+
+        this.logger.debug('Début du streaming');
+
+        // Utiliser directement le textStream
+        const reader = result.textStream.getReader();
+
+        // Lire les chunks et les envoyer au client
+        let chunkCounter = 0;
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
@@ -233,16 +225,21 @@ export class ChatIframeController {
             break;
           }
 
+          chunkCounter++;
+          this.logger.debug(`Chunk #${chunkCounter} reçu: "${value}"`);
+
           // Envoyer le chunk
           res.write(`data: ${JSON.stringify({ text: value })}\n\n`);
         }
 
+        this.logger.debug(`Total des chunks envoyés: ${chunkCounter}`);
         res.write('data: [DONE]\n\n');
         res.end();
+
         this.logger.debug('Streaming terminé avec succès');
         await this.logUsage(projectId);
-      } catch (streamError) {
-        await this.handleStreamError(streamError, res);
+      } catch (error) {
+        await this.handleStreamError(error, res);
       }
     } catch (error) {
       this.logger.error(
@@ -315,69 +312,41 @@ export class ChatIframeController {
       const messages: ChatMessage[] = [
         {
           role: 'system',
-          content: `Tu es un assistant IA pour un projet nommé "${project.name}". Ton objectif est d'aider l'utilisateur avec ses questions concernant ce projet. Sois concis et précis dans tes réponses. Si tu n'as pas l'information dont tu as besoin, tu peux utiliser l'outil searchDocuments pour chercher des informations dans les documents du projet.`,
+          content: `Tu es un assistant IA pour un projet nommé "${project.name}". Ton objectif est d'aider l'utilisateur avec ses questions concernant ce projet. Sois concis et précis dans tes réponses.
+
+Si tu n'as pas l'information dont tu as besoin, tu peux utiliser les outils suivants:
+- searchDocuments: pour chercher des informations précises dans les documents du projet
+- listProjectDocuments: pour voir la liste des documents disponibles dans le projet
+- summarizeDocument: pour obtenir le contenu complet d'un document et le résumer (nécessite l'ID du document)
+
+Pour les questions complexes qui nécessitent une compréhension globale du projet, suis cette méthodologie en étapes:
+1. Utilise listProjectDocuments pour obtenir la liste complète des documents
+2. Pour chaque document important, utilise summarizeDocument pour accéder à son contenu complet
+3. Analyse chaque document individuellement avant de formuler une synthèse globale
+4. Organise les informations de façon logique (chronologique, thématique, etc.)
+5. Présente un résumé qui couvre les aspects essentiels du projet
+
+N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire ta compréhension étape par étape.`,
         },
         ...conversationHistory,
         { role: 'user', content: message },
       ];
 
+      // Création des outils avec la nouvelle fonction unifiée
+      const tools = createChatTools(
+        this.searchService,
+        this.documentsService,
+        projectId,
+        organization.id,
+      );
+
       const result = streamText({
         model: this.openai('gpt-4o-mini'),
         messages: messages as Message[],
-        tools: {
-          searchDocuments: {
-            description:
-              'Recherche des informations dans les documents du projet',
-            parameters: z.object({
-              query: z.string().describe('La requête de recherche'),
-            }),
-            execute: async ({ query }: { query: string }) => {
-              try {
-                this.logger.debug(
-                  `Exécution de la recherche RAG avec la requête: ${query}`,
-                );
-                const searchResults = await this.searchService.vectorSearch(
-                  {
-                    query,
-                    projectId,
-                    limit: 10,
-                  },
-                  organization.id,
-                );
-
-                // Formater les résultats
-                const formattedResults = searchResults.results.map((r) => ({
-                  text: r.text,
-                  page: r.page,
-                  documentId: r.documentId,
-                  score: r.score,
-                }));
-
-                const context = formattedResults
-                  .map(
-                    (r) =>
-                      `Extrait du document ${r.documentId} (page ${r.page}):\n${r.text}`,
-                  )
-                  .join('\n\n');
-
-                return context.length > 0
-                  ? context
-                  : 'Aucune information pertinente trouvée dans les documents du projet.';
-              } catch (error) {
-                this.logger.error(
-                  `Erreur lors de la recherche RAG: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
-                );
-                return 'Une erreur est survenue lors de la recherche dans les documents.';
-              }
-            },
-          },
-        },
+        tools,
         toolCallStreaming: true,
-        maxSteps: 3,
-        experimental_transform: smoothStream({
-          delayInMs: 50, // Délai entre les mots pour un effet plus visible
-          chunking: 'word', // Découpage par mot
-        }),
+        maxSteps: 15,
+        experimental_transform: smoothStream(DEFAULT_STREAM_CONFIG),
       });
 
       this.logger.debug('Début du streaming SSE');

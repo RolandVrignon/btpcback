@@ -4,6 +4,7 @@ import { SearchRequestDto, SearchResponseDto, SearchResultDto } from './dto';
 import { NotFoundException } from '@nestjs/common';
 import { ProjectsRepository } from '../projects/projects.repository';
 import { SearchRepository } from './search.repository';
+import { ChunksRepository } from '../chunks/chunks.repository';
 
 // Interface pour les résultats de recherche vectorielle
 interface VectorSearchResult {
@@ -23,6 +24,14 @@ interface SemanticSearchResult {
   page: number;
 }
 
+// Interface pour les chunks de document
+export interface DocumentChunk {
+  id: string;
+  text: string;
+  order?: number | null;
+  page?: number | null;
+}
+
 @Injectable()
 export class SearchService {
   private readonly embeddingModel = 'text-embedding-3-small';
@@ -32,6 +41,7 @@ export class SearchService {
     private readonly embeddingsService: EmbeddingsService,
     private readonly projectsRepository: ProjectsRepository,
     private readonly searchRepository: SearchRepository,
+    private readonly chunksRepository: ChunksRepository,
   ) {}
 
   /**
@@ -348,5 +358,27 @@ export class SearchService {
     }
 
     return project;
+  }
+
+  /**
+   * Récupère tous les chunks d'un document
+   * @param documentId ID du document
+   * @returns Liste des chunks du document avec leur texte, ordre et page
+   */
+  async getDocumentChunks(documentId: string): Promise<DocumentChunk[]> {
+    try {
+      const chunks = await this.chunksRepository.findByDocument(documentId);
+
+      return chunks.map((chunk) => ({
+        id: chunk.id,
+        text: chunk.text,
+        order: chunk.order,
+        page: chunk.page,
+      }));
+    } catch (err) {
+      throw new NotFoundException(
+        `Impossible de récupérer les chunks du document ${documentId}: ${err instanceof Error ? err.message : 'Erreur inconnue'}`,
+      );
+    }
   }
 }

@@ -5,11 +5,13 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { PrismaModule } from '../prisma/prisma.module';
 import { SearchModule } from '../search/search.module';
+import { DocumentsModule } from '../documents/documents.module';
 
 @Module({
   imports: [
     PrismaModule,
     SearchModule,
+    DocumentsModule,
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'public', 'chat'),
       serveRoot: '/chat',
