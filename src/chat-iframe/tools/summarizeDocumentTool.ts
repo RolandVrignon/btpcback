@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { DocumentsService } from '../../documents/documents.service';
 import { SearchService } from '../../search/search.service';
 import { z } from 'zod';
+import { DEFAULT_STREAM_CONFIG } from './streamConfig';
 
 const logger = new Logger('SummarizeDocumentTool');
 
@@ -17,7 +18,6 @@ export const createSummarizeDocumentTool = (
   documentsService: DocumentsService,
   searchService: SearchService,
   projectId: string,
-  organizationId: string,
 ) => ({
   summarizeDocument: {
     description:
@@ -81,12 +81,22 @@ Nombre de pages: ${document.metadata_numPages || 'Non disponible'}
 ID: ${document.id}
 `;
 
-        return `${documentInfo}\n\nTexte complet du document pour résumé:\n\n${documentText}`;
+        const responseText = `${documentInfo}\n\nTexte complet du document pour résumé:\n\n${documentText}`;
+
+        return {
+          text: responseText,
+          stream: true,
+          config: DEFAULT_STREAM_CONFIG,
+        };
       } catch (error) {
         logger.error(
           `Erreur lors de la génération du résumé: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
         );
-        return 'Une erreur est survenue lors de la génération du résumé du document.';
+        return {
+          text: 'Une erreur est survenue lors de la génération du résumé du document.',
+          stream: true,
+          config: DEFAULT_STREAM_CONFIG,
+        };
       }
     },
   },

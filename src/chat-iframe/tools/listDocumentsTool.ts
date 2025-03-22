@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { DocumentsService } from '../../documents/documents.service';
 import { z } from 'zod';
+import { DEFAULT_STREAM_CONFIG } from './streamConfig';
 
 const logger = new Logger('ListDocumentsTool');
 
@@ -8,13 +9,11 @@ const logger = new Logger('ListDocumentsTool');
  * Définition de l'outil de listage des documents
  * @param documentsService Service des documents
  * @param projectId ID du projet
- * @param organizationId ID de l'organisation
  * @returns La définition de l'outil de listage
  */
 export const createListDocumentsTool = (
   documentsService: DocumentsService,
   projectId: string,
-  organizationId: string,
 ) => ({
   listProjectDocuments: {
     description: 'Liste tous les documents disponibles dans le projet',
@@ -27,7 +26,11 @@ export const createListDocumentsTool = (
         const documents = await documentsService.findByProject(projectId);
 
         if (!documents || documents.length === 0) {
-          return "Aucun document n'est disponible dans ce projet.";
+          return {
+            text: "Aucun document n'est disponible dans ce projet.",
+            stream: true,
+            config: DEFAULT_STREAM_CONFIG,
+          };
         }
 
         // Formater la liste des documents
@@ -50,7 +53,11 @@ export const createListDocumentsTool = (
           }));
 
         if (formattedList.length === 0) {
-          return "Le projet contient des documents, mais aucun n'est prêt à être utilisé.";
+          return {
+            text: "Le projet contient des documents, mais aucun n'est prêt à être utilisé.",
+            stream: true,
+            config: DEFAULT_STREAM_CONFIG,
+          };
         }
 
         const documentsList = formattedList
@@ -59,12 +66,22 @@ export const createListDocumentsTool = (
           )
           .join('\n');
 
-        return `Documents disponibles dans le projet:\n\n${documentsList}\n\nVous pouvez rechercher des informations dans ces documents en utilisant l'outil searchDocuments.`;
+        const responseText = `Documents disponibles dans le projet:\n\n${documentsList}\n\nVous pouvez rechercher des informations dans ces documents en utilisant l'outil searchDocuments.`;
+
+        return {
+          text: responseText,
+          stream: true,
+          config: DEFAULT_STREAM_CONFIG,
+        };
       } catch (error) {
         logger.error(
           `Erreur lors du listage des documents: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
         );
-        return 'Une erreur est survenue lors de la récupération de la liste des documents.';
+        return {
+          text: 'Une erreur est survenue lors de la récupération de la liste des documents.',
+          stream: true,
+          config: DEFAULT_STREAM_CONFIG,
+        };
       }
     },
   },

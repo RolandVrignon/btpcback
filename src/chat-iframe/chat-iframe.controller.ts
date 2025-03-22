@@ -20,6 +20,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchService } from '../search/search.service';
 import { DocumentsService } from '../documents/documents.service';
+import { ProjectsService } from '../projects/projects.service';
 import { createChatTools, DEFAULT_STREAM_CONFIG } from './tools';
 
 interface ChatMessage {
@@ -38,6 +39,7 @@ export class ChatIframeController {
     private readonly prisma: PrismaService,
     private readonly searchService: SearchService,
     private readonly documentsService: DocumentsService,
+    private readonly projectsService: ProjectsService,
   ) {
     const openaiApiKey = this.configService.get<string>('OPENAI_API_KEY');
     if (!openaiApiKey) {
@@ -187,6 +189,7 @@ N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire
       const tools = createChatTools(
         this.searchService,
         this.documentsService,
+        this.projectsService,
         projectId,
         organization.id,
       );
@@ -203,6 +206,7 @@ N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire
           tools,
           toolCallStreaming: true,
           maxSteps: 15,
+          experimental_transform: smoothStream(DEFAULT_STREAM_CONFIG),
         });
 
         // Logs pour déboguer les propriétés du résultat
@@ -318,6 +322,7 @@ Si tu n'as pas l'information dont tu as besoin, tu peux utiliser les outils suiv
 - searchDocuments: pour chercher des informations précises dans les documents du projet
 - listProjectDocuments: pour voir la liste des documents disponibles dans le projet
 - summarizeDocument: pour obtenir le contenu complet d'un document et le résumer (nécessite l'ID du document)
+- getProjectSummary: pour obtenir un résumé global du projet
 
 Pour les questions complexes qui nécessitent une compréhension globale du projet, suis cette méthodologie en étapes:
 1. Utilise listProjectDocuments pour obtenir la liste complète des documents
@@ -336,6 +341,7 @@ N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire
       const tools = createChatTools(
         this.searchService,
         this.documentsService,
+        this.projectsService,
         projectId,
         organization.id,
       );

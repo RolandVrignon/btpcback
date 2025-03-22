@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { SearchService } from '../../search/search.service';
 import { z } from 'zod';
+import { DEFAULT_STREAM_CONFIG } from './streamConfig';
 
 const logger = new Logger('SearchDocumentsTool');
 
@@ -49,14 +50,25 @@ export const createSearchDocumentsTool = (
           )
           .join('\n\n');
 
-        return context.length > 0
-          ? context
-          : 'Aucune information pertinente trouvée dans les documents du projet.';
+        const responseText =
+          context.length > 0
+            ? context
+            : 'Aucune information pertinente trouvée dans les documents du projet.';
+
+        return {
+          text: responseText,
+          stream: true,
+          config: DEFAULT_STREAM_CONFIG,
+        };
       } catch (error) {
         logger.error(
           `Erreur lors de la recherche RAG: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
         );
-        return 'Une erreur est survenue lors de la recherche dans les documents.';
+        return {
+          text: 'Une erreur est survenue lors de la recherche dans les documents.',
+          stream: true,
+          config: DEFAULT_STREAM_CONFIG,
+        };
       }
     },
   },
