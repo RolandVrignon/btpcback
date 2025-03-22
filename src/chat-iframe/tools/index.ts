@@ -3,32 +3,37 @@ import { createSearchDocumentsTool } from './searchDocumentsTool';
 import { createListDocumentsTool } from './listDocumentsTool';
 import { createSummarizeDocumentTool } from './summarizeDocumentTool';
 import { createGetProjectSummaryTool } from './getProjectSummaryTool';
+import { createGetDeliverableTool } from './getDeliverableTool';
 import { DEFAULT_STREAM_CONFIG, StreamConfig } from './streamConfig';
 import { SearchService } from '../../search/search.service';
 import { DocumentsService } from '../../documents/documents.service';
 import { ProjectsService } from '../../projects/projects.service';
+import { DeliverablesService } from '../../deliverables/deliverables.service';
+import { OrganizationEntity } from '../../types';
 
 /**
  * Crée tous les outils nécessaires pour le chat
  * @param searchService Service de recherche
  * @param documentsService Service de documents
  * @param projectsService Service de projets
+ * @param deliverablesService Service de délivrables
  * @param projectId ID du projet
- * @param organizationId ID de l'organisation
+ * @param organization L'organisation de l'utilisateur
  * @returns Tous les outils combinés
  */
 export const createChatTools = (
   searchService: SearchService,
   documentsService: DocumentsService,
   projectsService: ProjectsService,
+  deliverablesService: DeliverablesService,
   projectId: string,
-  organizationId: string,
+  organization: OrganizationEntity,
 ) => {
   // Créer chaque outil individuellement
   const searchTools = createSearchDocumentsTool(
     searchService,
     projectId,
-    organizationId,
+    organization.id,
   );
 
   const listTools = createListDocumentsTool(documentsService, projectId);
@@ -42,7 +47,13 @@ export const createChatTools = (
   const getProjectSummaryTool = createGetProjectSummaryTool(
     projectsService,
     projectId,
-    organizationId,
+    organization.id,
+  );
+
+  const getDeliverableTool = createGetDeliverableTool(
+    deliverablesService,
+    projectId,
+    organization,
   );
 
   // Combiner tous les outils dans un seul objet
@@ -51,6 +62,7 @@ export const createChatTools = (
     ...listTools,
     ...summarizeTools,
     ...getProjectSummaryTool,
+    ...getDeliverableTool,
   };
 };
 
@@ -60,6 +72,7 @@ export {
   createListDocumentsTool,
   createSummarizeDocumentTool,
   createGetProjectSummaryTool,
+  createGetDeliverableTool,
   DEFAULT_STREAM_CONFIG,
   StreamConfig,
 };

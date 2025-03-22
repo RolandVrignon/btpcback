@@ -21,6 +21,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SearchService } from '../search/search.service';
 import { DocumentsService } from '../documents/documents.service';
 import { ProjectsService } from '../projects/projects.service';
+import { DeliverablesService } from '../deliverables/deliverables.service';
 import { createChatTools, DEFAULT_STREAM_CONFIG } from './tools';
 
 interface ChatMessage {
@@ -40,6 +41,7 @@ export class ChatIframeController {
     private readonly searchService: SearchService,
     private readonly documentsService: DocumentsService,
     private readonly projectsService: ProjectsService,
+    private readonly deliverablesService: DeliverablesService,
   ) {
     const openaiApiKey = this.configService.get<string>('OPENAI_API_KEY');
     if (!openaiApiKey) {
@@ -186,13 +188,14 @@ N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire
         { role: 'user', content: body.message },
       ];
 
-      // Création des outils avec la nouvelle fonction unifiée
+      // Création des outils (mise à jour pour utiliser deliverablesService)
       const tools = createChatTools(
         this.searchService,
         this.documentsService,
         this.projectsService,
+        this.deliverablesService,
         projectId,
-        organization.id,
+        organization,
       );
 
       // Log pour vérifier les outils disponibles
@@ -324,6 +327,7 @@ Si tu n'as pas l'information dont tu as besoin, tu peux utiliser les outils suiv
 - listProjectDocuments: pour voir la liste des documents disponibles dans le projet
 - summarizeDocument: pour obtenir le contenu complet d'un document et le résumer (nécessite l'ID du document)
 - getProjectSummary: pour obtenir un résumé global du projet
+- getDeliverable: pour générer un délivrable du projet (par exemple un résumé descriptif ou une analyse)
 
 Pour les questions complexes qui nécessitent une compréhension globale du projet, suis cette méthodologie en étapes:
 1. Utilise listProjectDocuments pour obtenir la liste complète des documents
@@ -343,8 +347,9 @@ N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire
         this.searchService,
         this.documentsService,
         this.projectsService,
+        this.deliverablesService,
         projectId,
-        organization.id,
+        organization,
       );
 
       const result = streamText({

@@ -3,12 +3,14 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DeliverableFactory } from './factories/deliverable.factory';
 import { CreateDeliverableDto } from './dto/create-deliverable.dto';
 import { DeliverablesRepository } from './deliverables.repository';
-import { Deliverable, DeliverableType } from '@prisma/client';
+import { DeliverableType } from '@prisma/client';
 import { DeliverableContext } from './interfaces/deliverable-context.interface';
 import { DeliverableQueueService } from './services/deliverable-queue.service';
 import { OrganizationEntity } from '../types';
@@ -177,5 +179,80 @@ export class DeliverablesService {
       success: true,
       data: updatedDeliverable,
     };
+  }
+
+  /**
+   * Trouve un délivrable existant ou en crée un nouveau et attend sa complétion avec un timeout de 5 minutes
+   * @param createDeliverableDto DTO pour la création du délivrable
+   * @param organization Organisation qui fait la demande
+   * @returns Le délivrable complété
+   */
+  async findOrCreateAndWaitForDeliverable(
+    createDeliverableDto: CreateDeliverableDto,
+    organization: OrganizationEntity,
+  ) {
+    const { projectId, type } = createDeliverableDto;
+
+    // Vérifier si un délivrable du même type existe déjà pour ce projet
+    const existingDeliverables =
+      await this.deliverablesRepository.findByProject(projectId);
+
+    const existingDeliverable = existingDeliverables.find(
+      (deliverable) =>
+        deliverable.type === type && deliverable.status === 'COMPLETED',
+    );
+
+    // Si un déliverable existe déjà, le retourner directement
+    if (existingDeliverable) {
+      console.log(
+        `Délivrable existant trouvé de type ${type} pour le projet ${projectId}`,
+      );
+      return existingDeliverable;
+    }
+
+    // Création du délivrable
+    const deliverable = await this.create(createDeliverableDto, organization);
+
+    // Timeout de 5 minutes (300000 ms)
+    const timeoutDuration = 300000;
+    const pollInterval = 2000; // 2 secondes entre chaque vérification
+    const maxAttempts = timeoutDuration / pollInterval;
+
+    let attempts = 0;
+
+    // Fonction pour vérifier périodiquement l'état du délivrable
+    const checkDeliverableStatus = async () => {
+      attempts++;
+
+      const currentDeliverable = await this.findOne(
+        deliverable.id,
+        organization,
+      );
+
+      if (currentDeliverable.status === 'COMPLETED') {
+        return currentDeliverable;
+      }
+
+      if (currentDeliverable.status === 'ERROR') {
+        throw new HttpException(
+          'Le délivrable a rencontré une erreur lors de sa génération',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+
+      if (attempts >= maxAttempts) {
+        throw new HttpException(
+          "Le délai d'attente pour la complétion du délivrable a été dépassé",
+          HttpStatus.REQUEST_TIMEOUT,
+        );
+      }
+
+      // Attendre et réessayer
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      return checkDeliverableStatus();
+    };
+
+    // Commencer la vérification
+    return checkDeliverableStatus();
   }
 }

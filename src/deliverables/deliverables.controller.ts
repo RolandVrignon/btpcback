@@ -108,4 +108,15 @@ export class DeliverablesController {
   async updateDeliverable(@Body() updateDeliverableDto: UpdateDeliverableDto) {
     return this.deliverablesService.updateDeliverable(updateDeliverableDto);
   }
+
+  @Post('create-and-wait')
+  async findOrCreateAndWaitForDeliverable(
+    @Body() createDeliverableDto: CreateDeliverableDto,
+    @Organization() organization: OrganizationEntity,
+  ) {
+    return this.deliverablesService.findOrCreateAndWaitForDeliverable(
+      createDeliverableDto,
+      organization,
+    );
+  }
 }

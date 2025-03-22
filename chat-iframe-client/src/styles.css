@@ -1,3 +1,4 @@
+@import "tailwindcss";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -272,20 +273,21 @@ h1 {
 /* Ajout de styles pour le markdown */
 .markdown-content {
   /* Styles généraux */
-  @apply text-left leading-relaxed;
+  @apply text-left;
+  line-height: 1.5;
 }
 
 /* Titres */
 .markdown-content h1 {
-  @apply text-xl font-bold mt-6 mb-4;
+  @apply text-2xl font-bold mt-6 mb-4;
 }
 
 .markdown-content h2 {
-  @apply text-lg font-bold mt-5 mb-3;
+  @apply text-xl font-bold mt-5 mb-3;
 }
 
 .markdown-content h3 {
-  @apply text-base font-bold mt-4 mb-2;
+  @apply text-lg font-bold mt-4 mb-2;
 }
 
 .markdown-content h4, .markdown-content h5, .markdown-content h6 {
@@ -332,7 +334,7 @@ h1 {
 }
 
 .markdown-content code {
-  @apply font-mono text-sm bg-slate-100 px-1.5 py-0.5 rounded;
+  @apply font-mono text-base bg-slate-100 px-1.5 py-0.5 rounded;
 }
 
 .markdown-content pre code {
@@ -375,7 +377,7 @@ h1 {
 
 .markdown-content .table-of-contents::before {
   content: "Table des matières";
-  @apply font-bold text-lg block mb-2;
+  @apply font-bold text-xl block mb-2;
 }
 
 .markdown-content .table-of-contents ol {
@@ -402,7 +404,7 @@ h1 {
 
 /* Styles pour les emojis */
 .markdown-content .emoji {
-  @apply text-xl align-middle;
+  @apply text-2xl align-middle;
 }
 
 /* Styles pour la mise en évidence des sections avec IDs (via rehype-slug) */
@@ -482,11 +484,11 @@ h1 {
   }
 
   .prose code {
-    @apply bg-gray-100 text-red-500 px-1 py-0.5 rounded text-sm font-mono;
+    @apply bg-gray-100 text-red-500 px-1 py-0.5 rounded text-base font-mono;
   }
 
   .prose pre {
-    @apply bg-gray-800 text-gray-100 p-4 rounded-md overflow-x-auto my-4 text-sm font-mono;
+    @apply bg-gray-800 text-gray-100 p-4 rounded-md overflow-x-auto my-4 text-base font-mono;
   }
 
   .prose table {

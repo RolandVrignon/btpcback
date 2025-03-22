@@ -284,12 +284,12 @@ function hello() {
   };
 
   return (
-    <div className="flex flex-col h-screen max-h-screen overflow-hidden bg-stone-100 text-gray-800 font-sans relative text-xs">
+    <div className="flex flex-col h-screen max-h-screen overflow-hidden bg-stone-100 text-gray-800 font-sans relative text-sm">
       {/* Zone des messages avec défilement */}
       <ScrollArea className="flex flex-col p-2 pb-8">
         <div className="flex flex-col gap-6 pb-[40%]">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-500 text-xs">
+            <div className="flex flex-col items-center justify-center h-full text-gray-500 text-sm">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 mb-2 text-gray-400">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
               </svg>
@@ -301,8 +301,8 @@ function hello() {
                 key={index}
                 className={`${
                   msg.isUser
-                    ? 'message-bubble p-2 rounded-lg inline-block max-w-[60%] break-words shadow-sm text-xs mb-1.5 user-message bg-blue-600 ml-auto text-white text-right'
-                    : 'w-full text-xs mb-1.5 ai-message mr-auto text-slate-800 text-left'
+                    ? 'message-bubble p-2 rounded-lg inline-block max-w-[60%] break-words shadow-sm text-sm mb-1.5 user-message bg-blue-600 ml-auto text-white text-right'
+                    : 'w-full text-sm mb-1.5 ai-message mr-auto text-slate-800 text-left'
                 }`}
               >
                 {msg.isUser ? (
@@ -332,41 +332,41 @@ function hello() {
                         // Titres avec différentes tailles et styles
                         h1: ({ ...props }) => (
                           <h1
-                            className="text-base font-semibold my-3 pb-1 border-b"
+                            className="text-lg font-semibold my-3 pb-1 border-b"
                             {...props}
                           />
                         ),
                         h2: ({ ...props }) => (
                           <h2
-                            className="text-sm font-semibold my-2"
+                            className="text-base font-semibold my-2"
                             {...props}
                           />
                         ),
                         h3: ({ ...props }) => (
                           <h3
-                            className="text-xs font-semibold my-1.5"
+                            className="text-sm font-semibold my-1.5"
                             {...props}
                           />
                         ),
                         h4: ({ ...props }) => (
                           <h4
-                            className="text-xs font-semibold my-1.5"
+                            className="text-sm font-semibold my-1.5"
                             {...props}
                           />
                         ),
                         h5: ({ ...props }) => (
                           <h5
-                            className="text-xs font-semibold my-1"
+                            className="text-sm font-semibold my-1"
                             {...props}
                           />
                         ),
                         h6: ({ ...props }) => (
-                          <h6 className="text-xs font-medium my-1" {...props} />
+                          <h6 className="text-sm font-medium my-1" {...props} />
                         ),
 
                         // Paragraphes et texte
                         p: ({ ...props }) => (
-                          <p className="my-1.5 text-inherit leading-relaxed text-xs" {...props} />
+                          <p className="my-1.5 text-inherit leading-normal text-sm" {...props} />
                         ),
                         strong: ({ ...props }) => (
                           <strong className="font-bold text-inherit" {...props} />
@@ -387,7 +387,7 @@ function hello() {
                         // Tableaux
                         table: ({ ...props }) => (
                           <div className="overflow-x-auto my-2 rounded-md border border-gray-200">
-                            <table className="border-collapse w-full text-xs" {...props} />
+                            <table className="border-collapse w-full text-sm" {...props} />
                           </div>
                         ),
                         th: ({ ...props }) => (
@@ -406,19 +406,19 @@ function hello() {
                         // Autres éléments
                         blockquote: ({ ...props }) => (
                           <blockquote
-                            className="border-l-4 border-blue-500 pl-2 py-0.5 my-1.5 bg-blue-50 rounded-r-md italic text-xs"
+                            className="border-l-4 border-blue-500 pl-2 py-0.5 my-1.5 bg-blue-50 rounded-r-md italic text-sm"
                             {...props}
                           />
                         ),
                         code: ({ ...props }) => (
                           <code
-                            className="bg-gray-100 text-red-500 px-1 py-0.5 rounded text-xs font-mono"
+                            className="bg-gray-100 text-red-500 px-1 py-0.5 rounded text-sm font-mono"
                             {...props}
                           />
                         ),
                         pre: ({ ...props }) => (
                           <pre
-                            className="bg-gray-800 p-2 rounded-md overflow-x-auto my-1.5 text-xs font-mono"
+                            className="bg-gray-800 p-2 rounded-md overflow-x-auto my-1.5 text-sm font-mono"
                             {...props}
                           />
                         ),
@@ -470,17 +470,17 @@ function hello() {
       {showClearConfirm && (
         <div className="fixed inset-0 bg-stone-700/60 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-4 max-w-xs w-full text-center">
-            <p className="mb-3 text-xs">Êtes-vous sûr de vouloir effacer toute la conversation ?</p>
+            <p className="mb-3 text-sm">Êtes-vous sûr de vouloir effacer toute la conversation ?</p>
             <div className="flex justify-center space-x-3">
               <button
                 onClick={cancelClear}
-                className="px-3 py-1 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 text-xs"
+                className="px-3 py-1 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 text-sm"
               >
                 Annuler
               </button>
               <button
                 onClick={confirmClear}
-                className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 text-xs"
+                className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm"
               >
                 Effacer
               </button>
@@ -497,7 +497,7 @@ function hello() {
             {messages.length > 0 && (
               <button
                 onClick={clearConversation}
-                className="absolute left-[7px] bottom-[7px] bg-white border border-red-500 hover:bg-red-600 text-red-500 hover:text-white rounded-2xl px-2 py-1 text-xs flex items-center justify-center z-10 cursor-pointer"
+                className="absolute left-[7px] bottom-[7px] bg-white border border-red-500 hover:bg-red-600 text-red-500 hover:text-white rounded-2xl px-2 py-1 text-sm flex items-center justify-center z-10 cursor-pointer"
                 title="Effacer la conversation"
               >
                 Effacer la conversation
@@ -505,7 +505,7 @@ function hello() {
             )}
 
             <textarea
-              className={`w-full pl-[7px] pr-14 py-3 focus:outline-none resize-none min-h-[84px] max-h-[200px] overflow-y-auto text-xs border-0 ${messages.length > 0 ? 'pb-[35px]' : ''}`}
+              className={`w-full pl-[7px] pr-14 py-3 focus:outline-none resize-none min-h-[84px] max-h-[200px] overflow-y-auto text-sm border-0 ${messages.length > 0 ? 'pb-[35px]' : ''}`}
               value={inputValue}
               onChange={handleInputChange}
               onKeyDown={(e) => {

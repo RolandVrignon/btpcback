@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { DeliverableType, Status } from '@prisma/client';
 import { JsonValue } from '@prisma/client/runtime/library';
-import { IsObject, isObject } from 'class-validator';
+import { IsObject } from 'class-validator';
 
 export class DeliverableEntity {
   @ApiProperty({
