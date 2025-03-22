@@ -92,12 +92,6 @@ export const createGetDeliverableTool = (
             `Contenu de short_result: ${JSON.stringify(result.short_result).substring(0, 200)}...`,
           );
 
-          // Construire l'objet JSON à envoyer à jsonToMarkdown
-          const jsonData =
-            typeof result.short_result === 'string'
-              ? JSON.parse(result.short_result) // Si c'est une chaîne JSON, la parser
-              : result.short_result; // Sinon, utiliser directement l'objet
-
           // Informer que nous retournons le contenu formaté directement
           return {
             text: `${responseText}\n\nVoici le contenu formaté du délivrable:`,
@@ -106,7 +100,7 @@ export const createGetDeliverableTool = (
             toolCallData: {
               name: 'jsonToMarkdown',
               arguments: {
-                json: jsonData,
+                json: result.short_result,
                 title: `Délivrable ${type}`,
               },
             },
