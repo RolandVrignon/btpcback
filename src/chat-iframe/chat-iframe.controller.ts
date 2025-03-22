@@ -157,9 +157,10 @@ export class ChatIframeController {
       this.setupStreamHeaders(res);
 
       // Envoi d'un message test pour vérifier la connexion
-      res.write(
-        `data: ${JSON.stringify({ text: 'Connexion établie. Traitement de votre requête...' })}\n\n`,
-      );
+      // Supprimer le message initial pour que le front n'affiche rien avant la vraie réponse
+      // res.write(
+      //   `data: ${JSON.stringify({ text: 'Connexion établie. Traitement de votre requête...' })}\n\n`,
+      // );
 
       // Message système et historique
       const messages: ChatMessage[] = [
