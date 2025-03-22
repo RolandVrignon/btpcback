@@ -67,13 +67,10 @@ export const createGetDeliverableTool = (
           )}`,
         );
 
-        const isNewlyCreated = (deliverable: DeliverableEntity) => {
-          const currentTime = new Date();
-          const deliverableCreatedAt = new Date(deliverable.createdAt);
-          const oneMinuteAgo = new Date(currentTime.getTime() - 60 * 1000);
-
-          // Return true if the deliverable was created within the last minute
-          return deliverableCreatedAt > oneMinuteAgo;
+        const isNewlyCreated = (deliverable: DeliverableEntity): boolean => {
+          // Si le délivrable a été créé il y a moins de 5 minutes, considérer qu'il est nouveau
+          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+          return new Date(deliverable.createdAt) > fiveMinutesAgo;
         };
 
         // Appeler directement le service au lieu de faire une requête HTTP
@@ -84,16 +81,41 @@ export const createGetDeliverableTool = (
           );
 
         // Construire la réponse
-        const response = `
-# Délivrable ${
-          isNewlyCreated(result) ? 'généré' : 'récupéré'
-        } avec succès: Type ${result.type}, ID ${result.id}, Statut ${
-          result.status
-        }${documentIds.length ? `, Documents utilisés: ${documentIds.join(', ')}` : ''}
-        `.trim();
+        const responseText = isNewlyCreated(result)
+          ? `Un nouveau délivrable de type ${type} a été généré avec succès. ID: ${result.id}`
+          : `Un délivrable existant de type ${type} a été réutilisé. ID: ${result.id}`;
 
+        // Si short_result existe, le convertir directement en Markdown
+        if (result.short_result) {
+          logger.debug(`Type de short_result: ${typeof result.short_result}`);
+          logger.debug(
+            `Contenu de short_result: ${JSON.stringify(result.short_result).substring(0, 200)}...`,
+          );
+
+          // Construire l'objet JSON à envoyer à jsonToMarkdown
+          const jsonData =
+            typeof result.short_result === 'string'
+              ? JSON.parse(result.short_result) // Si c'est une chaîne JSON, la parser
+              : result.short_result; // Sinon, utiliser directement l'objet
+
+          // Informer que nous retournons le contenu formaté directement
+          return {
+            text: `${responseText}\n\nVoici le contenu formaté du délivrable:`,
+            stream: true,
+            config: DEFAULT_STREAM_CONFIG,
+            toolCallData: {
+              name: 'jsonToMarkdown',
+              arguments: {
+                json: jsonData,
+                title: `Délivrable ${type}`,
+              },
+            },
+          };
+        }
+
+        // Si pas de short_result, retourner juste le message de base
         return {
-          text: response,
+          text: responseText,
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
         };
