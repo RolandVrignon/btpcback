@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
+import { DEFAULT_STREAM_CONFIG } from './streamConfig';
 
 const logger = new Logger('JsonToMarkdownTool');
 
@@ -52,60 +53,29 @@ Ton Markdown doit être bien structuré, facile à lire et mettre en valeur les 
         // S'assurer que nous avons une clé API valide
         if (!process.env.OPENAI_API_KEY) {
           logger.error('Clé API OpenAI manquante');
-          return 'Erreur: Clé API OpenAI manquante. Impossible de convertir le JSON en Markdown.';
+          return {
+            text: 'Erreur: Clé API OpenAI manquante. Impossible de convertir le JSON en Markdown.',
+            stream: true,
+            config: DEFAULT_STREAM_CONFIG,
+          };
         }
 
-        // Initialiser le modèle avec une gestion d'erreurs améliorée
-        try {
-          logger.debug('Initialisation du modèle OpenAI');
-          const openaiModel = openai('gpt-4o-mini');
+        // Titre préfixé si fourni
+        const titlePrefix = title ? `# ${title}\n\n` : '';
 
-          logger.debug('Création du stream de texte');
-          const result = streamText({
-            model: openaiModel,
-            system: systemPrompt,
-            prompt: humanPrompt,
-            onError: ({ error }) => {
-              logger.error(
-                `Erreur lors du streaming: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
-              );
+        return {
+          text: titlePrefix,
+          stream: true,
+          config: DEFAULT_STREAM_CONFIG,
+          toolCallData: {
+            name: 'streamText',
+            arguments: {
+              model: openai('gpt-4o-mini'),
+              system: systemPrompt,
+              prompt: humanPrompt,
             },
-            onFinish: ({ text }) => {
-              logger.debug(
-                `Streaming terminé, longueur finale: ${text.length} caractères`,
-              );
-            },
-          });
-
-          // Titre préfixé si fourni
-          const titlePrefix = title ? `# ${title}\n\n` : '';
-
-          logger.debug('Attente du texte complet...');
-          // Attendre que le stream soit complètement généré
-          const fullText = await result.text;
-          logger.debug(`Texte obtenu, longueur: ${fullText.length} caractères`);
-
-          // Retourner le texte complet
-          return titlePrefix + fullText;
-        } catch (openaiError) {
-          logger.error(
-            `Erreur lors de l'initialisation ou du streaming OpenAI: ${
-              openaiError instanceof Error
-                ? openaiError.message
-                : 'Erreur inconnue'
-            }`,
-          );
-          logger.error(
-            openaiError instanceof Error
-              ? openaiError.stack
-              : 'Pas de stack trace',
-          );
-          return `Erreur lors de l'appel au modèle OpenAI: ${
-            openaiError instanceof Error
-              ? openaiError.message
-              : 'Erreur inconnue'
-          }`;
-        }
+          },
+        };
       } catch (error) {
         logger.error(
           `Erreur lors de la conversion JSON vers Markdown: ${
@@ -115,9 +85,13 @@ Ton Markdown doit être bien structuré, facile à lire et mettre en valeur les 
         logger.error(
           error instanceof Error ? error.stack : 'Pas de stack trace',
         );
-        return `Une erreur est survenue lors de la conversion JSON vers Markdown: ${
-          error instanceof Error ? error.message : 'Erreur inconnue'
-        }`;
+        return {
+          text: `Une erreur est survenue lors de la conversion JSON vers Markdown: ${
+            error instanceof Error ? error.message : 'Erreur inconnue'
+          }`,
+          stream: true,
+          config: DEFAULT_STREAM_CONFIG,
+        };
       }
     },
   },

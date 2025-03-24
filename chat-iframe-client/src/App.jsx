@@ -257,7 +257,7 @@ function App() {
     <div className="flex flex-col h-screen max-h-screen overflow-hidden bg-stone-100 text-gray-800 font-sans relative text-sm">
       {/* Zone des messages avec défilement */}
       <ScrollArea className="flex flex-col h-full w-full p-2 pb-8">
-        <div className="flex flex-col h-full w-full gap-6 pb-[40%]">
+        <div className="flex flex-col h-full w-full gap-6 pb-[20%]">
           {messages.length === 0 ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 text-sm">
               <p>Démarrez la conversation en posant une question</p>
@@ -299,7 +299,7 @@ function App() {
                         // Titres avec différentes tailles et styles
                         h1: ({ ...props }) => (
                           <h1
-                            className="text-lg font-semibold my-3 pb-1 border-b"
+                            className="text-lg font-semibold my-6 pb-1 border-b"
                             {...props}
                           />
                         ),
