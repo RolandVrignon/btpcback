@@ -419,7 +419,7 @@ function App() {
           )}
           {isTyping && messages.length > 0 && messages[messages.length - 1].isUser && (
               <div className="flex justify-start w-full">
-                <div className="h-5 w-5 ml-3 bg-blue-500 rounded-full animate-pulse"></div>
+                <div className="h-5 w-5 ml-3 bg-blue-600 rounded-full animate-pulse"></div>
               </div>
           )}
           <div ref={messagesEndRef} />
@@ -481,7 +481,7 @@ function App() {
             />
 
             <button
-              className={`absolute right-[7px] bottom-[7px] rounded-full cursor-pointer h-9 w-9 flex items-center justify-center ${inputDisabled ? 'bg-gray-300 cursor-not-allowed' : 'bg-black hover:bg-gray-800 cursor-pointer'}`}
+              className={`absolute right-[7px] bottom-[7px] rounded-full cursor-pointer h-9 w-9 flex items-center justify-center ${inputDisabled ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'}`}
               onClick={handleSendMessage}
               disabled={inputDisabled}
               aria-label="Envoyer"

@@ -159,18 +159,6 @@ export class ChatIframeController {
 
       this.setupStreamHeaders(res);
 
-      const messages: ChatMessage[] = [
-        {
-          role: 'system',
-          content: `Tu es un assistant IA pour un projet nommé "${project.name}". 
-          Ton objectif est d'aider l'utilisateur avec ses questions concernant ce projet. Sois concis et précis dans tes réponses.
-          N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire ta compréhension étape par étape.
-          A la fin de chaque reponse, propose une action à l'utilisateur pour continuer l'etude du projet.`,
-        },
-        ...(body.conversationHistory || []),
-        { role: 'user', content: body.message },
-      ];
-
       // Création des outils (mise à jour pour utiliser deliverablesService)
       const tools = createChatTools(
         this.searchService,
@@ -181,8 +169,25 @@ export class ChatIframeController {
         organization,
       );
 
-      // Log pour vérifier les outils disponibles
-      this.logger.debug(`Outils disponibles: ${Object.keys(tools).join(', ')}`);
+      const toolsList = Object.entries(tools).map(([name, tool]) => ({
+        name,
+        description: tool.description,
+      }));
+
+      const messages: ChatMessage[] = [
+        {
+          role: 'system',
+          content: `Tu es un assistant IA pour un projet nommé "${project.name}". 
+          Ton objectif est d'aider l'utilisateur avec ses questions concernant ce projet. Sois concis et précis dans tes réponses.
+          N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire ta compréhension étape par étape.
+          Tu as a ta disposition une liste d'outils qui permettent toute sorte de taches diverses relative au projet : 
+          ${toolsList.map((tool) => `${tool.name} : ${tool.description}`).join('\n')}
+          Tu as egalement a ta disposition differents types de deliverables qui sont des documents generés par l'ia et qui permettent de mieux comprendre le projet.
+          A la fin de chaque reponse, propose une action à l'utilisateur pour continuer l'etude du projet.`,
+        },
+        ...(body.conversationHistory || []),
+        { role: 'user', content: body.message },
+      ];
 
       // Configuration du streaming simple
       try {
