@@ -9,6 +9,8 @@ import { DeliverableEntity } from '../../deliverables/entities/deliverable.entit
 
 const logger = new Logger('GetDeliverableTool');
 
+const DeliverableEnum = z.nativeEnum(DeliverableType);
+
 /**
  * Crée un outil pour générer et récupérer un délivrable
  * @param deliverablesService Service de délivrables pour appeler directement la méthode
@@ -25,17 +27,7 @@ export const createGetDeliverableTool = (
     description:
       'Génère et récupère un délivrable du projet (avec un timeout de 5 minutes)',
     parameters: z.object({
-      type: z
-        .enum([
-          'DOCUMENTS_PUBLIQUES',
-          'GEORISQUES',
-          'DESCRIPTIF_SOMMAIRE_DES_TRAVAUX',
-          'TABLEAU_DES_DOCUMENTS_EXAMINES',
-          'COMPARATEUR_INDICES',
-          'ANALYSE_ETHUDE_THERMIQUE',
-          'INCOHERENCE_DE_DONNEES',
-        ] as const)
-        .describe('Type de délivrable à générer'),
+      type: DeliverableEnum.describe('Type de délivrable à générer'),
       documentIds: z
         .array(z.string())
         .describe('Liste des IDs des documents à utiliser (optionnel)')

@@ -5,13 +5,12 @@ import { createSummarizeDocumentTool } from './summarizeDocumentTool';
 import { createGetProjectSummaryTool } from './getProjectSummaryTool';
 import { createGetDeliverableTool } from './getDeliverableTool';
 import { createJsonToMarkdownTool } from './jsonToMarkdownTool';
-import { DEFAULT_STREAM_CONFIG, StreamConfig } from './streamConfig';
 import { SearchService } from '../../search/search.service';
 import { DocumentsService } from '../../documents/documents.service';
 import { ProjectsService } from '../../projects/projects.service';
 import { DeliverablesService } from '../../deliverables/deliverables.service';
 import { OrganizationEntity } from '../../types';
-
+import { createListDeliverableTool } from './listDeliverableTool';
 /**
  * Crée tous les outils nécessaires pour le chat
  * @param searchService Service de recherche
@@ -59,6 +58,8 @@ export const createChatTools = (
 
   const jsonToMarkdownTool = createJsonToMarkdownTool();
 
+  const listDeliverableTool = createListDeliverableTool();
+
   // Combiner tous les outils dans un seul objet
   return {
     ...searchTools,
@@ -67,6 +68,7 @@ export const createChatTools = (
     ...getProjectSummaryTool,
     ...getDeliverableTool,
     ...jsonToMarkdownTool,
+    ...listDeliverableTool,
   };
 };
 
@@ -78,6 +80,4 @@ export {
   createGetProjectSummaryTool,
   createGetDeliverableTool,
   createJsonToMarkdownTool,
-  DEFAULT_STREAM_CONFIG,
-  StreamConfig,
 };

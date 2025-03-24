@@ -22,7 +22,8 @@ import { SearchService } from '../search/search.service';
 import { DocumentsService } from '../documents/documents.service';
 import { ProjectsService } from '../projects/projects.service';
 import { DeliverablesService } from '../deliverables/deliverables.service';
-import { createChatTools, DEFAULT_STREAM_CONFIG } from './tools';
+import { createChatTools } from './tools';
+import { registry, DEFAULT_STREAM_CONFIG } from './tools/streamConfig';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -163,7 +164,8 @@ export class ChatIframeController {
           role: 'system',
           content: `Tu es un assistant IA pour un projet nommé "${project.name}". 
           Ton objectif est d'aider l'utilisateur avec ses questions concernant ce projet. Sois concis et précis dans tes réponses.
-          N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire ta compréhension étape par étape.`,
+          N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire ta compréhension étape par étape.
+          A la fin de chaque reponse, propose une action à l'utilisateur pour continuer l'etude du projet.`,
         },
         ...(body.conversationHistory || []),
         { role: 'user', content: body.message },
@@ -185,7 +187,7 @@ export class ChatIframeController {
       // Configuration du streaming simple
       try {
         const result = streamText({
-          model: this.openai('gpt-4o-mini'),
+          model: registry.languageModel('openai:gpt-4o-mini'),
           messages: messages as Message[],
           tools,
           toolCallStreaming: true,
