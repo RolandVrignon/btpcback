@@ -91,9 +91,11 @@ export class ChatIframeService {
         compatibility: 'strict',
       });
 
+      const model = openai('gpt-4o-mini');
+
       // Générer une réponse avec AI SDK
       const result = await generateText({
-        model: openai('gpt-4'),
+        model: model,
         messages: [
           {
             role: 'system',
@@ -107,11 +109,9 @@ export class ChatIframeService {
       await this.prisma.usage.create({
         data: {
           provider: 'OPENAI',
-          modelName: 'gpt-4',
+          modelName: 'gpt-4o-mini',
           type: 'TEXT_TO_TEXT',
           projectId: projectId,
-          // Note: dans une implémentation réelle, vous pourriez capturer et stocker
-          // les informations de token à partir de la réponse de l'API
           promptTokens: 0,
           completionTokens: 0,
           totalTokens: 0,

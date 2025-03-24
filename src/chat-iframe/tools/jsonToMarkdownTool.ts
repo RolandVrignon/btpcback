@@ -70,15 +70,6 @@ Ton Markdown doit être bien structuré, facile à lire et mettre en valeur les 
                 `Erreur lors du streaming: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
               );
             },
-            onChunk: ({ chunk }) => {
-              if (chunk.type === 'text-delta') {
-                logger.debug(
-                  `Chunk reçu: ${chunk.textDelta.length} caractères`,
-                );
-              } else {
-                logger.debug(`Chunk reçu de type: ${chunk.type}`);
-              }
-            },
             onFinish: ({ text }) => {
               logger.debug(
                 `Streaming terminé, longueur finale: ${text.length} caractères`,

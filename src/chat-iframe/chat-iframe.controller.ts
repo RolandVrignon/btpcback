@@ -158,31 +158,12 @@ export class ChatIframeController {
 
       this.setupStreamHeaders(res);
 
-      // Envoi d'un message test pour vérifier la connexion
-      // Supprimer le message initial pour que le front n'affiche rien avant la vraie réponse
-      // res.write(
-      //   `data: ${JSON.stringify({ text: 'Connexion établie. Traitement de votre requête...' })}\n\n`,
-      // );
-
-      // Message système et historique
       const messages: ChatMessage[] = [
         {
           role: 'system',
-          content: `Tu es un assistant IA pour un projet nommé "${project.name}". Ton objectif est d'aider l'utilisateur avec ses questions concernant ce projet. Sois concis et précis dans tes réponses.
-
-Si tu n'as pas l'information dont tu as besoin, tu peux utiliser les outils suivants:
-- searchDocuments: pour chercher des informations précises dans les documents du projet
-- listProjectDocuments: pour voir la liste des documents disponibles dans le projet
-- summarizeDocument: pour obtenir le contenu complet d'un document et le résumer (nécessite l'ID du document)
-
-Pour les questions complexes qui nécessitent une compréhension globale du projet, suis cette méthodologie en étapes:
-1. Utilise listProjectDocuments pour obtenir la liste complète des documents
-2. Pour chaque document important, utilise summarizeDocument pour accéder à son contenu complet
-3. Analyse chaque document individuellement avant de formuler une synthèse globale
-4. Organise les informations de façon logique (chronologique, thématique, etc.)
-5. Présente un résumé qui couvre les aspects essentiels du projet
-
-N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire ta compréhension étape par étape.`,
+          content: `Tu es un assistant IA pour un projet nommé "${project.name}". 
+          Ton objectif est d'aider l'utilisateur avec ses questions concernant ce projet. Sois concis et précis dans tes réponses.
+          N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire ta compréhension étape par étape.`,
         },
         ...(body.conversationHistory || []),
         { role: 'user', content: body.message },
@@ -200,7 +181,6 @@ N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire
 
       // Log pour vérifier les outils disponibles
       this.logger.debug(`Outils disponibles: ${Object.keys(tools).join(', ')}`);
-      this.logger.debug(JSON.stringify(tools, null, 2));
 
       // Configuration du streaming simple
       try {
@@ -212,13 +192,6 @@ N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire
           maxSteps: 15,
           experimental_transform: smoothStream(DEFAULT_STREAM_CONFIG),
         });
-
-        // Logs pour déboguer les propriétés du résultat
-        this.logger.debug(`Type de result: ${typeof result}`);
-        this.logger.debug(
-          `Propriétés de result: ${Object.keys(result).join(', ')}`,
-        );
-
         this.logger.debug('Début du streaming');
 
         // Utiliser directement le textStream
@@ -234,9 +207,6 @@ N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire
           }
 
           chunkCounter++;
-          this.logger.debug(`Chunk #${chunkCounter} reçu: "${value}"`);
-
-          // Envoyer le chunk
           res.write(`data: ${JSON.stringify({ text: value })}\n\n`);
         }
 

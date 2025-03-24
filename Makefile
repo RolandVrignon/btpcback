@@ -321,3 +321,6 @@ script:
 		10) echo "Ajout d'une organisation n8n..." && pnpm ts-node scripts/add-n8n-org.ts ;; \
 		*) echo "\033[1;31mOption invalide\033[0m" ;; \
 	esac
+
+chat:
+	cd chat-iframe-client && pnpm install && pnpm build

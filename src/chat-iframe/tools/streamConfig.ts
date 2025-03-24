@@ -13,6 +13,6 @@ export interface StreamConfig {
  * Valeurs par défaut pour la configuration du streaming
  */
 export const DEFAULT_STREAM_CONFIG: StreamConfig = {
-  delayInMs: 50,
+  delayInMs: 20,
   chunking: 'word',
 };
