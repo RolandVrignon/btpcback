@@ -317,7 +317,7 @@ h1 {
 
 /* Tableaux */
 .markdown-content table {
-  @apply w-full border-collapse my-6 bg-white;
+  @apply w-full;
 }
 
 .markdown-content th {
@@ -420,7 +420,7 @@ h1 {
 
 /* Styles pour les diagrammes et tableaux */
 .markdown-content table {
-  @apply w-full border-collapse my-6 rounded-lg overflow-hidden shadow-sm;
+  @apply w-full rounded-lg overflow-hidden shadow-sm;
 }
 
 .markdown-content thead {
@@ -492,7 +492,7 @@ h1 {
   }
 
   .prose table {
-    @apply w-full my-4 border-collapse;
+    @apply w-full;
   }
 
   .prose th {
@@ -640,7 +640,6 @@ input[type="text"].rounded-full:focus {
 /* Style pour le bouton d'envoi */
 button.rounded-full {
   transition: all 0.2s ease;
-  background-color: black;
   width: 36px;
   height: 36px;
 }

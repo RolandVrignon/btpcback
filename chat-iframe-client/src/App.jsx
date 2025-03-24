@@ -23,6 +23,7 @@ function App() {
   const [projectId, setProjectId] = useState(null);
   const [apiKey, setApiKey] = useState(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [inputDisabled, setInputDisabled] = useState(true);
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -72,47 +73,16 @@ function App() {
     if (initialMessage && extractedProjectId && extractedApiKey) {
       setMessages([{ content: initialMessage, isUser: true }]);
       sendMessage(initialMessage, extractedProjectId, extractedApiKey);
-    } else if (extractedProjectId && extractedApiKey) {
-      // Ajouter un message de bienvenue avec des exemples de formatage
-      setMessages([
-        {
-          content: `# Bienvenue dans le Chat du Projet
-
-Vous pouvez utiliser ce chat pour poser des questions sur le projet.
-
-## Fonctionnalités du chat
-
-- Support complet de **Markdown**
-- Formatage de code avec coloration syntaxique
-- Tables et tableaux
-- Formules mathématiques avec KaTeX
-- Et bien plus encore!
-
-### Exemples
-
-Voici une formule mathématique: $E = mc^2$
-
-\`\`\`javascript
-// Voici un exemple de code JavaScript
-function hello() {
-  console.log("Bonjour le monde!");
-}
-\`\`\`
-
-| Nom | Description |
-| --- | ----------- |
-| Projet | Données du projet |
-| Chat | Interface de communication |
-
-> Vous pouvez commencer à poser vos questions maintenant.
-
-:smile: Bonne journée!
-`,
-          isUser: false
-        }
-      ]);
     }
   }, []);
+
+  useEffect(() => {
+    if (projectId && apiKey && inputValue.trim()) {
+      setInputDisabled(false);
+    } else {
+      setInputDisabled(true);
+    }
+  }, [projectId, apiKey, inputValue]);
 
   // Fonction pour envoyer un message au serveur
   const sendMessage = async (message, projId, key) => {
@@ -286,13 +256,10 @@ function hello() {
   return (
     <div className="flex flex-col h-screen max-h-screen overflow-hidden bg-stone-100 text-gray-800 font-sans relative text-sm">
       {/* Zone des messages avec défilement */}
-      <ScrollArea className="flex flex-col p-2 pb-8">
-        <div className="flex flex-col gap-6 pb-[40%]">
+      <ScrollArea className="flex flex-col h-full w-full p-2 pb-8">
+        <div className="flex flex-col h-full w-full gap-6 pb-[40%]">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-500 text-sm">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 mb-2 text-gray-400">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
-              </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 text-sm">
               <p>Démarrez la conversation en posant une question</p>
             </div>
           ) : (
@@ -451,16 +418,9 @@ function hello() {
             ))
           )}
           {isTyping && messages.length > 0 && messages[messages.length - 1].isUser && (
-            <div className="flex flex-col items-start py-1.5 px-2 bg-slate-100 rounded-xl shadow-sm w-auto inline-block text-[10px]">
-              <div className="text-[10px] text-slate-500 mb-1 font-medium">Assistant est en train d'écrire...</div>
-              <div className="flex space-x-0.5">
-                <div className="h-1 w-1 bg-blue-400 rounded-full animate-pulse"></div>
-                <div className="h-1 w-1 bg-blue-500 rounded-full animate-pulse delay-150"></div>
-                <div className="h-1 w-1 bg-blue-600 rounded-full animate-pulse delay-300"></div>
-                <div className="h-1 w-1 bg-blue-700 rounded-full animate-pulse delay-500"></div>
-                <div className="h-1 w-1 bg-blue-800 rounded-full animate-pulse delay-700"></div>
+              <div className="flex justify-start w-full">
+                <div className="h-5 w-5 ml-3 bg-blue-500 rounded-full animate-pulse"></div>
               </div>
-            </div>
           )}
           <div ref={messagesEndRef} />
         </div>
@@ -521,9 +481,9 @@ function hello() {
             />
 
             <button
-              className={`absolute right-[7px] bottom-[7px] ${inputValue.trim() ? 'bg-black hover:bg-gray-800' : 'bg-gray-300 hover:bg-gray-400'} text-white rounded-full disabled:bg-gray-300 disabled:cursor-not-allowed cursor-pointer h-9 w-9 flex items-center justify-center`}
+              className={`absolute right-[7px] bottom-[7px] rounded-full cursor-pointer h-9 w-9 flex items-center justify-center ${inputDisabled ? 'bg-gray-300 cursor-not-allowed' : 'bg-black hover:bg-gray-800 cursor-pointer'}`}
               onClick={handleSendMessage}
-              disabled={isTyping || !inputValue.trim() || !projectId || !apiKey}
+              disabled={inputDisabled}
               aria-label="Envoyer"
             >
             </button>
