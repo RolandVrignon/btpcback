@@ -75,9 +75,6 @@ export class SearchService {
     organizationId: string,
   ): Promise<SearchResponseDto> {
     this.validateSearchParams(params);
-
-    console.log(`[VECTOR SEARCH] Recherche pour: "${params.query}"`);
-
     // Vérifier l'accès au projet si un projectId est fourni
     if (params.projectId) {
       await this.checkProjectAccess(params.projectId, organizationId);
@@ -95,16 +92,8 @@ export class SearchService {
         const scopeFilter: { documentId?: string; projectId?: string } = {};
 
         if (params.documentId) {
-          // Si documentId est renseigné, on limite la recherche à ce document (prioritaire)
-          console.log(
-            `[VECTOR SEARCH] Scope limité au document: ${params.documentId}`,
-          );
           scopeFilter.documentId = params.documentId;
         } else if (params.projectId) {
-          // Si documentId est null mais projectId est renseigné, on étend la recherche à tous les documents du projet
-          console.log(
-            `[VECTOR SEARCH] Scope étendu au projet: ${params.projectId}`,
-          );
           scopeFilter.projectId = params.projectId;
         }
 
@@ -116,10 +105,6 @@ export class SearchService {
           params.limit || 5,
           undefined, // threshold
           scopeFilter, // Passer les filtres de scope
-        );
-
-        console.log(
-          `[VECTOR SEARCH] Nombre de résultats: ${Array.isArray(searchResults) ? searchResults.length : 0}`,
         );
 
         // Vérifier si nous avons des résultats
@@ -134,14 +119,6 @@ export class SearchService {
         }
 
         const results = searchResults.map((result: VectorSearchResult) => {
-          console.log(`[VECTOR SEARCH] Résultat:`);
-          console.log(`  ID: ${result.id}`);
-          console.log(`  Document ID: ${result.documentId}`);
-          console.log(`  Score: ${result.similarity}`);
-          console.log(
-            `  Texte: ${result.text.substring(0, 150)}${result.text.length > 150 ? '...' : ''}`,
-          );
-
           return {
             id: result.id,
             documentId: result.documentId,
@@ -151,7 +128,6 @@ export class SearchService {
           } as SearchResultDto;
         });
 
-        console.log(`[VECTOR SEARCH] Recherche terminée`);
         return results;
       });
 

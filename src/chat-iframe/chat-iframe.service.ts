@@ -209,6 +209,7 @@ export class ChatIframeService {
         ${toolsList.map((tool) => `${tool.name} : ${tool.description}`).join('\n')}
         Tu as egalement a ta disposition differents types de deliverables qui sont des documents generés par l'ia et qui permettent de mieux comprendre le projet.
         Formates chaque réponse en markdown avec le plus de clarté possible. Ceci implique que tu dois utiliser des titres, des listes, des tableaux, etc.
+        Le chat est déstiné à des personnes qui n'ont pas de connaissances en informatique. Il faut donc que tes réponses soient simples et claires.
         A la fin de chaque reponse, propose une action à l'utilisateur pour continuer l'etude du projet.`,
       },
       ...(conversationHistory || []),
