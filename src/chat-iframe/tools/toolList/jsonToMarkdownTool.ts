@@ -70,6 +70,8 @@ Ton Markdown doit être bien structuré, facile à lire et mettre en valeur les 
             prompt: humanPrompt,
           });
 
+          console.log('result:', JSON.stringify(result, null, 2));
+
           // Retourne le résultat de la conversion
           return {
             text: titlePrefix + result.text,

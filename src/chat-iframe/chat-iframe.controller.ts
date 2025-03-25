@@ -24,6 +24,12 @@ import { ProjectsService } from '../projects/projects.service';
 import { DeliverablesService } from '../deliverables/deliverables.service';
 import { createChatTools } from './tools';
 import { DEFAULT_STREAM_CONFIG, model } from './tools/streamConfig';
+import { UsageType, AI_Provider } from '@prisma/client';
+interface Usage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -73,17 +79,23 @@ export class ChatIframeController {
     res.end();
   }
 
-  private async logUsage(projectId: string): Promise<void> {
+  private async logUsage(
+    projectId: string,
+    modelName: string,
+    provider: AI_Provider,
+    type: UsageType,
+    usage: Usage,
+  ): Promise<void> {
     try {
       await this.prisma.usage.create({
         data: {
-          provider: 'OPENAI',
-          modelName: 'gpt-4o-mini',
-          type: 'TEXT_TO_TEXT',
+          provider: provider,
+          modelName: modelName,
+          type: type,
           projectId,
-          promptTokens: 0,
-          completionTokens: 0,
-          totalTokens: 0,
+          promptTokens: usage.promptTokens,
+          completionTokens: usage.completionTokens,
+          totalTokens: usage.totalTokens,
         },
       });
     } catch (error) {
@@ -198,31 +210,35 @@ export class ChatIframeController {
           toolCallStreaming: true,
           maxSteps: 15,
           experimental_transform: smoothStream(DEFAULT_STREAM_CONFIG),
+          onFinish: async ({ usage, toolCalls, toolResults }) => {
+            await this.logUsage(
+              projectId,
+              model.model,
+              model.provider,
+              model.type,
+              usage,
+            );
+            console.log('Tool calls:', JSON.stringify(toolCalls, null, 2));
+            console.log('Tool results:', JSON.stringify(toolResults, null, 2));
+          },
+          onError: ({ error }) => {
+            console.error('Streaming error:', error);
+          },
         });
-        this.logger.debug('Début du streaming');
-
         // Utiliser directement le textStream
         const reader = result.textStream.getReader();
 
         // Lire les chunks et les envoyer au client
-        let chunkCounter = 0;
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
             this.logger.debug('Fin du streaming: done=true');
             break;
           }
-
-          chunkCounter++;
           res.write(`data: ${JSON.stringify({ text: value })}\n\n`);
         }
-
-        this.logger.debug(`Total des chunks envoyés: ${chunkCounter}`);
         res.write('data: [DONE]\n\n');
         res.end();
-
-        this.logger.debug('Streaming terminé avec succès');
-        await this.logUsage(projectId);
       } catch (error) {
         await this.handleStreamError(error, res);
       }

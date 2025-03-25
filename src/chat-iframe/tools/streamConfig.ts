@@ -4,11 +4,12 @@ import {
   experimental_createProviderRegistry as createProviderRegistry,
   LanguageModelV1,
 } from 'ai';
-import { AI_Provider } from '@prisma/client';
+import { AI_Provider, UsageType } from '@prisma/client';
 
 export const registry = createProviderRegistry({
   openai: createOpenAI({
     apiKey: process.env.OPENAI_API_KEY,
+    compatibility: 'strict',
   }),
   google: createGoogleGenerativeAI({
     apiKey: process.env.GOOGLE_API_KEY,
@@ -19,12 +20,14 @@ export interface ModelInterface {
   sdk: LanguageModelV1;
   provider: AI_Provider;
   model: string;
+  type: UsageType;
 }
 
 export const model: ModelInterface = {
   sdk: registry.languageModel('openai:gpt-4o-mini'),
   provider: AI_Provider.OPENAI,
   model: 'gpt-4o-mini',
+  type: UsageType.TEXT_TO_TEXT,
 };
 
 export interface ProviderRegistry {
