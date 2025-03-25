@@ -27,12 +27,30 @@ export interface ModelInterface {
   type: UsageType;
 }
 
-export const model: ModelInterface = {
-  sdk: registry.languageModel('anthropic:claude-3-7-sonnet-20250219'),
-  provider: AI_Provider.ANTHROPIC,
-  model: 'claude-3-7-sonnet-20250219',
-  type: UsageType.TEXT_TO_TEXT,
-};
+export const model: ModelInterface = (() => {
+  if (process.env.ANTHROPIC_API_KEY) {
+    return {
+      sdk: registry.languageModel('anthropic:claude-3-7-sonnet-20250219'),
+      provider: AI_Provider.ANTHROPIC,
+      model: 'claude-3-7-sonnet-20250219',
+      type: UsageType.TEXT_TO_TEXT,
+    };
+  } else if (process.env.GOOGLE_API_KEY) {
+    return {
+      sdk: registry.languageModel('google:gemini-2-0-flash'),
+      provider: AI_Provider.GEMINI,
+      model: 'gemini-2-0-flash',
+      type: UsageType.TEXT_TO_TEXT,
+    };
+  } else {
+    return {
+      sdk: registry.languageModel('openai:gpt-4o-mini'),
+      provider: AI_Provider.OPENAI,
+      model: 'gpt-4o-mini',
+      type: UsageType.TEXT_TO_TEXT,
+    };
+  }
+})();
 
 export interface ProviderRegistry {
   anthropic: any;
