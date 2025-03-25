@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
-import { DocumentsService } from '../../documents/documents.service';
+import { DocumentsService } from '../../../documents/documents.service';
 import { z } from 'zod';
-import { DEFAULT_STREAM_CONFIG } from './streamConfig';
+import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
 
 const logger = new Logger('ListDocumentsTool');
 

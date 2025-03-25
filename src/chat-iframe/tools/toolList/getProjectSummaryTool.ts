@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
-import { ProjectsService } from '../../projects/projects.service';
-import { DEFAULT_STREAM_CONFIG } from './streamConfig';
+import { ProjectsService } from '../../../projects/projects.service';
+import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
 import { z } from 'zod';
 
 const logger = new Logger('GetProjectSummaryTool');

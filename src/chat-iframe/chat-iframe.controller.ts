@@ -177,10 +177,10 @@ export class ChatIframeController {
       const messages: ChatMessage[] = [
         {
           role: 'system',
-          content: `Tu es un assistant IA pour un projet nommé "${project.name}". 
+          content: `Tu es un assistant IA pour un projet nommé "${project.name}".
           Ton objectif est d'aider l'utilisateur avec ses questions concernant ce projet. Sois concis et précis dans tes réponses.
           N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire ta compréhension étape par étape.
-          Tu as a ta disposition une liste d'outils qui permettent toute sorte de taches diverses relative au projet : 
+          Tu as a ta disposition une liste d'outils qui permettent toute sorte de taches diverses relative au projet :
           ${toolsList.map((tool) => `${tool.name} : ${tool.description}`).join('\n')}
           Tu as egalement a ta disposition differents types de deliverables qui sont des documents generés par l'ia et qui permettent de mieux comprendre le projet.
           A la fin de chaque reponse, propose une action à l'utilisateur pour continuer l'etude du projet.`,
@@ -330,11 +330,11 @@ N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire
       );
 
       const result = streamText({
-        model: this.openai('gpt-4o-mini'),
+        model: registry.languageModel('openai:gpt-4o-mini'),
         messages: messages as Message[],
         tools,
         toolCallStreaming: true,
-        maxSteps: 15,
+        maxSteps: 25,
         experimental_transform: smoothStream(DEFAULT_STREAM_CONFIG),
       });
 

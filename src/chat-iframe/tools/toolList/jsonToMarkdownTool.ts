@@ -1,9 +1,8 @@
 import { Logger } from '@nestjs/common';
 import { z } from 'zod';
-import { streamText } from 'ai';
-import { openai } from '@ai-sdk/openai';
-import { DEFAULT_STREAM_CONFIG } from './streamConfig';
-
+import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
+import { generateText } from 'ai';
+import { registry } from '../streamConfig';
 const logger = new Logger('JsonToMarkdownTool');
 
 /**
@@ -27,6 +26,7 @@ export const createJsonToMarkdownTool = () => ({
         logger.debug(
           `JSON à convertir: ${typeof json}, titre: ${title || 'non défini'}`,
         );
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         // Préparation du JSON pour l'envoi au LLM
         const jsonString =
@@ -40,7 +40,6 @@ Ta tâche est de convertir le JSON fourni en un document Markdown bien formaté 
 
 Directives:
 - Crée une structure hiérarchique claire avec des titres et sous-titres
-- Utilise des listes à puces pour les tableaux simples
 - Utilise des tableaux Markdown pour les données tabulaires
 - Formate proprement les valeurs et met en évidence les informations importantes
 - Si le JSON est vide ou nul, indique-le clairement
@@ -55,7 +54,7 @@ Ton Markdown doit être bien structuré, facile à lire et mettre en valeur les 
           logger.error('Clé API OpenAI manquante');
           return {
             text: 'Erreur: Clé API OpenAI manquante. Impossible de convertir le JSON en Markdown.',
-            stream: true,
+            stream: false,
             config: DEFAULT_STREAM_CONFIG,
           };
         }
@@ -63,19 +62,34 @@ Ton Markdown doit être bien structuré, facile à lire et mettre en valeur les 
         // Titre préfixé si fourni
         const titlePrefix = title ? `# ${title}\n\n` : '';
 
-        return {
-          text: titlePrefix,
-          stream: true,
-          config: DEFAULT_STREAM_CONFIG,
-          toolCallData: {
-            name: 'streamText',
-            arguments: {
-              model: openai('gpt-4o-mini'),
-              system: systemPrompt,
-              prompt: humanPrompt,
-            },
-          },
-        };
+        try {
+          // Utiliser generateText comme dans les autres outils du projet
+          const result = await generateText({
+            model: registry.languageModel('openai:gpt-4o-mini'),
+            system: systemPrompt,
+            prompt: humanPrompt,
+          });
+
+          // Retourne le résultat de la conversion
+          return {
+            text: titlePrefix + result.text,
+            stream: true,
+            config: DEFAULT_STREAM_CONFIG,
+          };
+        } catch (apiError) {
+          logger.error(
+            `Erreur lors de l'appel à l'API OpenAI: ${
+              apiError instanceof Error ? apiError.message : 'Erreur inconnue'
+            }`,
+          );
+          return {
+            text: `Erreur lors de la génération du Markdown: ${
+              apiError instanceof Error ? apiError.message : 'Erreur inconnue'
+            }`,
+            stream: false,
+            config: DEFAULT_STREAM_CONFIG,
+          };
+        }
       } catch (error) {
         logger.error(
           `Erreur lors de la conversion JSON vers Markdown: ${
@@ -89,7 +103,7 @@ Ton Markdown doit être bien structuré, facile à lire et mettre en valeur les 
           text: `Une erreur est survenue lors de la conversion JSON vers Markdown: ${
             error instanceof Error ? error.message : 'Erreur inconnue'
           }`,
-          stream: true,
+          stream: false,
           config: DEFAULT_STREAM_CONFIG,
         };
       }

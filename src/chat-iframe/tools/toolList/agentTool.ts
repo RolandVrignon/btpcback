@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { z } from 'zod';
-import { DEFAULT_STREAM_CONFIG } from './streamConfig';
+import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
 import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 

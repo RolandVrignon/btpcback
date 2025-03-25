@@ -1,16 +1,17 @@
 // Re-export de tous les outils pour faciliter l'import par les consommateurs
-import { createSearchDocumentsTool } from './searchDocumentsTool';
-import { createListDocumentsTool } from './listDocumentsTool';
-import { createSummarizeDocumentTool } from './summarizeDocumentTool';
-import { createGetProjectSummaryTool } from './getProjectSummaryTool';
-import { createGetDeliverableTool } from './getDeliverableTool';
-import { createJsonToMarkdownTool } from './jsonToMarkdownTool';
+import { createSearchDocumentsTool } from './toolList/searchDocumentsTool';
+import { createListDocumentsTool } from './toolList/listDocumentsTool';
+import { createSummarizeDocumentTool } from './toolList/summarizeDocumentTool';
+import { createGetProjectSummaryTool } from './toolList/getProjectSummaryTool';
+import { createGetDeliverableTool } from './toolList/getDeliverableTool';
+import { createJsonToMarkdownTool } from './toolList/jsonToMarkdownTool';
+import { createGetDocumentMetadataTool } from './toolList/getDocumentMetadataTool';
 import { SearchService } from '../../search/search.service';
 import { DocumentsService } from '../../documents/documents.service';
 import { ProjectsService } from '../../projects/projects.service';
 import { DeliverablesService } from '../../deliverables/deliverables.service';
 import { OrganizationEntity } from '../../types';
-import { createListDeliverableTool } from './listDeliverableTool';
+import { createListDeliverableTool } from './toolList/listDeliverableTool';
 /**
  * Crée tous les outils nécessaires pour le chat
  * @param searchService Service de recherche
@@ -60,6 +61,11 @@ export const createChatTools = (
 
   const listDeliverableTool = createListDeliverableTool();
 
+  const getDocumentMetadataTool = createGetDocumentMetadataTool(
+    documentsService,
+    projectId,
+  );
+
   // Combiner tous les outils dans un seul objet
   return {
     ...searchTools,
@@ -69,6 +75,7 @@ export const createChatTools = (
     ...getDeliverableTool,
     ...jsonToMarkdownTool,
     ...listDeliverableTool,
+    ...getDocumentMetadataTool,
   };
 };
 
@@ -80,4 +87,5 @@ export {
   createGetProjectSummaryTool,
   createGetDeliverableTool,
   createJsonToMarkdownTool,
+  createGetDocumentMetadataTool,
 };

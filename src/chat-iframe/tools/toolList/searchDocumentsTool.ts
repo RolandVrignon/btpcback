@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
-import { SearchService } from '../../search/search.service';
+import { SearchService } from '../../../search/search.service';
 import { z } from 'zod';
-import { DEFAULT_STREAM_CONFIG } from './streamConfig';
+import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
 
 const logger = new Logger('SearchDocumentsTool');
 
