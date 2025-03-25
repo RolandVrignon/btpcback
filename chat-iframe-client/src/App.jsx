@@ -165,11 +165,6 @@ export default function App() {
   // Cette fonction analyse la structure des messages pour l'afficher
   useEffect(() => {
     if (messages.length > 0) {
-      console.log('Structure actuelle des messages:');
-      messages.forEach((msg, idx) => {
-        console.log(`[${idx}] Role: ${msg.role}`, msg);
-      });
-
       // Si nous avons au moins un message d'assistant et un message d'outil
       const assistantMessages = messages.filter((m) => m.role === 'assistant');
       const toolMessages = messages.filter((m) => m.role === 'tool');
@@ -198,13 +193,7 @@ export default function App() {
 
       // Si nous avons des invocations d'outils
       if (toolInvocations.length > 0) {
-        console.log("Séquence des invocations d'outils:");
-        toolInvocations.forEach((tool, idx) => {
-          console.log(`[${idx}] Outil: ${tool.toolName} - État: ${tool.state}`);
-        });
-
         // Représentation de la séquence complète
-        console.log('\nReprésentation de la conversation:');
         let sequence = '';
         messages.forEach((msg) => {
           if (msg.role === 'user') {
@@ -229,13 +218,6 @@ export default function App() {
         });
         // Enlever la dernière flèche
         sequence = sequence.replace(/→ $/, '');
-        console.log(sequence);
-      }
-
-      if (assistantMessages.length > 0 && toolMessages.length > 0) {
-        console.log('Séquence de conversation avec outils:');
-        console.log('- Messages assistant:', assistantMessages.length);
-        console.log('- Messages outil:', toolMessages.length);
       }
     }
   }, [messages]);
@@ -248,14 +230,17 @@ export default function App() {
   };
 
   // Calculer si l'input est désactivé
-  const inputDisabled = isLoading || !projectId || !apiKey || !inputValue.trim();
+  const inputDisabled =
+    isLoading || !projectId || !apiKey || !inputValue.trim();
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-stone-100">
       {showClearConfirm && (
         <div className="fixed inset-0 bg-stone-700/60 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-lg p-4 max-w-xs w-full text-center">
-            <p className="mb-3 text-sm">Êtes-vous sûr de vouloir effacer toute la conversation ?</p>
+            <p className="mb-3 text-sm">
+              Êtes-vous sûr de vouloir effacer toute la conversation ?
+            </p>
             <div className="flex justify-center space-x-3">
               <button
                 onClick={cancelClear}
@@ -393,8 +378,7 @@ export default function App() {
                 onClick={handleSendMessage}
                 disabled={inputDisabled}
                 aria-label="Envoyer"
-              >
-              </button>
+              ></button>
             </div>
           </div>
         </div>
