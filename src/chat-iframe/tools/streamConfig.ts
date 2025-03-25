@@ -1,5 +1,6 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createAnthropic } from '@ai-sdk/anthropic';
 import {
   experimental_createProviderRegistry as createProviderRegistry,
   LanguageModelV1,
@@ -14,6 +15,9 @@ export const registry = createProviderRegistry({
   google: createGoogleGenerativeAI({
     apiKey: process.env.GOOGLE_API_KEY,
   }),
+  anthropic: createAnthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+  }),
 });
 
 export interface ModelInterface {
@@ -24,9 +28,9 @@ export interface ModelInterface {
 }
 
 export const model: ModelInterface = {
-  sdk: registry.languageModel('openai:gpt-4o-mini'),
-  provider: AI_Provider.OPENAI,
-  model: 'gpt-4o-mini',
+  sdk: registry.languageModel('anthropic:claude-3-7-sonnet-20250219'),
+  provider: AI_Provider.ANTHROPIC,
+  model: 'claude-3-7-sonnet-20250219',
   type: UsageType.TEXT_TO_TEXT,
 };
 
@@ -51,6 +55,6 @@ export interface StreamConfig {
  * Valeurs par défaut pour la configuration du streaming
  */
 export const DEFAULT_STREAM_CONFIG: StreamConfig = {
-  delayInMs: 20,
+  delayInMs: 10,
   chunking: 'word',
 };
