@@ -272,7 +272,10 @@ export class DocumentsRepository {
       const fieldOrder = data.__fieldOrder;
 
       // Reconstruire chaque élément du tableau avec le même ordre de champs
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+      if (!Array.isArray(items)) {
+        return items;
+      }
+
       return items.map((item: any) => {
         const result: Record<string, any> = {};
         for (const key of fieldOrder) {

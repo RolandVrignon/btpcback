@@ -6,6 +6,7 @@ import { createGetProjectSummaryTool } from './toolList/getProjectSummaryTool';
 import { createGetDeliverableTool } from './toolList/getDeliverableTool';
 import { createJsonToMarkdownTool } from './toolList/jsonToMarkdownTool';
 import { createGetDocumentMetadataTool } from './toolList/getDocumentMetadataTool';
+import { createGetDocumentViewUrlTool } from './toolList/getDocumentViewUrlTool';
 import { SearchService } from '../../search/search.service';
 import { DocumentsService } from '../../documents/documents.service';
 import { ProjectsService } from '../../projects/projects.service';
@@ -66,6 +67,12 @@ export const createChatTools = (
     projectId,
   );
 
+  const getDocumentViewUrlTool = createGetDocumentViewUrlTool(
+    documentsService,
+    projectId,
+    organization.id,
+  );
+
   // Combiner tous les outils dans un seul objet
   return {
     ...searchTools,
@@ -76,6 +83,7 @@ export const createChatTools = (
     ...jsonToMarkdownTool,
     ...listDeliverableTool,
     ...getDocumentMetadataTool,
+    ...getDocumentViewUrlTool,
   };
 };
 
@@ -88,4 +96,5 @@ export {
   createGetDeliverableTool,
   createJsonToMarkdownTool,
   createGetDocumentMetadataTool,
+  createGetDocumentViewUrlTool,
 };
