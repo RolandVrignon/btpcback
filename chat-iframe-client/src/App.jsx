@@ -434,13 +434,13 @@ function App() {
             <div className="flex justify-center space-x-3">
               <button
                 onClick={cancelClear}
-                className="px-3 py-1 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 text-sm"
+                className="px-3 py-1 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 text-sm cursor-pointer"
               >
                 Annuler
               </button>
               <button
                 onClick={confirmClear}
-                className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm"
+                className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm cursor-pointer"
               >
                 Effacer
               </button>

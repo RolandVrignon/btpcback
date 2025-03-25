@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
 import { generateText } from 'ai';
-import { registry } from '../streamConfig';
+import { model } from '../streamConfig';
 const logger = new Logger('JsonToMarkdownTool');
 
 /**
@@ -65,7 +65,7 @@ Ton Markdown doit être bien structuré, facile à lire et mettre en valeur les 
         try {
           // Utiliser generateText comme dans les autres outils du projet
           const result = await generateText({
-            model: registry.languageModel('openai:gpt-4o-mini'),
+            model: model.sdk,
             system: systemPrompt,
             prompt: humanPrompt,
           });

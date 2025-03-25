@@ -23,7 +23,7 @@ import { DocumentsService } from '../documents/documents.service';
 import { ProjectsService } from '../projects/projects.service';
 import { DeliverablesService } from '../deliverables/deliverables.service';
 import { createChatTools } from './tools';
-import { registry, DEFAULT_STREAM_CONFIG } from './tools/streamConfig';
+import { DEFAULT_STREAM_CONFIG, model } from './tools/streamConfig';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -192,7 +192,7 @@ export class ChatIframeController {
       // Configuration du streaming simple
       try {
         const result = streamText({
-          model: registry.languageModel('openai:gpt-4o-mini'),
+          model: model.sdk,
           messages: messages as Message[],
           tools,
           toolCallStreaming: true,
@@ -229,141 +229,6 @@ export class ChatIframeController {
     } catch (error) {
       this.logger.error(
         `Erreur message: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
-      );
-
-      if (!res.headersSent) {
-        if (error instanceof UnauthorizedException) {
-          return res
-            .status(401)
-            .json({ error: 'Accès non autorisé', message: error.message });
-        }
-
-        if (error instanceof NotFoundException) {
-          return res
-            .status(404)
-            .json({ error: 'Ressource non trouvée', message: error.message });
-        }
-
-        return res.status(500).json({
-          error: 'Erreur interne du serveur',
-          message:
-            "Une erreur s'est produite lors du traitement de votre demande",
-        });
-      }
-
-      res.write(
-        `data: ${JSON.stringify({ error: 'Erreur pendant le streaming' })}\n\n`,
-      );
-      res.end();
-    }
-  }
-
-  @Get(':projectId/stream')
-  async streamMessage(
-    @Param('projectId') projectId: string,
-    @Query('apiKey') apiKey: string,
-    @Query('message') message: string,
-    @Query('history') history: string,
-    @Res() res: Response,
-  ) {
-    try {
-      this.logger.debug(
-        `Réception demande de streaming pour projectId=${projectId}`,
-      );
-      const { project, organization } =
-        await this.chatIframeService.validateAccessAndGetProject(
-          apiKey,
-          projectId,
-        );
-      this.logger.debug('Accès validé, préparation du streaming');
-
-      this.setupStreamHeaders(res);
-
-      // Décoder et parser l'historique de la conversation s'il existe
-      let conversationHistory: ChatMessage[] = [];
-      try {
-        if (history) {
-          conversationHistory = JSON.parse(
-            decodeURIComponent(history),
-          ) as ChatMessage[];
-        }
-      } catch {
-        this.logger.warn(
-          "Erreur lors du parsing de l'historique de conversation",
-        );
-      }
-
-      // Construire les messages pour le modèle
-      const messages: ChatMessage[] = [
-        {
-          role: 'system',
-          content: `Tu es un assistant IA pour un projet nommé "${project.name}". Ton objectif est d'aider l'utilisateur avec ses questions concernant ce projet. Sois concis et précis dans tes réponses.
-
-Si tu n'as pas l'information dont tu as besoin, tu peux utiliser les outils suivants:
-- searchDocuments: pour chercher des informations précises dans les documents du projet
-- listProjectDocuments: pour voir la liste des documents disponibles dans le projet
-- summarizeDocument: pour obtenir le contenu complet d'un document et le résumer (nécessite l'ID du document)
-- getProjectSummary: pour obtenir un résumé global du projet
-- getDeliverable: pour générer un délivrable du projet (par exemple un résumé descriptif ou une analyse)
-
-Pour les questions complexes qui nécessitent une compréhension globale du projet, suis cette méthodologie en étapes:
-1. Utilise listProjectDocuments pour obtenir la liste complète des documents
-2. Pour chaque document important, utilise summarizeDocument pour accéder à son contenu complet
-3. Analyse chaque document individuellement avant de formuler une synthèse globale
-4. Organise les informations de façon logique (chronologique, thématique, etc.)
-5. Présente un résumé qui couvre les aspects essentiels du projet
-
-N'hésite pas à utiliser plusieurs appels d'outils en séquence pour construire ta compréhension étape par étape.`,
-        },
-        ...conversationHistory,
-        { role: 'user', content: message },
-      ];
-
-      // Création des outils avec la nouvelle fonction unifiée
-      const tools = createChatTools(
-        this.searchService,
-        this.documentsService,
-        this.projectsService,
-        this.deliverablesService,
-        projectId,
-        organization,
-      );
-
-      const result = streamText({
-        model: registry.languageModel('openai:gpt-4o-mini'),
-        messages: messages as Message[],
-        tools,
-        toolCallStreaming: true,
-        maxSteps: 25,
-        experimental_transform: smoothStream(DEFAULT_STREAM_CONFIG),
-      });
-
-      this.logger.debug('Début du streaming SSE');
-      const reader = result.textStream.getReader();
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            this.logger.debug('Fin du streaming SSE: done=true');
-            break;
-          }
-
-          // Envoyer chaque valeur comme un événement SSE
-          // Format compatible avec EventSource
-          res.write(`data: ${JSON.stringify({ text: value })}\n\n`);
-        }
-
-        res.write('data: [DONE]\n\n');
-        res.end();
-        this.logger.debug('Streaming SSE terminé avec succès');
-        await this.logUsage(projectId);
-      } catch (streamError) {
-        await this.handleStreamError(streamError, res);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Erreur stream: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
       );
 
       if (!res.headersSent) {
