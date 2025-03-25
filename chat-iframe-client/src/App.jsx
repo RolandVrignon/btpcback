@@ -1,435 +1,260 @@
-import React, { useState, useEffect, useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import remarkEmoji from 'remark-emoji';
-import remarkBreaks from 'remark-breaks';
-import remarkToc from 'remark-toc';
-import rehypeRaw from 'rehype-raw';
-import rehypeSanitize from 'rehype-sanitize';
-import rehypeExternalLinks from 'rehype-external-links';
-import rehypeHighlight from 'rehype-highlight';
-import rehypeKatex from 'rehype-katex';
-import rehypeSlug from 'rehype-slug';
-import 'highlight.js/styles/github-dark.css';
-import 'katex/dist/katex.min.css';
+import React, { useEffect, useState, useRef } from 'react';
+import { useChat } from 'ai/react';
+import Markdown from './ui/markdown';
+import ToolInvocation from './ui/toolInvocation';
 import { ScrollArea } from './ui/scroll-area';
+import './styles.css'; // S'assurer que le fichier de styles est importé
+import 'katex/dist/katex.min.css';
+import 'highlight.js/styles/github.css';
 
-function App() {
-  // États
-  const [messages, setMessages] = useState([]);
-  const [inputValue, setInputValue] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+function formatMessage(message) {
+  if (message.role === 'user') {
+    return {
+      icon: '👤',
+      label: 'Utilisateur',
+      text: message.content,
+    };
+  }
+
+  if (message.role === 'assistant') {
+    // Vérifier si le message a des parts (nouveau format)
+    if (message.parts && Array.isArray(message.parts)) {
+      // Construire le contenu à partir des parts
+      const partsContent = message.parts
+        .map((part) => {
+          if (part.type === 'text') {
+            return part.text;
+          } else if (part.type === 'tool-invocation') {
+            const toolInfo = part.toolInvocation;
+            return `[Outil: ${toolInfo.toolName}${toolInfo.state === 'result' ? ' - Terminé' : ' - En cours...'}]`;
+          }
+          return '';
+        })
+        .join('\n\n');
+
+      return {
+        icon: '🤖',
+        label: 'Assistant',
+        text: partsContent || message.content,
+      };
+    }
+
+    // Ancien format (sans parts)
+    if (!message.content || message.content.trim() === '') {
+      return {
+        icon: '🤖',
+        label: 'Assistant',
+        text: "⏳ L'assistant réfléchit et prépare un appel d'outil...",
+      };
+    }
+
+    return {
+      icon: '🤖',
+      label: 'Assistant',
+      text: message.content,
+    };
+  }
+
+  if (message.role === 'tool') {
+    try {
+      const parsed = JSON.parse(message.content);
+      return {
+        icon: '🛠',
+        label: `Tool: ${message.name || 'outil'}`,
+        text: parsed.text || JSON.stringify(parsed, null, 2),
+      };
+    } catch {
+      return {
+        icon: '🛠',
+        label: `Tool: ${message.name || 'outil'}`,
+        text: message.content,
+      };
+    }
+  }
+
+  return {
+    icon: '❓',
+    label: message.role,
+    text: message.content,
+  };
+}
+
+export default function App() {
   const [projectId, setProjectId] = useState(null);
   const [apiKey, setApiKey] = useState(null);
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [inputDisabled, setInputDisabled] = useState(true);
-  const messagesEndRef = useRef(null);
+  const [initialMessage, setInitialMessage] = useState(null);
+  const [apiUrl, setApiUrl] = useState(null);
+  const bottomRef = useRef(null);
   const textareaRef = useRef(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
-  // Fonction pour scroller automatiquement vers le dernier message
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  // Effet pour scroller lorsque les messages changent
-  useEffect(() => {
-    scrollToBottom();
-
-    // Sauvegarder les messages dans le localStorage quand ils changent
-    if (projectId && messages.length > 0) {
-      localStorage.setItem(`chat_history_${projectId}`, JSON.stringify(messages));
-    }
-  }, [messages, projectId]);
-
-  // Effet pour extraire les paramètres d'URL
   useEffect(() => {
     const pathParts = window.location.pathname.split('/');
     const extractedProjectId = pathParts[pathParts.length - 1];
-
     const urlParams = new URLSearchParams(window.location.search);
     const extractedApiKey = urlParams.get('apiKey');
-    const initialMessage = urlParams.get('message');
+    const extractedMessage = urlParams.get('message');
 
     setProjectId(extractedProjectId);
     setApiKey(extractedApiKey);
-
-    // Essayer de récupérer l'historique du chat depuis le localStorage
-    if (extractedProjectId) {
-      const savedMessages = localStorage.getItem(`chat_history_${extractedProjectId}`);
-
-      if (savedMessages) {
-        try {
-          const parsedMessages = JSON.parse(savedMessages);
-          setMessages(parsedMessages);
-          return; // Ne pas continuer avec le message initial ou de bienvenue
-        } catch (e) {
-          console.error('Erreur lors du chargement de l\'historique:', e);
-        }
-      }
-    }
-
-    // Si un message initial est fourni et que les identifiants sont valides
-    if (initialMessage && extractedProjectId && extractedApiKey) {
-      setMessages([{ content: initialMessage, isUser: true }]);
-      sendMessage(initialMessage, extractedProjectId, extractedApiKey);
-    }
+    setInitialMessage(extractedMessage);
+    setApiUrl(`/chat/${extractedProjectId}/message?apiKey=${extractedApiKey}`);
   }, []);
 
+  // Récupérer les messages sauvegardés au chargement
+  const savedMessages =
+    typeof sessionStorage !== 'undefined'
+      ? JSON.parse(sessionStorage.getItem('chatMessages') || '[]')
+      : [];
+
+  const {
+    messages,
+    input: inputValue,
+    handleInputChange,
+    handleSubmit,
+    append,
+    isLoading,
+    setMessages,
+  } = useChat({
+    api: apiUrl,
+    initialMessages: savedMessages,
+  });
+
+  // Sauvegarde des messages dans sessionStorage à chaque changement
   useEffect(() => {
-    if (projectId && apiKey && inputValue.trim()) {
-      setInputDisabled(false);
-    } else {
-      setInputDisabled(true);
+    if (messages.length > 0 && typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('chatMessages', JSON.stringify(messages));
     }
-  }, [projectId, apiKey, inputValue]);
+  }, [messages]);
 
-  // Fonction pour envoyer un message au serveur
-  const sendMessage = async (message, projId, key) => {
-    try {
-      setIsTyping(true);
-
-      // Construire l'URL de l'API avec les paramètres
-      const apiUrl = `/chat/${projId}/message?apiKey=${key}`;
-      console.log('Envoi de la requête à:', apiUrl);
-
-      // Faire la requête en mode streaming
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'text/event-stream',
-        },
-        body: JSON.stringify({
-          message,
-          conversationHistory: messages.map(msg => ({
-            role: msg.isUser ? 'user' : 'assistant',
-            content: msg.content
-          }))
-        }),
-      });
-
-      console.log('Statut de la réponse:', response.status);
-      console.log('Headers de la réponse:', Object.fromEntries(response.headers.entries()));
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error('Erreur de réponse:', {
-          status: response.status,
-          statusText: response.statusText,
-          data: errorData
-        });
-        throw new Error(`Erreur: ${response.status} - ${errorData}`);
-      }
-
-      // Préparer l'objet pour la réponse du bot
-      setMessages(prev => [...prev, { content: '', isUser: false }]);
-
-      // Lire le stream
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let done = false;
-      let text = '';
-
-      while (!done) {
-        try {
-          const { value, done: doneReading } = await reader.read();
-          done = doneReading;
-
-          if (done) {
-            console.log('Streaming terminé');
-            break;
-          }
-
-          // Décoder le chunk et l'ajouter au texte
-          const chunk = decoder.decode(value, { stream: true });
-          console.log('Chunk reçu:', chunk);
-
-          // Analyser le chunk pour récupérer les données
-          const lines = chunk.split('\n');
-          let aiResponseText = '';
-
-          for (const line of lines) {
-            if (line.startsWith('data:')) {
-              try {
-                const data = JSON.parse(line.slice(5));
-                console.log('Données JSON reçues:', data);
-                if (data && data.text) {
-                  aiResponseText += data.text || '';
-                }
-                if (data && data.error) {
-                  console.error('Erreur reçue du serveur:', data.error);
-                  throw new Error(data.error);
-                }
-              } catch (e) {
-                console.warn('Erreur de parsing JSON:', e);
-                // Continuer si ce n'est pas du JSON valide
-              }
-            }
-          }
-
-          text += aiResponseText;
-
-          // Mettre à jour le dernier message (celui du bot)
-          setMessages(prev => {
-            const newMessages = [...prev];
-            newMessages[newMessages.length - 1].content = text;
-            return newMessages;
-          });
-
-          // Scroller vers le bas à chaque mise à jour
-          scrollToBottom();
-        } catch (streamError) {
-          console.error('Erreur pendant la lecture du stream:', streamError);
-          break;
-        }
-      }
-
-      setIsTyping(false);
-    } catch (error) {
-      console.error('Erreur lors de l\'envoi du message:', error);
-      setMessages(prev => [...prev, {
-        content: "Désolé, une erreur s'est produite lors de la communication avec le serveur.",
-        isUser: false
-      }]);
-      setIsTyping(false);
-    }
-  };
-
-  // Fonction pour ajuster la hauteur du textarea
-  const adjustTextareaHeight = () => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = 'auto';
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
-    }
-  };
-
-  // Gérer l'envoi du message
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
-
-    // Ajouter le message de l'utilisateur
-    setMessages(prevMessages => [
-      ...prevMessages,
-      { content: inputValue, isUser: true }
-    ]);
-
-    // Envoyer le message au serveur
-    sendMessage(inputValue, projectId, apiKey);
-
-    // Réinitialiser le champ de saisie
-    setInputValue('');
-
-    // Réinitialiser la hauteur du textarea
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
-  };
-
-  // Fonction pour gérer les changements de l'input
-  const handleInputChange = (e) => {
-    setInputValue(e.target.value);
-    adjustTextareaHeight();
-  };
-
-  // Fonction pour effacer la conversation
+  // Fonction pour effacer la conversation et le sessionStorage
   const clearConversation = () => {
     setShowClearConfirm(true);
   };
 
-  // Fonction pour confirmer l'effacement
+  // Fonctions pour gérer la confirmation
   const confirmClear = () => {
+    sessionStorage.removeItem('chatMessages');
     setMessages([]);
-    // Supprimer également du localStorage
-    if (projectId) {
-      localStorage.removeItem(`chat_history_${projectId}`);
-    }
     setShowClearConfirm(false);
   };
 
-  // Fonction pour annuler l'effacement
   const cancelClear = () => {
     setShowClearConfirm(false);
   };
 
+  // Améliorer le défilement pour qu'il soit plus fluide
+  const scrollToBottom = () => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  };
+
+  // Effet pour le défilement qui dépend de messages - maintenant après la déclaration de useChat
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Envoie automatique du message initial (si présent dans l'URL)
+  useEffect(() => {
+    if (initialMessage && apiUrl) {
+      append({ role: 'user', content: initialMessage });
+    }
+  }, [initialMessage, append, apiUrl]);
+
+  // Cette fonction analyse la structure des messages pour l'afficher
+  useEffect(() => {
+    if (messages.length > 0) {
+      console.log('Structure actuelle des messages:');
+      messages.forEach((msg, idx) => {
+        console.log(`[${idx}] Role: ${msg.role}`, msg);
+      });
+
+      // Si nous avons au moins un message d'assistant et un message d'outil
+      const assistantMessages = messages.filter((m) => m.role === 'assistant');
+      const toolMessages = messages.filter((m) => m.role === 'tool');
+
+      // Analyser la séquence avec le nouveau format (parts)
+      let toolInvocations = [];
+
+      // Extraire toutes les invocations d'outils des messages d'assistant
+      assistantMessages.forEach((msg) => {
+        if (msg.parts && Array.isArray(msg.parts)) {
+          const toolParts = msg.parts.filter(
+            (part) => part.type === 'tool-invocation',
+          );
+          if (toolParts.length > 0) {
+            toolInvocations = [
+              ...toolInvocations,
+              ...toolParts.map((part) => part.toolInvocation),
+            ];
+          }
+        }
+        // Vérifier aussi toolInvocations au niveau racine
+        if (msg.toolInvocations && Array.isArray(msg.toolInvocations)) {
+          toolInvocations = [...toolInvocations, ...msg.toolInvocations];
+        }
+      });
+
+      // Si nous avons des invocations d'outils
+      if (toolInvocations.length > 0) {
+        console.log("Séquence des invocations d'outils:");
+        toolInvocations.forEach((tool, idx) => {
+          console.log(`[${idx}] Outil: ${tool.toolName} - État: ${tool.state}`);
+        });
+
+        // Représentation de la séquence complète
+        console.log('\nReprésentation de la conversation:');
+        let sequence = '';
+        messages.forEach((msg) => {
+          if (msg.role === 'user') {
+            sequence += '👤 User → ';
+          } else if (msg.role === 'assistant') {
+            sequence += '🤖 Assistant ';
+            // Ajouter les outils si présents
+            if (msg.parts && Array.isArray(msg.parts)) {
+              const toolParts = msg.parts.filter(
+                (part) => part.type === 'tool-invocation',
+              );
+              if (toolParts.length > 0) {
+                toolParts.forEach((part) => {
+                  sequence += `[🛠 ${part.toolInvocation.toolName}] `;
+                });
+              }
+            }
+            sequence += '→ ';
+          } else if (msg.role === 'tool') {
+            sequence += `🛠 Tool(${msg.name || 'unknown'}) → `;
+          }
+        });
+        // Enlever la dernière flèche
+        sequence = sequence.replace(/→ $/, '');
+        console.log(sequence);
+      }
+
+      if (assistantMessages.length > 0 && toolMessages.length > 0) {
+        console.log('Séquence de conversation avec outils:');
+        console.log('- Messages assistant:', assistantMessages.length);
+        console.log('- Messages outil:', toolMessages.length);
+      }
+    }
+  }, [messages]);
+
+  // Ajouter la fonction pour envoyer le message
+  const handleSendMessage = () => {
+    if (inputValue.trim() && !isLoading) {
+      handleSubmit(new Event('submit'));
+    }
+  };
+
+  // Calculer si l'input est désactivé
+  const inputDisabled = isLoading || !projectId || !apiKey || !inputValue.trim();
+
   return (
-    <div className="flex flex-col h-screen max-h-screen overflow-hidden bg-stone-100 text-gray-800 font-sans relative text-sm">
-      {/* Zone des messages avec défilement */}
-      <ScrollArea className="flex flex-col h-full w-full p-2 pb-8">
-        <div className="flex flex-col h-full w-full gap-6 pb-[20%]">
-          {messages.length === 0 ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 text-sm">
-              <p>Démarrez la conversation en posant une question</p>
-            </div>
-          ) : (
-            messages.map((msg, index) => (
-              <div
-                key={index}
-                className={`${
-                  msg.isUser
-                    ? 'message-bubble p-2 rounded-lg inline-block max-w-[60%] break-words shadow-sm text-sm mb-1.5 user-message bg-blue-600 ml-auto text-white text-right'
-                    : 'w-full text-sm mb-1.5 ai-message mr-auto text-slate-800 text-left'
-                }`}
-              >
-                {msg.isUser ? (
-                  msg.content
-                ) : (
-                  <div className="prose prose-blue max-w-none prose-xs prose-headings:font-bold prose-p:my-1.5 prose-li:my-0.5 prose-headings:mt-3 prose-headings:mb-1.5 prose-table:my-1.5 text-slate-800">
-                    <ReactMarkdown
-                      remarkPlugins={[
-                        remarkGfm,
-                        remarkMath,
-                        remarkEmoji,
-                        remarkBreaks,
-                        [remarkToc, { tight: true, ordered: true }]
-                      ]}
-                      rehypePlugins={[
-                        rehypeRaw,
-                        rehypeSlug,
-                        rehypeSanitize,
-                        rehypeKatex,
-                        rehypeHighlight,
-                        [
-                          rehypeExternalLinks,
-                          { target: "_blank", rel: ["nofollow", "noopener", "noreferrer"] }
-                        ]
-                      ]}
-                      components={{
-                        // Titres avec différentes tailles et styles
-                        h1: ({ ...props }) => (
-                          <h1
-                            className="text-lg font-semibold my-6 pb-1 border-b"
-                            {...props}
-                          />
-                        ),
-                        h2: ({ ...props }) => (
-                          <h2
-                            className="text-base font-semibold my-2"
-                            {...props}
-                          />
-                        ),
-                        h3: ({ ...props }) => (
-                          <h3
-                            className="text-sm font-semibold my-1.5"
-                            {...props}
-                          />
-                        ),
-                        h4: ({ ...props }) => (
-                          <h4
-                            className="text-sm font-semibold my-1.5"
-                            {...props}
-                          />
-                        ),
-                        h5: ({ ...props }) => (
-                          <h5
-                            className="text-sm font-semibold my-1"
-                            {...props}
-                          />
-                        ),
-                        h6: ({ ...props }) => (
-                          <h6 className="text-sm font-medium my-1" {...props} />
-                        ),
-
-                        // Paragraphes et texte
-                        p: ({ ...props }) => (
-                          <p className="my-1.5 text-inherit leading-normal text-sm" {...props} />
-                        ),
-                        strong: ({ ...props }) => (
-                          <strong className="font-bold text-inherit" {...props} />
-                        ),
-                        em: ({ ...props }) => (
-                          <em className="italic text-inherit" {...props} />
-                        ),
-
-                        // Listes
-                        ul: ({ ...props }) => (
-                          <ul className="my-1.5 pl-4 list-disc space-y-0.5" {...props} />
-                        ),
-                        ol: ({ ...props }) => (
-                          <ol className="my-1.5 pl-4 list-decimal space-y-0.5" {...props} />
-                        ),
-                        li: ({ ...props }) => <li className="my-0.5 pl-1" {...props} />,
-
-                        // Tableaux
-                        table: ({ ...props }) => (
-                          <div className="overflow-x-auto my-2 rounded-md border border-gray-200">
-                            <table className="border-collapse w-full text-sm" {...props} />
-                          </div>
-                        ),
-                        th: ({ ...props }) => (
-                          <th
-                            className="border border-gray-300 bg-gray-100 p-1 font-semibold text-left"
-                            {...props}
-                          />
-                        ),
-                        td: ({ ...props }) => (
-                          <td
-                            className="border border-gray-300 p-1"
-                            {...props}
-                          />
-                        ),
-
-                        // Autres éléments
-                        blockquote: ({ ...props }) => (
-                          <blockquote
-                            className="border-l-4 border-blue-500 pl-2 py-0.5 my-1.5 bg-blue-50 rounded-r-md italic text-sm"
-                            {...props}
-                          />
-                        ),
-                        code: ({ ...props }) => (
-                          <code
-                            className="bg-gray-100 text-red-500 px-1 py-0.5 rounded text-sm font-mono"
-                            {...props}
-                          />
-                        ),
-                        pre: ({ ...props }) => (
-                          <pre
-                            className="bg-gray-800 p-2 rounded-md overflow-x-auto my-1.5 text-sm font-mono"
-                            {...props}
-                          />
-                        ),
-                        a: ({ ...props }) => (
-                          <a
-                            className="text-blue-600 hover:text-blue-800 hover:underline"
-                            {...props}
-                          />
-                        ),
-                        hr: ({ ...props }) => (
-                          <hr className="my-3 border-t border-gray-300" {...props} />
-                        ),
-                      }}
-                    >
-                      {msg.content}
-                    </ReactMarkdown>
-                  </div>
-                )}
-                {!msg.isUser && index === messages.length - 1 && isTyping && (
-                  <div className="inline-flex items-center mt-1">
-                    <span className="text-[10px] text-slate-500 mr-1">En cours...</span>
-                    <span className="flex space-x-0.5">
-                      <span className="inline-block h-1 w-1 bg-slate-400 rounded-full animate-pulse"></span>
-                      <span className="inline-block h-1 w-1 bg-slate-500 rounded-full animate-pulse delay-150"></span>
-                      <span className="inline-block h-1 w-1 bg-slate-600 rounded-full animate-pulse delay-300"></span>
-                    </span>
-                  </div>
-                )}
-              </div>
-            ))
-          )}
-          {isTyping && messages.length > 0 && messages[messages.length - 1].isUser && (
-              <div className="flex justify-start w-full">
-                <div className="h-5 w-5 ml-3 bg-blue-600 rounded-full animate-pulse"></div>
-              </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-      </ScrollArea>
-
-      {/* Modal de confirmation pour effacer la conversation */}
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-stone-100">
       {showClearConfirm && (
         <div className="fixed inset-0 bg-stone-700/60 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-4 max-w-xs w-full text-center">
+          <div className="bg-white rounded-2xl shadow-lg p-4 max-w-xs w-full text-center">
             <p className="mb-3 text-sm">Êtes-vous sûr de vouloir effacer toute la conversation ?</p>
             <div className="flex justify-center space-x-3">
               <button
@@ -449,49 +274,131 @@ function App() {
         </div>
       )}
 
-      {/* Saisie du message - fixe en bas */}
-      <div className="pb-2 flex justify-center space-x-2 w-full fixed bottom-0 left-0 right-0 shadow-md">
-        <div className="w-full px-2 flex relative pt-2">
-          <div className="flex w-full items-center bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden relative pr-[3px] pl-[3px]">
-            {/* Bouton de suppression */}
-            {messages.length > 0 && (
-              <button
-                onClick={clearConversation}
-                className="absolute left-[7px] bottom-[7px] bg-white border border-red-500 hover:bg-red-600 text-red-500 hover:text-white rounded-2xl px-2 py-1 text-sm flex items-center justify-center z-10 cursor-pointer"
-                title="Effacer la conversation"
-              >
-                Effacer la conversation
-              </button>
+      <div className="w-full h-full p-0 relative flex flex-col">
+        {/* Remplacer la div avec overflow-y-auto par ScrollArea */}
+        <ScrollArea className="w-full h-full flex-1 pb-8">
+          <div className="flex flex-col h-full">
+            {messages?.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-gray-400 italic">
+                Démarrez une conversation en posant une question...
+              </div>
+            ) : (
+              <div className="flex flex-col pb-[30%] text-sm">
+                {messages.map((m, i) => {
+                  const { icon, label, text } = formatMessage(m);
+
+                  return (
+                    <div
+                      key={i}
+                      className={`mb-1 p-3 ${
+                        m.role === 'user'
+                          ? 'flex justify-end'
+                          : 'flex justify-start'
+                      }`}
+                    >
+                      <div
+                        className={`text-sm ${
+                          m.role === 'user'
+                            ? 'message-bubble p-2 inline-block max-w-[60%] break-words shadow-sm text-sm mb-1.5 user-message bg-blue-600 ml-auto text-white text-right'
+                            : 'bg-transparent w-full'
+                        }`}
+                      >
+                        {m.role === 'assistant' &&
+                        m.parts &&
+                        Array.isArray(m.parts) ? (
+                          <div>
+                            {m.parts.map((part, partIndex) => {
+                              if (part.type === 'text') {
+                                return <Markdown>{part.text}</Markdown>;
+                              } else if (part.type === 'tool-invocation') {
+                                return (
+                                  <ToolInvocation
+                                    key={`tool-${partIndex}`}
+                                    toolInfo={part.toolInvocation}
+                                  />
+                                );
+                              }
+                              return null;
+                            })}
+                          </div>
+                        ) : (
+                          <div
+                            className={
+                              m.role === 'assistant' ? 'max-w-none' : ''
+                            }
+                          >
+                            {m.role === 'assistant' ? (
+                              <Markdown>{text}</Markdown>
+                            ) : (
+                              text
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Indicateur de frappe quand isLoading est true */}
+                {isLoading && (
+                  <div className="flex justify-start p-3 mb-1">
+                    <div className="bg-transparent p-3">
+                      <div className="typing-indicator">
+                        <span className="typing-dot"></span>
+                        <span className="typing-dot"></span>
+                        <span className="typing-dot"></span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
+            <div ref={bottomRef} />
+          </div>
+        </ScrollArea>
 
-            <textarea
-              className={`w-full pl-[7px] pr-14 py-3 focus:outline-none resize-none min-h-[84px] max-h-[200px] overflow-y-auto text-sm border-0 ${messages.length > 0 ? 'pb-[35px]' : ''}`}
-              value={inputValue}
-              onChange={handleInputChange}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-              placeholder="Écrivez votre message..."
-              disabled={isTyping || !projectId || !apiKey}
-              rows={3}
-              ref={textareaRef}
-            />
+        {/* Nouveau design d'input - position absolue en bas */}
+        <div className="pb-2 flex justify-center space-x-2 w-full fixed bottom-0 left-0 right-0 shadow-md">
+          <div className="w-full px-2 flex relative pt-2">
+            <div className="flex w-full items-center bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden relative pr-[3px] pl-[3px]">
+              {/* Bouton de suppression */}
+              {messages.length > 0 && (
+                <button
+                  onClick={clearConversation}
+                  className="absolute left-[7px] bottom-[7px] bg-white border border-red-500 hover:bg-red-600 text-red-500 hover:text-white rounded-2xl px-2 py-1 text-sm flex items-center justify-center z-10 cursor-pointer"
+                  title="Effacer la conversation"
+                >
+                  Effacer la conversation
+                </button>
+              )}
 
-            <button
-              className={`absolute right-[7px] bottom-[7px] rounded-full cursor-pointer h-9 w-9 flex items-center justify-center ${inputDisabled ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'}`}
-              onClick={handleSendMessage}
-              disabled={inputDisabled}
-              aria-label="Envoyer"
-            >
-            </button>
+              <textarea
+                className={`w-full pl-[7px] pr-14 py-3 focus:outline-none resize-none min-h-[84px] max-h-[200px] overflow-y-auto text-sm border-0 ${messages.length > 0 ? 'pb-[35px]' : ''}`}
+                value={inputValue}
+                onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                placeholder="Écrivez votre message..."
+                disabled={isLoading || !projectId || !apiKey}
+                rows={3}
+                ref={textareaRef}
+              />
+
+              <button
+                className={`absolute right-[7px] bottom-[7px] rounded-full cursor-pointer h-9 w-9 flex items-center justify-center ${inputDisabled ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                onClick={handleSendMessage}
+                disabled={inputDisabled}
+                aria-label="Envoyer"
+              >
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 }
-
-export default App;

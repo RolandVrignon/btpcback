@@ -13,11 +13,7 @@ import {
 import { ChatIframeService } from './chat-iframe.service';
 import { Response } from 'express';
 import { join } from 'path';
-
-interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
+import { ChatRequestDto } from './dto/chatRequest.dto';
 
 @Controller('chat')
 export class ChatIframeController {
@@ -71,19 +67,20 @@ export class ChatIframeController {
   async processMessage(
     @Param('projectId') projectId: string,
     @Query('apiKey') apiKey: string,
-    @Body()
-    body: {
-      message: string;
-      conversationHistory: ChatMessage[];
-    },
+    @Body() body: ChatRequestDto,
     @Res() res: Response,
   ) {
     try {
+      console.log('body:', JSON.stringify(body, null, 2));
+      const allMessages = body.messages;
+      const userMessage = allMessages.at(-1)?.content || '';
+      const conversationHistory = allMessages.slice(0, -1);
+
       await this.chatIframeService.processMessageWithStreaming(
         projectId,
         apiKey,
-        body.message,
-        body.conversationHistory,
+        userMessage,
+        conversationHistory,
         res,
       );
     } catch (error: unknown) {
