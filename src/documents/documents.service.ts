@@ -31,7 +31,7 @@ import { openai } from '@ai-sdk/openai';
 import { embed } from 'ai';
 import { ConfirmMultipleUploadsDto } from './dto/confirm-multiple-uploads.dto';
 import { PrismaService } from '../prisma/prisma.service';
-
+import { Chunk } from '@prisma/client';
 @Injectable()
 export class DocumentsService {
   private s3Client: S3Client;
@@ -244,7 +244,7 @@ export class DocumentsService {
             const index = i + batchIndex;
             try {
               // 1. Créer le chunk dans la base de données
-              let createdChunk;
+              let createdChunk: Chunk;
               try {
                 createdChunk = await this.chunksService.create({
                   text: chunk.text,
@@ -285,9 +285,8 @@ export class DocumentsService {
               }
 
               // 4. Créer l'embedding dans la base de données
-              let createdEmbedding;
               try {
-                createdEmbedding = await this.embeddingsService.create({
+                await this.embeddingsService.create({
                   provider: AI_Provider.OPENAI,
                   vector: embeddingVector,
                   modelName: modelName,
@@ -304,9 +303,8 @@ export class DocumentsService {
               }
 
               // Enregistrer l'utilisation pour l'embedding
-              let createdUsage;
               try {
-                createdUsage = await this.usageService.create({
+                await this.usageService.create({
                   provider: AI_Provider.OPENAI,
                   modelName: modelName,
                   totalTokens: usage.tokens,
@@ -819,11 +817,10 @@ export class DocumentsService {
 
                     await this.s3Client.send(headObjectCommand);
 
-                    // Si le fichier existe, créer un document dans la base de données
                     const document = await this.create({
                       filename: fileName,
                       path: filePath,
-                      mimetype: 'application/octet-stream',
+                      mimetype: this.getMimetype(fileName),
                       size: 0,
                       projectId: dto.projectId,
                       status: Status.PENDING,
@@ -839,9 +836,17 @@ export class DocumentsService {
                       // Télécharger le document depuis S3
                       const tempDir = `/tmp/document-processing/${document.id}`;
                       const tempFilePath = await this.downloadDocumentFromS3(
-                        document.path,
+                        filePath,
                         tempDir,
                       );
+
+                      //Récupérer le mimetype du fichier
+                      const mimetype = this.getMimetype(tempFilePath);
+
+                      // Mettre à jour le document avec le mimetype
+                      await this.documentsRepository.update(document.id, {
+                        mimetype,
+                      });
 
                       // Convertir le document si nécessaire
                       const pdfFilePath =
@@ -850,6 +855,17 @@ export class DocumentsService {
                       // Extraire le texte du PDF
                       const extractedText =
                         await this.extractTextFromPdf(pdfFilePath);
+
+                      // Extraire les métadonnées du PDF
+                      const metadata =
+                        await this.extractPdfMetadata(pdfFilePath);
+                      const numPages = extractedText.length;
+
+                      await this.documentsRepository.update(document.id, {
+                        metadata_numPages: numPages,
+                        metadata_author: metadata.author || '',
+                        size: metadata.fileSize,
+                      });
 
                       // Nettoyer les fichiers temporaires après extraction
                       await this.cleanupTempFiles(tempDir);
@@ -1374,6 +1390,44 @@ export class DocumentsService {
   }
 
   /**
+   * Récupère le mimetype d'un fichier à partir de son chemin
+   * @param filePath Chemin du fichier
+   * @returns Le mimetype du fichier
+   */
+  private getMimetype(filePath: string): string {
+    // Déterminer le mimetype en fonction de l'extension du fichier
+    const ext = path.extname(filePath).toLowerCase();
+
+    // Mapper les extensions courantes à leurs mimetypes
+    switch (ext) {
+      case '.pdf':
+        return 'application/pdf';
+      case '.docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case '.doc':
+        return 'application/msword';
+      case '.xlsx':
+        return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      case '.xls':
+        return 'application/vnd.ms-excel';
+      case '.pptx':
+        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      case '.ppt':
+        return 'application/vnd.ms-powerpoint';
+      case '.txt':
+        return 'text/plain';
+      case '.csv':
+        return 'text/csv';
+      case '.json':
+        return 'application/json';
+      case '.xml':
+        return 'application/xml';
+      default:
+        return 'application/octet-stream';
+    }
+  }
+
+  /**
    * Nettoie le texte pour le rendre compatible avec l'API d'embeddings d'OpenAI
    * Supprime les caractères problématiques et formate le texte pour éviter les erreurs 400
    * @param text Texte à nettoyer
@@ -1410,5 +1464,53 @@ export class DocumentsService {
     }
 
     return cleaned;
+  }
+
+  /**
+   * Extrait les métadonnées d'un fichier PDF
+   * @param pdfPath Chemin vers le fichier PDF
+   * @returns Les métadonnées du PDF (auteur, titre, etc.)
+   */
+  private async extractPdfMetadata(pdfPath: string): Promise<{
+    author: string;
+    title: string;
+    subject: string;
+    keywords: string;
+    fileSize: number;
+  }> {
+    const exec = promisify(execCallback);
+
+    try {
+      // Utiliser pdfinfo pour extraire les métadonnées
+      const pdfInfoCommand = `pdfinfo "${pdfPath}"`;
+      const { stdout: pdfInfoOutput } = await exec(pdfInfoCommand);
+
+      // Extraire les différentes métadonnées
+      const authorMatch = pdfInfoOutput.match(/Author:\s+(.*?)$/m);
+      const titleMatch = pdfInfoOutput.match(/Title:\s+(.*?)$/m);
+      const subjectMatch = pdfInfoOutput.match(/Subject:\s+(.*?)$/m);
+      const keywordsMatch = pdfInfoOutput.match(/Keywords:\s+(.*?)$/m);
+
+      // Obtenir la taille du fichier en octets
+      const stats = fs.statSync(pdfPath);
+      const fileSize = stats.size;
+
+      return {
+        author: authorMatch ? authorMatch[1].trim() : '',
+        title: titleMatch ? titleMatch[1].trim() : '',
+        subject: subjectMatch ? subjectMatch[1].trim() : '',
+        keywords: keywordsMatch ? keywordsMatch[1].trim() : '',
+        fileSize,
+      };
+    } catch (error) {
+      console.error("Erreur lors de l'extraction des métadonnées:", error);
+      return {
+        author: '',
+        title: '',
+        subject: '',
+        keywords: '',
+        fileSize: 0,
+      };
+    }
   }
 }
