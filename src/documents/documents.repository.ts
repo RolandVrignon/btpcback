@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
@@ -6,6 +6,8 @@ import { Status, Prisma, Document } from '@prisma/client';
 
 @Injectable()
 export class DocumentsRepository {
+  private readonly logger = new Logger(DocumentsRepository.name);
+
   constructor(private prisma: PrismaService) {}
 
   /**
@@ -169,7 +171,7 @@ export class DocumentsRepository {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2025'
       ) {
-        console.error('[REPOSITORY] Document non trouvé (P2025)');
+        this.logger.error('[REPOSITORY] Document non trouvé (P2025)');
         throw new NotFoundException('Document non trouvé');
       }
       throw error;

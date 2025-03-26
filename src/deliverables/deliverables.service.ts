@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DeliverableFactory } from './factories/deliverable.factory';
@@ -27,6 +28,8 @@ interface DeliverableProcessEvent {
 
 @Injectable()
 export class DeliverablesService {
+  private readonly logger = new Logger(DeliverablesService.name);
+
   constructor(
     private readonly deliverablesRepository: DeliverablesRepository,
     private readonly deliverableFactory: DeliverableFactory,
@@ -57,7 +60,7 @@ export class DeliverablesService {
         };
         await strategy.generate(context);
       } catch (error) {
-        console.error('Error processing deliverable:', error);
+        this.logger.error('Error processing deliverable:', error);
         // Ici, vous pourriez mettre à jour le statut du livrable en ERROR
       }
     });
@@ -204,7 +207,7 @@ export class DeliverablesService {
 
     // Si un déliverable existe déjà, le retourner directement
     if (existingDeliverable) {
-      console.log(
+      this.logger.log(
         `Délivrable existant trouvé de type ${type} pour le projet ${projectId}`,
       );
       return existingDeliverable;

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { BaseDeliverableStrategy } from './base-deliverable.strategy';
 import { DeliverableResult } from '../interfaces/deliverable-result.interface';
 import { DeliverableContext } from '../interfaces/deliverable-context.interface';
@@ -27,12 +27,16 @@ interface WebhookPayload {
   documents: {
     id: string;
     filename: string;
-    ai_metadata: any;
+    ai_metadata: Record<string, unknown>;
   }[];
 }
 
 @Injectable()
 export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrategy {
+  private readonly logger = new Logger(
+    DescriptifSommaireDesTravauxStrategy.name,
+  );
+
   constructor(
     protected readonly prisma: PrismaService,
     protected readonly deliverablesRepository: DeliverablesRepository,
@@ -58,45 +62,43 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
 
   async generate(context: DeliverableContext): Promise<void> {
     try {
-      console.log('Document IDs received:', context.documentIds);
+      this.logger.log('Document IDs received:', context.documentIds);
 
-      let documents;
+      let documents: Document[];
 
       // If no document IDs are provided, fetch all documents from the project
       if (!context.documentIds || context.documentIds.length === 0) {
-        console.log('No document IDs provided, fetching all project documents');
+        this.logger.log(
+          'No document IDs provided, fetching all project documents',
+        );
         documents = await this.documentsRepository.findByProject(
           context.projectId,
         );
-        console.log(
-          'Found',
-          documents?.length || 0,
-          'documents in the project',
-        );
+        this.logger.log('Found', documents.length, 'documents in the project');
       } else {
         documents = await this.documentsRepository.findDocumentsWithChunks(
           context.documentIds,
         );
       }
-      console.log('Documents found:', documents?.length || 0);
+      this.logger.log('Documents found:', documents.length);
 
-      if (!documents?.length) {
-        console.warn('No documents found for the project or provided IDs');
+      if (!documents.length) {
+        this.logger.warn('No documents found for the project or provided IDs');
       } else {
-        console.log('First document ID:', documents[0]?.id);
+        this.logger.log('First document ID:', documents[0].id);
         // Check if chunks exist in a type-safe way
-        const firstDoc = documents[0] as any;
-        console.log(
+        const firstDoc = documents[0];
+        this.logger.log(
           'First document has chunks:',
-          firstDoc?.chunks && Array.isArray(firstDoc.chunks)
-            ? firstDoc.chunks.length
+          'chunks' in firstDoc && Array.isArray((firstDoc as any).chunks)
+            ? (firstDoc as any).chunks.length
             : 'No chunks property',
         );
       }
 
       await this.generateWorkSummary(documents, context.projectId, context.id);
     } catch (error: unknown) {
-      console.error('Error generating deliverable:', error);
+      this.logger.error('Error generating deliverable:', error);
       // Don't return anything in the error case since the return type is void
       if (error instanceof Error) {
         this.handleError(error);
@@ -115,7 +117,7 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
     projectId: string,
     deliverableId: string,
   ): Promise<WorkSummary> {
-    console.log('START DESCRIPTIF SOMMAIRE DES TRAVAUX');
+    this.logger.log('START DESCRIPTIF SOMMAIRE DES TRAVAUX');
 
     // Trigger the webhook
     await this.triggerWebhook(documents, projectId, deliverableId);
@@ -136,7 +138,7 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
   }
 
   private async analyzeDocuments(documents: Document[]): Promise<void> {
-    console.log('Analyzing documents:', documents.length);
+    this.logger.log('Analyzing documents:', documents.length);
     await Promise.resolve();
   }
 
@@ -145,28 +147,30 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
     projectId: string,
     deliverableId: string,
   ): Promise<void> {
-    console.log(
-      'triggerWebhook called with documents:',
-      documents?.length || 0,
-    );
+    this.logger.log('triggerWebhook called with documents:', documents.length);
 
     // Get project details to include the long_summary
     const project = await this.projectsRepository.findById(projectId);
 
     // Ensure project is valid before using it
     if (!project || typeof project !== 'object') {
-      console.warn('Project not found or invalid');
+      this.logger.warn('Project not found or invalid');
       return;
     }
+
     // Prepare document data for the webhook
     const documentData = await Promise.all(
       documents.map((doc) => {
-        let result;
+        let result: Record<string, unknown> | undefined;
 
         if (doc.ai_metadata && typeof doc.ai_metadata === 'object') {
-          const data = doc.ai_metadata['__data'];
+          const metadata = doc.ai_metadata as Record<string, unknown>;
+          const data = metadata['__data'] as Record<string, unknown>;
           if (data && typeof data === 'object') {
-            const procedes = data['Procédés à risque'];
+            const procedes = data['Procédés à risque'] as Record<
+              string,
+              unknown
+            >;
             if (procedes && typeof procedes === 'object') {
               result = {
                 'Procédés à risques': procedes['__data'],
@@ -207,27 +211,27 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
         const payloadSizeInMB = payloadSizeInKB / 1024;
 
         // Afficher la taille du payload
-        console.log('Nombre de documents:', payload.documents?.length || 0);
-        console.log(
+        this.logger.log('Nombre de documents:', payload.documents.length);
+        this.logger.log(
           `Taille du payload: ${payloadSizeInBytes} octets (${payloadSizeInKB.toFixed(2)} KB, ${payloadSizeInMB.toFixed(2)} MB)`,
         );
 
         const n8nWebhookUrl = this.configService.get<string>(
-          'N8N_WEBHOOK_URL_PROD',
+          'N8N_WEBHOOK_URL',
         );
-        console.log('n8nWebhookUrl:', n8nWebhookUrl);
+        this.logger.log('n8nWebhookUrl:', n8nWebhookUrl);
 
         if (!n8nWebhookUrl) {
-          console.warn(
+          this.logger.warn(
             'N8N_WEBHOOK_URL is not defined in environment variables',
           );
           return;
         }
 
-        console.log('n8nWebhookUrl', `${n8nWebhookUrl}/deliverable`);
-        console.log('Sending data to n8n webhook...');
+        this.logger.log('n8nWebhookUrl', `${n8nWebhookUrl}/deliverable`);
+        this.logger.log('Sending data to n8n webhook...');
         const url = `${n8nWebhookUrl}/deliverable`;
-        console.log('url:', url);
+        this.logger.log('url:', url);
 
         // Créer une promesse pour la requête n8n
         const n8nResponse = await (async () => {
@@ -241,9 +245,9 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
             });
 
             if (res.ok) {
-              console.log('Data successfully sent to n8n webhook.');
+              this.logger.log('Data successfully sent to n8n webhook.');
             } else {
-              console.error(
+              this.logger.error(
                 'Error sending data to n8n webhook:',
                 res.status,
                 res.statusText,
@@ -251,18 +255,18 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
             }
             return res;
           } catch (error) {
-            console.error('Error sending data to n8n webhook:', error);
+            this.logger.error('Error sending data to n8n webhook:', error);
             throw error;
           }
         })();
 
         if (n8nResponse.ok) {
-          console.log('Webhook n8n completed successfully.');
+          this.logger.log('Webhook n8n completed successfully.');
         } else {
-          console.error('Webhook n8n failed.');
+          this.logger.error('Webhook n8n failed.');
         }
       } catch (error) {
-        console.error('Error sending data to n8n webhook:', error);
+        this.logger.error('Error sending data to n8n webhook:', error);
       }
     })();
 

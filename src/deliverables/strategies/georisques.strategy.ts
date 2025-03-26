@@ -34,7 +34,7 @@ export class GeorisquesStrategy implements DeliverableStrategy {
       }
 
       // Call the n8n webhook to get georisques data
-      const n8nUrl = this.configService.get<string>('N8N_WEBHOOK_URL_PROD');
+      const n8nUrl = this.configService.get<string>('N8N_WEBHOOK_URL');
       const address = `${project.ai_address}, ${project.ai_city}`;
       const url = `${n8nUrl}/public-data`;
 

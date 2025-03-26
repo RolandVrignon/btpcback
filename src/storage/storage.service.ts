@@ -27,9 +27,11 @@ import { DownloadFileDto } from './dto/download-file.dto';
 import { DownloadFileResponseDto } from './dto/download-file-response.dto';
 import { RootObjectsResponseDto } from './dto/root-objects-response.dto';
 import { ProjectsRepository } from '../projects/projects.repository';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class StorageService {
+  private readonly logger = new Logger(StorageService.name);
   private s3Client: S3Client;
   private bucketName: string;
 
@@ -120,13 +122,13 @@ export class StorageService {
         organizationId,
       );
 
-    console.log('One');
+    this.logger.log('One');
 
     if (!project) {
       throw new NotFoundException('Projet non trouvé');
     }
 
-    console.log('Two');
+    this.logger.log('Two');
 
     const expiresIn = 3600; // 1 heure par défaut
 
@@ -136,7 +138,7 @@ export class StorageService {
 
     const key = `${process.env.AWS_S3_BUCKET}${dto.projectId}/${dto.fileName}`;
 
-    console.log('Three');
+    this.logger.log('Three');
 
     // Vérifier si le fichier existe
     try {
@@ -145,7 +147,7 @@ export class StorageService {
         Key: key,
       });
 
-      console.log('Four');
+      this.logger.log('Four');
 
       await this.s3Client.send(headCommand);
     } catch (error) {
@@ -168,10 +170,10 @@ export class StorageService {
       Key: key,
     });
 
-    console.log('Five');
+    this.logger.log('Five');
 
     const url = await getSignedUrl(this.s3Client, command, { expiresIn });
-    console.log('url:', url);
+    this.logger.log('url:', url);
 
     return {
       url,

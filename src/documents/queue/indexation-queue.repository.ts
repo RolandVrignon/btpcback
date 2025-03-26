@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class IndexationQueueRepository {
+  private readonly logger = new Logger(IndexationQueueRepository.name);
+
   constructor(private prisma: PrismaService) {}
 
   /**
@@ -37,7 +39,7 @@ export class IndexationQueueRepository {
         totalConnections,
       };
     } catch (error) {
-      console.error(
+      this.logger.error(
         'Erreur lors de la récupération des statistiques de connexion:',
         error,
       );

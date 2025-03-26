@@ -34,7 +34,7 @@ export class DocumentsPubliquesStrategy implements DeliverableStrategy {
       }
 
       // Call the n8n webhook to get city documents
-      const n8nUrl = this.configService.get<string>('N8N_WEBHOOK_URL_PROD');
+      const n8nUrl = this.configService.get<string>('N8N_WEBHOOK_URL');
       const city = project.ai_city;
       const url = `${n8nUrl}/public-docs?ville=${city}`;
 

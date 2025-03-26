@@ -1,4 +1,9 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IndexationQueueRepository } from './indexation-queue.repository';
 
@@ -11,6 +16,7 @@ interface IndexationTask {
 
 @Injectable()
 export class IndexationQueueService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(IndexationQueueService.name);
   private queue: IndexationTask[] = [];
   private isProcessing = false;
   private concurrentTasks = 0;
@@ -61,14 +67,14 @@ export class IndexationQueueService implements OnModuleInit, OnModuleDestroy {
     // Initialiser avec la valeur idéale
     this.maxConcurrentTasks = idealConcurrentTasks;
 
-    console.log(`Taille du pool de connexions: ${this.connectionPoolSize}`);
-    console.log(
+    this.logger.log(`Taille du pool de connexions: ${this.connectionPoolSize}`);
+    this.logger.log(
       `Pourcentage réservé pour les autres opérations: ${this.reservedConnectionsPercentage}%`,
     );
-    console.log(
+    this.logger.log(
       `Pourcentage maximum pour l'indexation: ${this.maxIndexationConnectionsPercentage}%`,
     );
-    console.log(
+    this.logger.log(
       `Nombre maximum de tâches d'indexation concurrentes: ${this.maxConcurrentTasks}`,
     );
   }
@@ -95,7 +101,10 @@ export class IndexationQueueService implements OnModuleInit, OnModuleDestroy {
       // Mettre à jour les priorités des tâches en attente
       this.updateQueuePriorities();
     } catch (error) {
-      console.error('Erreur lors de la surveillance des connexions:', error);
+      this.logger.error(
+        'Erreur lors de la surveillance des connexions:',
+        error,
+      );
     }
   }
 
@@ -180,7 +189,7 @@ export class IndexationQueueService implements OnModuleInit, OnModuleDestroy {
           this.maxConcurrentTasks + increment,
           idealIndexationConnections,
         );
-        console.log(
+        this.logger.log(
           `Augmentation du nombre maximum de tâches concurrentes à ${this.maxConcurrentTasks} (idéal: ${idealIndexationConnections})`,
         );
       }
@@ -224,7 +233,7 @@ export class IndexationQueueService implements OnModuleInit, OnModuleDestroy {
         this.queue.length > 0 &&
         this.concurrentTasks >= this.maxConcurrentTasks
       ) {
-        console.log(
+        this.logger.log(
           `File d'attente bloquée: ${this.queue.length} tâches en attente, ${this.concurrentTasks}/${this.maxConcurrentTasks} tâches en cours`,
         );
       }
@@ -234,7 +243,7 @@ export class IndexationQueueService implements OnModuleInit, OnModuleDestroy {
     // Forcer au moins une tâche concurrente si la file d'attente n'est pas vide
     if (this.maxConcurrentTasks === 0 && this.queue.length > 0) {
       this.maxConcurrentTasks = 1;
-      console.log(
+      this.logger.log(
         "Forçage du nombre maximum de tâches concurrentes à 1 pour débloquer la file d'attente",
       );
     }
@@ -251,14 +260,14 @@ export class IndexationQueueService implements OnModuleInit, OnModuleDestroy {
 
         if (task) {
           this.concurrentTasks++;
-          console.log(
+          this.logger.log(
             `Démarrage de la tâche ${task.id} (${this.concurrentTasks}/${this.maxConcurrentTasks} tâches en cours)`,
           );
 
           // Exécuter la tâche de manière asynchrone
           void this.executeTask(task).finally(() => {
             this.concurrentTasks--;
-            console.log(
+            this.logger.log(
               `Fin de la tâche ${task.id} (${this.concurrentTasks}/${this.maxConcurrentTasks} tâches en cours, ${this.queue.length} en attente)`,
             );
 
@@ -281,7 +290,7 @@ export class IndexationQueueService implements OnModuleInit, OnModuleDestroy {
     this.taskPerformance[task.id] = { startTime };
 
     try {
-      console.log(
+      this.logger.log(
         `Exécution de la tâche ${task.id} (priorité: ${task.priority})`,
       );
 
@@ -311,8 +320,8 @@ export class IndexationQueueService implements OnModuleInit, OnModuleDestroy {
       const avgProcessingTime =
         this.totalProcessingTime / this.totalTasksProcessed;
 
-      console.log(`Tâche ${task.id} terminée en ${processingTime}ms`);
-      console.log(
+      this.logger.log(`Tâche ${task.id} terminée en ${processingTime}ms`);
+      this.logger.log(
         `Temps moyen de traitement: ${avgProcessingTime.toFixed(2)}ms`,
       );
 
@@ -326,7 +335,7 @@ export class IndexationQueueService implements OnModuleInit, OnModuleDestroy {
 
       const processingTime = endTime - startTime;
 
-      console.error(
+      this.logger.error(
         `Erreur lors de l'exécution de la tâche ${task.id} (après ${processingTime}ms):`,
         error,
       );
@@ -357,7 +366,7 @@ export class IndexationQueueService implements OnModuleInit, OnModuleDestroy {
 
         // Log pour les tâches qui attendent depuis longtemps
         if (waitTimeMinutes > 5) {
-          console.log(
+          this.logger.log(
             `Tâche ${task.id} en attente depuis ${waitTimeMinutes.toFixed(1)} minutes, priorité augmentée à ${task.priority}`,
           );
         }
@@ -377,7 +386,7 @@ export class IndexationQueueService implements OnModuleInit, OnModuleDestroy {
       const oldestWaitTime = (now - oldestTask.createdAt) / (1000 * 60);
 
       if (oldestWaitTime > 1) {
-        console.log(
+        this.logger.log(
           `File d'attente: ${this.queue.length} tâches, la plus ancienne attend depuis ${oldestWaitTime.toFixed(1)} minutes (priorité: ${oldestTask.priority})`,
         );
       }

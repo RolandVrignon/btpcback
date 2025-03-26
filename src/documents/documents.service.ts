@@ -818,10 +818,6 @@ export class DocumentsService {
                 const documentPromises = dto.downloadUrls.map(
                   async (downloadUrl) => {
                     try {
-                      // Télécharger le fichier depuis l'URL
-                      this.logger.log(
-                        `Téléchargement du fichier depuis ${downloadUrl}`,
-                      );
                       const response = await fetch(downloadUrl);
                       if (!response.ok) {
                         throw new Error(
@@ -892,7 +888,9 @@ export class DocumentsService {
                           this.logger.log(
                             `Le fichier ${fileName} n'existe pas sur S3, on va l'uploader`,
                           );
-                          this.logger.log(`Upload du fichier ${fileName} sur S3`);
+                          this.logger.log(
+                            `Upload du fichier ${fileName} sur S3`,
+                          );
 
                           const fileBuffer = await response.arrayBuffer();
 
@@ -1048,6 +1046,10 @@ export class DocumentsService {
                         success: false,
                         reason: 'webhook_url_missing',
                       };
+                    } else {
+                      this.logger.log(
+                        `[${indexationId}] N8N_WEBHOOK_URL: ${n8nWebhookUrl}`,
+                      );
                     }
 
                     this.logger.log(
@@ -1064,9 +1066,13 @@ export class DocumentsService {
                     // Enregistrer le temps de début pour cette requête
                     const webhookStartTime = Date.now();
 
+                    const webhookUrl = `${n8nWebhookUrl}/documate`;
+
+                    this.logger.log(`Webhook URL: ${webhookUrl}`);
+
                     try {
                       // Envoyer la requête n8n pour le projet avec fetch (natif)
-                      const res = await fetch(`${n8nWebhookUrl}/documate`, {
+                      const res = await fetch(webhookUrl, {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
@@ -1165,7 +1171,9 @@ export class DocumentsService {
                         `[${indexationId}] Sending document ${document.name} to n8n webhook...`,
                       );
 
-                      const apiUrl = `${n8nWebhookUrl}/index-process`;
+                      const webhookUrl = `${n8nWebhookUrl}/index-process`;
+
+                      this.logger.log(`Webhook URL: ${webhookUrl}`);
 
                       // Configurer un timeout de 15 minutes (900000 ms)
                       const controller = new AbortController();
@@ -1179,7 +1187,7 @@ export class DocumentsService {
 
                       try {
                         // Envoyer la requête n8n pour ce document avec fetch (natif)
-                        const res = await fetch(apiUrl, {
+                        const res = await fetch(webhookUrl, {
                           method: 'POST',
                           headers: {
                             'Content-Type': 'application/json',

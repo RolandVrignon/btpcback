@@ -241,7 +241,7 @@ export class ChatIframeService {
           );
         },
         onError: ({ error }) => {
-          console.error('Streaming error:', error);
+          this.logger.error('Streaming error:', error);
         },
       });
 

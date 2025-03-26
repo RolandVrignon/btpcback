@@ -11,6 +11,7 @@ import { RootObjectsResponseDto } from './dto/root-objects-response.dto';
 import { Organization } from '../decorators/organization.decorator';
 import { OrganizationEntity } from '../types/index';
 import { ApiKeyGuard } from '../common/guards/api-key.guard';
+import { Logger } from '@nestjs/common';
 
 @ApiTags('storage')
 @ApiHeader({
@@ -20,6 +21,8 @@ import { ApiKeyGuard } from '../common/guards/api-key.guard';
 })
 @Controller('storage')
 export class StorageController {
+  private readonly logger = new Logger(StorageController.name);
+
   constructor(private readonly storageService: StorageService) {}
 
   @Post('upload-url')
@@ -44,7 +47,7 @@ export class StorageController {
     @Body() uploadUrlDto: UploadUrlDto,
     @Organization() organization: OrganizationEntity,
   ): Promise<UploadUrlResponseDto> {
-    console.log('organization', organization);
+    this.logger.log('organization', organization);
     return this.storageService.createUploadUrl(uploadUrlDto, organization.id);
   }
 
@@ -74,8 +77,8 @@ export class StorageController {
     @Body() downloadFileDto: DownloadFileDto,
     @Organization() organization: OrganizationEntity,
   ): Promise<DownloadFileResponseDto> {
-    console.log('We want to download a file');
-    console.log('downloadFileDto', downloadFileDto);
+    this.logger.log('We want to download a file');
+    this.logger.log('downloadFileDto', downloadFileDto);
     return this.storageService.getDownloadUrl(downloadFileDto, organization.id);
   }
 

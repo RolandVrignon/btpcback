@@ -7,7 +7,7 @@
  * Cela est nécessaire pour manipuler correctement les vecteurs d'embeddings.
  */
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   CreateEmbeddingDto,
   CreateFromQueryDto,
@@ -26,6 +26,8 @@ import { embed } from 'ai';
 
 @Injectable()
 export class EmbeddingsService {
+  private readonly logger = new Logger(EmbeddingsService.name);
+
   constructor(
     private readonly embeddingsRepository: EmbeddingsRepository,
     private readonly usageService: UsageService,
@@ -88,7 +90,7 @@ export class EmbeddingsService {
     // Vérifier si le texte est trop long (OpenAI a une limite de tokens)
     // Une approximation grossière est de compter les caractères
     if (cleaned.length > 8000) {
-      console.warn(
+      this.logger.warn(
         `Le texte a été tronqué car il dépasse 8000 caractères (longueur: ${cleaned.length})`,
       );
       cleaned = cleaned.substring(0, 8000);

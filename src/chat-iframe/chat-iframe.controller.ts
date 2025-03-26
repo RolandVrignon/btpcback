@@ -71,7 +71,7 @@ export class ChatIframeController {
     @Res() res: Response,
   ) {
     try {
-      console.log('body:', JSON.stringify(body, null, 2));
+      this.logger.log('body:', JSON.stringify(body, null, 2));
       const allMessages = body.messages;
       const userMessage = allMessages.at(-1)?.content || '';
       const conversationHistory = allMessages.slice(0, -1);

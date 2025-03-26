@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Status, Document } from '@prisma/client';
 import { DeliverableContext } from '../interfaces/deliverable-context.interface';
 import { DeliverablesRepository } from '../deliverables.repository';
@@ -14,6 +14,10 @@ interface FilteredDocument {
 
 @Injectable()
 export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy {
+  private readonly logger = new Logger(
+    TableauDesDocumentsExaminesStrategy.name,
+  );
+
   constructor(
     protected readonly prisma: PrismaService,
     protected readonly deliverablesRepository: DeliverablesRepository,
@@ -47,9 +51,9 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
 
   async generate(context: DeliverableContext): Promise<void> {
     try {
-      console.log('Start generation of Tableau des documents examinés');
+      this.logger.log('Start generation of Tableau des documents examinés');
 
-      console.log('context:', context);
+      this.logger.log('context:', context);
 
       await this.deliverablesRepository.update(context.id, {
         status: Status.PROGRESS,
@@ -67,7 +71,7 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
         result: JSON.parse(JSON.stringify(documents)) as FilteredDocument[],
       };
 
-      console.log('result:', result);
+      this.logger.log('result:', result);
 
       // Update the deliverable with the generated data
       await this.deliverablesRepository.update(context.id, {
@@ -78,7 +82,10 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
         long_result: [],
       });
     } catch (error: unknown) {
-      console.error('Error generating tableau des documents examinés:', error);
+      this.logger.error(
+        'Error generating tableau des documents examinés:',
+        error,
+      );
       // Update deliverable status to error
       await this.deliverablesRepository.update(context.id, {
         status: Status.ERROR,
@@ -128,7 +135,7 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
 
       return documents;
     } catch (error) {
-      console.error('Error fetching documents with AI fields:', error);
+      this.logger.error('Error fetching documents with AI fields:', error);
       return [];
     }
   }

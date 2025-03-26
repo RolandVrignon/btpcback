@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { UsageRepository } from './usage.repository';
 import { AI_Provider, UsageType } from '@prisma/client';
 
@@ -16,6 +16,8 @@ export interface ModelUsage {
 
 @Injectable()
 export class UsageService {
+  private readonly logger = new Logger(UsageService.name);
+
   constructor(private readonly usageRepository: UsageRepository) {}
 
   /**
@@ -33,7 +35,7 @@ export class UsageService {
     try {
       return await this.usageRepository.createRaw(data);
     } catch (error) {
-      console.error(
+      this.logger.error(
         "Erreur lors de la création de l'enregistrement d'utilisation:",
         error,
       );
@@ -72,7 +74,7 @@ export class UsageService {
       // Créer l'enregistrement d'utilisation
       return await this.usageRepository.create(data);
     } catch (error) {
-      console.error(
+      this.logger.error(
         "Erreur lors de l'enregistrement de l'utilisation d'embedding:",
         error,
       );
@@ -111,7 +113,7 @@ export class UsageService {
       // Créer l'enregistrement d'utilisation
       return await this.usageRepository.createRaw(data);
     } catch (error) {
-      console.error(
+      this.logger.error(
         "Erreur lors de l'enregistrement de l'utilisation de text-to-text:",
         error,
       );

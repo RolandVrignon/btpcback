@@ -35,6 +35,7 @@ import { GetDocumentMetadataDto } from './dto/get-document-metadata.dto';
 import { DocumentMetadataResponseDto } from './dto/document-metadata-response.dto';
 import { ConfirmMultipleUploadsDto } from './dto/confirm-multiple-uploads.dto';
 import { GetDocumentByFilenameDto } from './dto/get-document-by-filename.dto';
+import { Logger } from '@nestjs/common';
 
 @ApiTags('documents')
 @ApiHeader({
@@ -43,7 +44,10 @@ import { GetDocumentByFilenameDto } from './dto/get-document-by-filename.dto';
   required: true,
 })
 @Controller('documents')
+@UseGuards(ApiKeyGuard)
 export class DocumentsController {
+  private readonly logger = new Logger(DocumentsController.name);
+
   constructor(private readonly documentsService: DocumentsService) {}
 
   @Post('upload/:projectId')
@@ -158,7 +162,7 @@ export class DocumentsController {
       const result = this.documentsService.update(id, updateDocumentDto);
       return result;
     } catch (error) {
-      console.error('[CONTROLLER] Erreur dans la méthode update:', error);
+      this.logger.error('[CONTROLLER] Erreur dans la méthode update:', error);
       throw error;
     }
   }
