@@ -1,8 +1,8 @@
-import { Controller, Post, Body, Get } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
 import { StorageService } from './storage.service';
-import { PresignedUrlDto } from './dto/presigned-url.dto';
-import { PresignedUrlResponseDto } from './dto/presigned-url-response.dto';
+import { UploadUrlDto } from './dto/upload-url.dto';
+import { UploadUrlResponseDto } from './dto/upload-url-response.dto';
 import { BucketListResponseDto } from './dto/bucket-list-response.dto';
 import { CreateBucketResponseDto } from './dto/create-bucket-response.dto';
 import { DownloadFileDto } from './dto/download-file.dto';
@@ -10,6 +10,7 @@ import { DownloadFileResponseDto } from './dto/download-file-response.dto';
 import { RootObjectsResponseDto } from './dto/root-objects-response.dto';
 import { Organization } from '../decorators/organization.decorator';
 import { OrganizationEntity } from '../types/index';
+import { ApiKeyGuard } from '../common/guards/api-key.guard';
 
 @ApiTags('storage')
 @ApiHeader({
@@ -21,14 +22,15 @@ import { OrganizationEntity } from '../types/index';
 export class StorageController {
   constructor(private readonly storageService: StorageService) {}
 
-  @Post('presigned-url')
+  @Post('upload-url')
+  @UseGuards(ApiKeyGuard)
   @ApiOperation({
-    summary: 'Générer une URL présignée pour télécharger un fichier sur S3',
+    summary: 'Générer une URL présignée pour uploader un fichier sur S3',
   })
   @ApiResponse({
     status: 201,
     description: 'URL présignée générée avec succès',
-    type: PresignedUrlResponseDto,
+    type: UploadUrlResponseDto,
   })
   @ApiResponse({
     status: 404,
@@ -38,17 +40,16 @@ export class StorageController {
     status: 403,
     description: 'Accès non autorisé à ce projet',
   })
-  createPresignedUrl(
-    @Body() presignedUrlDto: PresignedUrlDto,
+  createUploadUrl(
+    @Body() uploadUrlDto: UploadUrlDto,
     @Organization() organization: OrganizationEntity,
-  ): Promise<PresignedUrlResponseDto> {
-    return this.storageService.createPresignedUrl(
-      presignedUrlDto,
-      organization.id,
-    );
+  ): Promise<UploadUrlResponseDto> {
+    console.log('organization', organization);
+    return this.storageService.createUploadUrl(uploadUrlDto, organization.id);
   }
 
-  @Post('download')
+  @Post('download-url')
+  @UseGuards(ApiKeyGuard)
   @ApiOperation({
     summary: 'Générer une URL présignée pour télécharger un fichier depuis S3',
   })
@@ -73,6 +74,8 @@ export class StorageController {
     @Body() downloadFileDto: DownloadFileDto,
     @Organization() organization: OrganizationEntity,
   ): Promise<DownloadFileResponseDto> {
+    console.log('We want to download a file');
+    console.log('downloadFileDto', downloadFileDto);
     return this.storageService.getDownloadUrl(downloadFileDto, organization.id);
   }
 

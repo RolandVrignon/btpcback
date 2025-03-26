@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class PresignedUrlResponseDto {
+export class UploadUrlResponseDto {
   @ApiProperty({
     description: 'URL présignée pour télécharger le fichier',
     example:

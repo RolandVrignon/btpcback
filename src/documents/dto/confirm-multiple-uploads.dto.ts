@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsArray, ArrayMinSize } from 'class-validator';
+import { IsString, IsNotEmpty, ArrayMinSize, IsUrl } from 'class-validator';
 
 export class ConfirmMultipleUploadsDto {
   @ApiProperty({
@@ -11,12 +11,14 @@ export class ConfirmMultipleUploadsDto {
   projectId: string;
 
   @ApiProperty({
-    description: 'Liste des noms de fichiers à confirmer',
+    description: 'Liste des urls des fichiers à télécharger et confirmer',
     type: [String],
-    example: ['document1.pdf', 'document2.pdf'],
+    example: [
+      'https://example.com/document1.pdf',
+      'https://example.com/document2.pdf',
+    ],
   })
-  @IsArray()
-  @IsString({ each: true })
+  @IsUrl({}, { each: true })
   @ArrayMinSize(1)
-  fileNames: string[];
+  downloadUrls: string[];
 }

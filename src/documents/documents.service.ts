@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { Project, Status, AI_Provider } from '@prisma/client';
@@ -12,6 +13,7 @@ import {
   S3Client,
   HeadObjectCommand,
   S3ServiceException,
+  PutObjectCommand,
 } from '@aws-sdk/client-s3';
 import { ViewDocumentDto } from './dto/view-document.dto';
 import { ViewDocumentResponseDto } from './dto/view-document-response.dto';
@@ -34,6 +36,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Chunk } from '@prisma/client';
 @Injectable()
 export class DocumentsService {
+  private readonly logger = new Logger(DocumentsService.name);
   private s3Client: S3Client;
   private bucketName: string;
   private static indexationQueue: Array<Promise<any>> = [];
@@ -69,7 +72,7 @@ export class DocumentsService {
         ),
         10,
       );
-      console.log(
+      this.logger.log(
         `Maximum de processus d'indexation concurrents: ${DocumentsService.maxConcurrentIndexations}`,
       );
     }
@@ -103,7 +106,7 @@ export class DocumentsService {
       );
       return result;
     } catch (error) {
-      console.error('[SERVICE] Erreur dans la méthode update:', error);
+      this.logger.error('[SERVICE] Erreur dans la méthode update:', error);
       throw error;
     }
   }
@@ -183,7 +186,7 @@ export class DocumentsService {
           'END' as Status,
         );
       } catch (updateError) {
-        console.error(
+        this.logger.error(
           'Erreur lors de la mise à jour du statut du document:',
           updateError,
         );
@@ -230,12 +233,12 @@ export class DocumentsService {
         10,
       );
 
-      console.log(`Traitement des chunks par lots de ${batchSize}`);
+      this.logger.log(`Traitement des chunks par lots de ${batchSize}`);
 
       // Traiter les chunks par lots
       for (let i = 0; i < textChunks.length; i += batchSize) {
         const batch = textChunks.slice(i, i + batchSize);
-        console.log(
+        this.logger.log(
           `Traitement du lot ${i / batchSize + 1}/${Math.ceil(textChunks.length / batchSize)}`,
         );
 
@@ -261,7 +264,7 @@ export class DocumentsService {
               // 2. Nettoyer le texte pour l'embedding
               const cleanedText = this.cleanTextForEmbedding(chunk.text);
               if (cleanedText.length === 0) {
-                console.error(
+                this.logger.error(
                   `Texte vide pour le chunk ${index}, page ${chunk.page}`,
                 );
                 return;
@@ -317,7 +320,7 @@ export class DocumentsService {
                 );
               }
             } catch (error) {
-              console.error(
+              this.logger.error(
                 `Erreur lors de la création du chunk et de l'embedding: ${chunk.text}\n${error}`,
               );
             }
@@ -327,7 +330,7 @@ export class DocumentsService {
 
       await this.updateIndexationStatus(documentId, 'COMPLETED' as Status);
     } catch (error) {
-      console.error(
+      this.logger.error(
         `Erreur lors de la création des chunks et embeddings: ${
           error instanceof Error ? error.message : String(error)
         }`,
@@ -425,9 +428,13 @@ export class DocumentsService {
     // Vérifier si le projet existe et appartient à l'organisation
     await this.checkProjectAccess(dto.projectId, organizationId);
 
+    if (!process.env.AWS_S3_BUCKET) {
+      throw new Error('BUCKET_PATH is not defined');
+    }
+
     // Construire le chemin du fichier sur S3
-    const filePath = `ct-toolbox/${dto.projectId}/${dto.fileName}`;
-    console.log('filePath:', filePath);
+    const filePath = `${process.env.AWS_S3_BUCKET}${dto.projectId}/${dto.fileName}`;
+    this.logger.log('filePath:', filePath);
 
     try {
       // Vérifier si le fichier existe sur S3
@@ -524,7 +531,7 @@ export class DocumentsService {
         await exec(command);
         return outputPath;
       } catch (error) {
-        console.error('Erreur lors de la conversion du document:', error);
+        this.logger.error('Erreur lors de la conversion du document:', error);
         throw new Error(
           `Échec de la conversion du document: ${(error as Error).message}`,
         );
@@ -586,7 +593,7 @@ export class DocumentsService {
 
       return results;
     } catch (error) {
-      console.error("Erreur lors de l'extraction du texte:", error);
+      this.logger.error("Erreur lors de l'extraction du texte:", error);
       // Nettoyer le fichier temporaire en cas d'erreur
       if (fs.existsSync(tempOutputPath)) {
         fs.unlinkSync(tempOutputPath);
@@ -687,7 +694,7 @@ export class DocumentsService {
       chunks.push({ text: currentChunk, page: currentPage });
     }
 
-    console.log(
+    this.logger.log(
       `Créé ${chunks.length} chunks à partir de ${pageTexts.length} pages`,
     );
     return chunks;
@@ -720,8 +727,12 @@ export class DocumentsService {
     // Vérifier si le projet existe et appartient à l'organisation
     await this.checkProjectAccess(projectId, organizationId);
 
+    if (!process.env.AWS_S3_BUCKET) {
+      throw new Error('BUCKET_PATH is not defined');
+    }
+
     // Construire le chemin du fichier sur S3
-    const filePath = `ct-toolbox/${projectId}/${fileName}`;
+    const filePath = `${process.env.AWS_S3_BUCKET}${projectId}/${fileName}`;
 
     // Rechercher le document dans la base de données via le repository
     const document = await this.documentsRepository.findByFilenameAndProject(
@@ -767,8 +778,8 @@ export class DocumentsService {
     try {
       // Créer un nouvel identifiant unique pour cette tâche d'indexation
       const indexationId = `${dto.projectId}_${Date.now()}`;
-      console.log(
-        `Nouvelle demande d'indexation: ${indexationId} (${dto.fileNames.length} fichiers)`,
+      this.logger.log(
+        `Nouvelle demande d'indexation: ${indexationId} (${dto.downloadUrls.length} fichiers)`,
       );
 
       // Vérifier si nous pouvons démarrer immédiatement ou s'il faut mettre en attente
@@ -790,7 +801,7 @@ export class DocumentsService {
                 DocumentsService.maxConcurrentIndexations
               ) {
                 // Attendre un peu avant de vérifier à nouveau
-                console.log(
+                this.logger.log(
                   `[${indexationId}] En attente d'une place dans la queue (${DocumentsService.activeIndexations}/${DocumentsService.maxConcurrentIndexations} actifs)`,
                 );
                 await new Promise((r) => setTimeout(r, 1000));
@@ -798,99 +809,187 @@ export class DocumentsService {
 
               // Démarrer l'indexation
               DocumentsService.activeIndexations++;
-              console.log(
+              this.logger.log(
                 `[${indexationId}] Démarrage de l'indexation (${DocumentsService.activeIndexations}/${DocumentsService.maxConcurrentIndexations} actifs)`,
               );
 
               try {
                 // Traiter tous les fichiers en parallèle pour créer les documents et télécharger les fichiers
-                const documentPromises = dto.fileNames.map(async (fileName) => {
-                  // Construire le chemin du fichier sur S3
-                  const filePath = `ct-toolbox/${dto.projectId}/${fileName}`;
-
-                  try {
-                    // Vérifier si le fichier existe sur S3
-                    const headObjectCommand = new HeadObjectCommand({
-                      Bucket: this.bucketName,
-                      Key: filePath,
-                    });
-
-                    await this.s3Client.send(headObjectCommand);
-
-                    const document = await this.create({
-                      filename: fileName,
-                      path: filePath,
-                      mimetype: this.getMimetype(fileName),
-                      size: 0,
-                      projectId: dto.projectId,
-                      status: Status.PENDING,
-                    });
-
-                    // Télécharger et extraire le texte seulement pour PDF ou DOCX
-                    const fileExt = path.extname(fileName).toLowerCase();
-                    if (
-                      fileExt.toLowerCase() === '.pdf' ||
-                      fileExt.toLowerCase() === '.docx' ||
-                      fileExt.toLowerCase() === '.doc'
-                    ) {
-                      // Télécharger le document depuis S3
-                      const tempDir = `/tmp/document-processing/${document.id}`;
-                      const tempFilePath = await this.downloadDocumentFromS3(
-                        filePath,
-                        tempDir,
+                const documentPromises = dto.downloadUrls.map(
+                  async (downloadUrl) => {
+                    try {
+                      // Télécharger le fichier depuis l'URL
+                      this.logger.log(
+                        `Téléchargement du fichier depuis ${downloadUrl}`,
                       );
+                      const response = await fetch(downloadUrl);
+                      if (!response.ok) {
+                        throw new Error(
+                          `Erreur lors du téléchargement du fichier: ${response.statusText}`,
+                        );
+                      }
 
-                      //Récupérer le mimetype du fichier
-                      const mimetype = this.getMimetype(tempFilePath);
+                      // Extraire le nom du fichier depuis les headers ou l'URL
+                      let fileName: string;
+                      const contentDisposition = response.headers.get(
+                        'content-disposition',
+                      );
+                      if (contentDisposition) {
+                        const matches =
+                          /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(
+                            contentDisposition,
+                          );
+                        if (matches != null && matches[1]) {
+                          fileName = matches[1].replace(/['"]/g, '');
+                        }
+                      }
 
-                      // Mettre à jour le document avec le mimetype
-                      await this.documentsRepository.update(document.id, {
-                        mimetype,
+                      // Si pas de nom dans les headers, essayer de l'extraire de l'URL
+                      if (!fileName) {
+                        const url = new URL(downloadUrl);
+                        const pathSegments = url.pathname.split('/');
+                        fileName = decodeURIComponent(
+                          pathSegments[pathSegments.length - 1],
+                        );
+                      }
+
+                      // Si toujours pas de nom, générer un nom unique
+                      if (!fileName) {
+                        const timestamp = Date.now();
+                        const random = Math.random()
+                          .toString(36)
+                          .substring(2, 8);
+                        fileName = `document_${timestamp}_${random}`;
+                      }
+
+                      // Construire le chemin du fichier sur S3
+                      if (!process.env.AWS_S3_BUCKET) {
+                        throw new Error('BUCKET_PATH is not defined');
+                      }
+
+                      const filePath = `${process.env.AWS_S3_BUCKET}${dto.projectId}/${fileName}`;
+
+                      // Vérifier si le fichier existe déjà sur S3
+                      try {
+                        const headObjectCommand = new HeadObjectCommand({
+                          Bucket: this.bucketName,
+                          Key: filePath,
+                        });
+
+                        this.logger.log(
+                          `Vérification de l'existence du fichier ${fileName} sur S3`,
+                        );
+                        await this.s3Client.send(headObjectCommand);
+                        this.logger.log(
+                          `Le fichier ${fileName} existe déjà sur S3`,
+                        );
+                      } catch (error) {
+                        if (
+                          error instanceof S3ServiceException &&
+                          error.name === 'NotFound'
+                        ) {
+                          // Le fichier n'existe pas sur S3, on va l'uploader
+                          this.logger.log(
+                            `Le fichier ${fileName} n'existe pas sur S3, on va l'uploader`,
+                          );
+                          this.logger.log(`Upload du fichier ${fileName} sur S3`);
+
+                          const fileBuffer = await response.arrayBuffer();
+
+                          // Uploader le fichier sur S3
+                          const uploadCommand = new PutObjectCommand({
+                            Bucket: this.bucketName,
+                            Key: filePath,
+                            Body: Buffer.from(fileBuffer),
+                            ContentType:
+                              response.headers.get('content-type') ||
+                              this.getMimetype(fileName),
+                          });
+
+                          await this.s3Client.send(uploadCommand);
+                          this.logger.log(
+                            `Fichier ${fileName} uploadé avec succès sur S3`,
+                          );
+                        } else {
+                          throw error;
+                        }
+                      }
+
+                      // Créer le document dans la base de données
+                      const document = await this.create({
+                        filename: fileName,
+                        path: filePath,
+                        mimetype: this.getMimetype(fileName),
+                        size: 0,
+                        projectId: dto.projectId,
+                        status: Status.PENDING,
                       });
 
-                      // Convertir le document si nécessaire
-                      const pdfFilePath =
-                        await this.convertToPdfIfNeeded(tempFilePath);
+                      // Télécharger et extraire le texte seulement pour PDF ou DOCX
+                      const fileExt = path.extname(fileName).toLowerCase();
+                      if (
+                        fileExt.toLowerCase() === '.pdf' ||
+                        fileExt.toLowerCase() === '.docx' ||
+                        fileExt.toLowerCase() === '.doc'
+                      ) {
+                        // Télécharger le document depuis S3
+                        const tempDir = `/tmp/document-processing/${document.id}`;
+                        const tempFilePath = await this.downloadDocumentFromS3(
+                          filePath,
+                          tempDir,
+                        );
 
-                      // Extraire le texte du PDF
-                      const extractedText =
-                        await this.extractTextFromPdf(pdfFilePath);
+                        //Récupérer le mimetype du fichier
+                        const mimetype = this.getMimetype(tempFilePath);
 
-                      // Extraire les métadonnées du PDF
-                      const metadata =
-                        await this.extractPdfMetadata(pdfFilePath);
-                      const numPages = extractedText.length;
+                        // Mettre à jour le document avec le mimetype
+                        await this.documentsRepository.update(document.id, {
+                          mimetype,
+                        });
 
-                      await this.documentsRepository.update(document.id, {
-                        metadata_numPages: numPages,
-                        metadata_author: metadata.author || '',
-                        size: metadata.fileSize,
-                      });
+                        // Convertir le document si nécessaire
+                        const pdfFilePath =
+                          await this.convertToPdfIfNeeded(tempFilePath);
 
-                      // Nettoyer les fichiers temporaires après extraction
-                      await this.cleanupTempFiles(tempDir);
+                        // Extraire le texte du PDF
+                        const extractedText =
+                          await this.extractTextFromPdf(pdfFilePath);
+
+                        // Extraire les métadonnées du PDF
+                        const metadata =
+                          await this.extractPdfMetadata(pdfFilePath);
+                        const numPages = extractedText.length;
+
+                        await this.documentsRepository.update(document.id, {
+                          metadata_numPages: numPages,
+                          metadata_author: metadata.author || '',
+                          size: metadata.fileSize,
+                        });
+
+                        // Nettoyer les fichiers temporaires après extraction
+                        await this.cleanupTempFiles(tempDir);
+
+                        return {
+                          document,
+                          text: extractedText.map((pt) => pt.text).join('\n\n'),
+                          extractedTextPerPage: extractedText,
+                        };
+                      }
 
                       return {
                         document,
-                        text: extractedText.map((pt) => pt.text).join('\n\n'),
-                        extractedTextPerPage: extractedText,
+                        text: '',
+                        extractedTextPerPage: [],
                       };
-                    }
-
-                    return {
-                      document,
-                      text: '',
-                      extractedTextPerPage: [],
-                    };
-                  } catch (error) {
-                    if (error instanceof S3ServiceException) {
-                      throw new BadRequestException(
-                        `Fichier ${fileName} non trouvé sur S3: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+                    } catch (error) {
+                      this.logger.error(
+                        `Erreur lors du traitement du fichier ${downloadUrl}:`,
+                        error,
                       );
+                      throw error;
                     }
-                    throw error;
-                  }
-                });
+                  },
+                );
 
                 // Attendre que tous les documents soient créés et que le texte soit extrait
                 const documentsWithText = await Promise.all(documentPromises);
@@ -902,7 +1001,7 @@ export class DocumentsService {
                   text: doc.text || '',
                 }));
                 // Exécuter la requête n8n et le processus d'indexation en parallèle
-                console.log(
+                this.logger.log(
                   `[${indexationId}] Démarrage des processus en parallèle: requête n8n et indexation des documents`,
                 );
 
@@ -913,13 +1012,13 @@ export class DocumentsService {
                 // Créer une promesse pour la requête projet sur n8n
                 const n8nProjectExtraction = (async () => {
                   try {
-                    console.log(
+                    this.logger.log(
                       `[${indexationId}] Envoi des données du projet à n8n...`,
                     );
 
                     // S'assurer qu'il y a au moins un document
                     if (filteredDocuments.length === 0) {
-                      console.warn(
+                      this.logger.warn(
                         `[${indexationId}] Aucun document à envoyer au webhook du projet`,
                       );
                       return {
@@ -942,7 +1041,7 @@ export class DocumentsService {
                       this.configService.get<string>('N8N_WEBHOOK_URL');
 
                     if (!n8nWebhookUrl) {
-                      console.warn(
+                      this.logger.warn(
                         `[${indexationId}] N8N_WEBHOOK_URL is not defined in environment variables`,
                       );
                       return {
@@ -951,7 +1050,7 @@ export class DocumentsService {
                       };
                     }
 
-                    console.log(
+                    this.logger.log(
                       `[${indexationId}] Sending project data to n8n webhook...`,
                     );
 
@@ -987,12 +1086,12 @@ export class DocumentsService {
                       ).toFixed(2);
 
                       if (res.ok) {
-                        console.log(
+                        this.logger.log(
                           `[${indexationId}] Project data successfully sent to n8n webhook. Durée: ${webhookDurationSec}s`,
                         );
                         return { success: true };
                       } else {
-                        console.error(
+                        this.logger.error(
                           `${res.status} - ${res.statusText} - [${indexationId}] Error sending project data to n8n webhook. Durée: ${webhookDurationSec}s`,
                         );
                         return {
@@ -1011,7 +1110,7 @@ export class DocumentsService {
                         webhookDurationMs / 1000
                       ).toFixed(2);
 
-                      console.error(
+                      this.logger.error(
                         `${error} - [${indexationId}] Error sending project data to n8n webhook. Durée: ${webhookDurationSec}s`,
                       );
                       return {
@@ -1024,7 +1123,7 @@ export class DocumentsService {
                       };
                     }
                   } catch (error) {
-                    console.error(
+                    this.logger.error(
                       `[${indexationId}] Error sending project data to n8n webhook:`,
                       error,
                     );
@@ -1052,7 +1151,7 @@ export class DocumentsService {
                         this.configService.get<string>('N8N_WEBHOOK_URL');
 
                       if (!n8nWebhookUrl) {
-                        console.warn(
+                        this.logger.warn(
                           `[${indexationId}] N8N_WEBHOOK_URL is not defined in environment variables`,
                         );
                         return {
@@ -1062,7 +1161,7 @@ export class DocumentsService {
                         };
                       }
 
-                      console.log(
+                      this.logger.log(
                         `[${indexationId}] Sending document ${document.name} to n8n webhook...`,
                       );
 
@@ -1101,13 +1200,13 @@ export class DocumentsService {
                         ).toFixed(2);
 
                         if (res.ok) {
-                          console.log(
+                          this.logger.log(
                             `[${indexationId}] Document ${document.name} successfully managed by n8n. Durée: ${webhookDurationSec}s`,
                           );
 
                           return { success: true, document: document.name };
                         } else {
-                          console.error(
+                          this.logger.error(
                             `[${indexationId}] Error sending document ${document.name} to n8n webhook:`,
                             res.status,
                             res.statusText,
@@ -1131,7 +1230,7 @@ export class DocumentsService {
                           webhookDurationMs / 1000
                         ).toFixed(2);
 
-                        console.error(
+                        this.logger.error(
                           `[${indexationId}] Error sending document ${document.name} to n8n webhook: ${error}. Durée: ${webhookDurationSec}s`,
                         );
                         return {
@@ -1145,7 +1244,7 @@ export class DocumentsService {
                         };
                       }
                     } catch (error) {
-                      console.error(
+                      this.logger.error(
                         `[${indexationId}] Error de catch externe - Webhook non atteint pour ${document.name}:`,
                         error,
                       );
@@ -1165,16 +1264,16 @@ export class DocumentsService {
                 // Créer une promesse pour l'indexation des documents
                 const indexationPromise = (async () => {
                   try {
-                    console.log(
+                    this.logger.log(
                       `[${indexationId}] Début du processus d'indexation des documents...`,
                     );
                     await this.processDocumentsInBackground(documentsWithText);
-                    console.log(
+                    this.logger.log(
                       `[${indexationId}] Indexation des documents terminée avec succès`,
                     );
                     return { success: true };
                   } catch (error) {
-                    console.error(
+                    this.logger.error(
                       `[${indexationId}] Erreur lors de l'indexation des documents:`,
                       error,
                     );
@@ -1199,11 +1298,11 @@ export class DocumentsService {
 
                 // Vérifier les résultats
                 if (!projectExtractionResult.success) {
-                  console.warn(
+                  this.logger.warn(
                     `[${indexationId}] La requête d'extraction du projet a échoué: ${projectExtractionResult.reason || 'raison inconnue'}`,
                   );
                 } else {
-                  console.log(
+                  this.logger.log(
                     `[${indexationId}] Requête d'extraction du projet réussie`,
                   );
                 }
@@ -1212,22 +1311,22 @@ export class DocumentsService {
                   (result) => !result.success,
                 );
                 if (failedN8nRequests.length > 0) {
-                  console.warn(
+                  this.logger.warn(
                     `[${indexationId}] ${failedN8nRequests.length} requêtes n8n ont échoué`,
                   );
                   failedN8nRequests.forEach((result) => {
-                    console.warn(
+                    this.logger.warn(
                       `[${indexationId}] - Document ${result.document}: ${result.reason || 'raison inconnue'}`,
                     );
                   });
                 } else {
-                  console.log(
+                  this.logger.log(
                     `[${indexationId}] Toutes les requêtes n8n ont réussi (${n8nExtractionResults.length} documents)`,
                   );
                 }
 
                 if (!indexationResult.success) {
-                  console.error(
+                  this.logger.error(
                     `[${indexationId}] L'indexation a échoué: ${indexationResult.error || 'erreur inconnue'}`,
                   );
                 }
@@ -1237,7 +1336,7 @@ export class DocumentsService {
                 const executionTimeMs = endTime - startTime;
                 const executionTimeSec = (executionTimeMs / 1000).toFixed(2);
 
-                console.log(
+                this.logger.log(
                   `[${indexationId}] Fin d'exécution => temps d'exécution: ${executionTimeMs}ms (${executionTimeSec}s)`,
                 );
 
@@ -1246,7 +1345,7 @@ export class DocumentsService {
               } finally {
                 // Réduire le compteur d'indexations actives
                 DocumentsService.activeIndexations--;
-                console.log(
+                this.logger.log(
                   `[${indexationId}] Fin de l'indexation (${DocumentsService.activeIndexations}/${DocumentsService.maxConcurrentIndexations} actifs)`,
                 );
 
@@ -1258,7 +1357,7 @@ export class DocumentsService {
                 }
               }
             } catch (error) {
-              console.error(
+              this.logger.error(
                 `[${indexationId}] Erreur critique lors de l'indexation:`,
                 error,
               );
@@ -1304,7 +1403,7 @@ export class DocumentsService {
         message: queueStatus,
         position: queuePosition,
         projectId: dto.projectId,
-        fileCount: dto.fileNames.length,
+        fileCount: dto.downloadUrls.length,
       };
     } catch (error) {
       // Calculer le temps d'exécution même en cas d'erreur
@@ -1312,7 +1411,7 @@ export class DocumentsService {
       const executionTimeMs = endTime - startTime;
       const executionTimeSec = (executionTimeMs / 1000).toFixed(2);
 
-      console.log(
+      this.logger.log(
         `Temps d'exécution de confirmMultipleUploads (avec erreur): ${executionTimeMs}ms (${executionTimeSec}s)`,
       );
 
@@ -1358,14 +1457,14 @@ export class DocumentsService {
             document.projectId,
           );
         } catch (e) {
-          console.error(
+          this.logger.error(
             `Erreur lors de la création des chunks et embeddings pour le document ${document.id}:`,
             e,
           );
           throw e;
         }
       } catch (error) {
-        console.error(
+        this.logger.error(
           `Erreur lors du traitement du document ${docData.document.id}:`,
           error,
         );
@@ -1457,7 +1556,7 @@ export class DocumentsService {
     // Vérifier si le texte est trop long (OpenAI a une limite de tokens)
     // Une approximation grossière est de compter les caractères
     if (cleaned.length > 8000) {
-      console.warn(
+      this.logger.warn(
         `Le texte a été tronqué car il dépasse 8000 caractères (longueur: ${cleaned.length})`,
       );
       cleaned = cleaned.substring(0, 8000);
@@ -1503,7 +1602,7 @@ export class DocumentsService {
         fileSize,
       };
     } catch (error) {
-      console.error("Erreur lors de l'extraction des métadonnées:", error);
+      this.logger.error("Erreur lors de l'extraction des métadonnées:", error);
       return {
         author: '',
         title: '',

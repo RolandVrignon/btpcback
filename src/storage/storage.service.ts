@@ -19,8 +19,8 @@ import {
   ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { PresignedUrlDto } from './dto/presigned-url.dto';
-import { PresignedUrlResponseDto } from './dto/presigned-url-response.dto';
+import { UploadUrlDto } from './dto/upload-url.dto';
+import { UploadUrlResponseDto } from './dto/upload-url-response.dto';
 import { BucketListResponseDto } from './dto/bucket-list-response.dto';
 import { CreateBucketResponseDto } from './dto/create-bucket-response.dto';
 import { DownloadFileDto } from './dto/download-file.dto';
@@ -61,10 +61,10 @@ export class StorageService {
    * @throws NotFoundException si le projet n'existe pas
    * @throws ForbiddenException si le projet n'appartient pas à l'organisation
    */
-  async createPresignedUrl(
-    dto: PresignedUrlDto,
+  async createUploadUrl(
+    dto: UploadUrlDto,
     organizationId: string,
-  ): Promise<PresignedUrlResponseDto> {
+  ): Promise<UploadUrlResponseDto> {
     // Vérifier si le projet existe et appartient à l'organisation
     const project =
       await this.projectsRepository.findProjectByIdAndOrganization(
@@ -78,8 +78,12 @@ export class StorageService {
 
     const expiresIn = 3600; // 1 heure par défaut
 
+    if (!process.env.AWS_S3_BUCKET) {
+      throw new Error('BUCKET_PATH is not defined');
+    }
+
     // Construire le chemin du fichier avec le projectId
-    const key = `ct-toolbox/${dto.projectId}/${dto.fileName}`;
+    const key = `${process.env.AWS_S3_BUCKET}${dto.projectId}/${dto.fileName}`;
 
     const command = new PutObjectCommand({
       Bucket: this.bucketName,
@@ -116,14 +120,23 @@ export class StorageService {
         organizationId,
       );
 
+    console.log('One');
+
     if (!project) {
       throw new NotFoundException('Projet non trouvé');
     }
 
+    console.log('Two');
+
     const expiresIn = 3600; // 1 heure par défaut
 
-    // Construire le chemin du fichier
-    const key = `projects/${dto.projectId}/${dto.fileName}`;
+    if (!process.env.AWS_S3_BUCKET) {
+      throw new Error('BUCKET_PATH is not defined');
+    }
+
+    const key = `${process.env.AWS_S3_BUCKET}${dto.projectId}/${dto.fileName}`;
+
+    console.log('Three');
 
     // Vérifier si le fichier existe
     try {
@@ -131,6 +144,8 @@ export class StorageService {
         Bucket: this.bucketName,
         Key: key,
       });
+
+      console.log('Four');
 
       await this.s3Client.send(headCommand);
     } catch (error) {
@@ -153,7 +168,10 @@ export class StorageService {
       Key: key,
     });
 
+    console.log('Five');
+
     const url = await getSignedUrl(this.s3Client, command, { expiresIn });
+    console.log('url:', url);
 
     return {
       url,
