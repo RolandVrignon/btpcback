@@ -89,10 +89,11 @@ export const createGetDeliverableTool = (
 
           // Informer que nous retournons le contenu formaté directement
           return {
-            text: `${responseText}\n\nVoici le contenu formaté du délivrable:`,
+            text: `${responseText}`,
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
             save: true,
+            label: 'Génération du délivrable',
             toolCallData: {
               name: 'jsonToMarkdown',
               arguments: {
@@ -108,8 +109,8 @@ export const createGetDeliverableTool = (
           text: responseText,
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
-          state: 'result',
           save: true,
+          label: 'Génération du délivrable',
         } as ToolResult;
       } catch (error) {
         logger.error(
@@ -124,6 +125,7 @@ export const createGetDeliverableTool = (
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
           save: false,
+          label: 'Génération du délivrable',
         } as ToolResult;
       }
     },

@@ -61,6 +61,7 @@ export const createSearchDocumentsTool = (
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
           save: false,
+          label: 'Recherche dans les documents',
         } as ToolResult;
       } catch (error) {
         logger.error(
@@ -71,6 +72,7 @@ export const createSearchDocumentsTool = (
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
           save: false,
+          label: 'Recherche dans les documents',
         } as ToolResult;
       }
     },

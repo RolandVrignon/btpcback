@@ -44,6 +44,7 @@ export const createGetDocumentMetadataTool = (
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
             save: false,
+            label: 'Récupération des métadonnées AI du document',
           } as ToolResult;
         }
 
@@ -54,6 +55,7 @@ export const createGetDocumentMetadataTool = (
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
             save: false,
+            label: 'Récupération des métadonnées AI du document',
           } as ToolResult;
         }
 
@@ -64,6 +66,7 @@ export const createGetDocumentMetadataTool = (
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
             save: false,
+            label: 'Récupération des métadonnées AI du document',
           } as ToolResult;
         }
 
@@ -77,7 +80,8 @@ export const createGetDocumentMetadataTool = (
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
           save: false,
-        };
+          label: 'Récupération des métadonnées AI du document',
+        } as ToolResult;
       } catch (error) {
         logger.error(
           `Erreur lors de la récupération des métadonnées AI: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
@@ -87,6 +91,7 @@ export const createGetDocumentMetadataTool = (
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
           save: false,
+          label: 'Récupération des métadonnées AI du document',
         } as ToolResult;
       }
     },

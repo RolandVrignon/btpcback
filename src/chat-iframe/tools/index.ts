@@ -30,6 +30,11 @@ export type ToolResult = {
   stream: boolean; // Si true, la réponse de l'outil sera envoyée en streaming, sinon non.
   config: StreamConfig; // Configuration du streaming
   save: boolean; // Si true, la réponse de l'outil sera enregistré dans la conversation, sinon non.
+  label: string; // Label de l'outil
+  toolCallData?: {
+    name: string;
+    arguments: any;
+  };
 };
 
 export const createChatTools = (

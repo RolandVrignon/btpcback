@@ -32,6 +32,7 @@ export const createListDocumentsTool = (
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
             save: false,
+            label: 'Lister les documents',
           } as ToolResult;
         }
 
@@ -60,6 +61,7 @@ export const createListDocumentsTool = (
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
             save: false,
+            label: 'Lister les documents',
           } as ToolResult;
         }
 
@@ -77,6 +79,7 @@ export const createListDocumentsTool = (
           config: DEFAULT_STREAM_CONFIG,
           state: 'result',
           save: true,
+          label: 'Lister les documents',
         } as ToolResult;
       } catch (error) {
         logger.error(
@@ -87,6 +90,7 @@ export const createListDocumentsTool = (
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
           save: false,
+          label: 'Lister les documents',
         } as ToolResult;
       }
     },

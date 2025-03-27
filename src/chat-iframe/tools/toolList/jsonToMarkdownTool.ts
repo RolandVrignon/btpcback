@@ -65,6 +65,7 @@ Ton Markdown doit être bien structuré, facile à lire et mettre en valeur les 
             stream: false,
             config: DEFAULT_STREAM_CONFIG,
             save: false,
+            label: 'Formatage du résultat',
           } as ToolResult;
         }
 
@@ -88,6 +89,7 @@ Ton Markdown doit être bien structuré, facile à lire et mettre en valeur les 
             config: DEFAULT_STREAM_CONFIG,
             state: 'result',
             save: false,
+            label: 'Formatage du résultat',
           } as ToolResult;
         } catch (apiError) {
           logger.error(
@@ -102,6 +104,7 @@ Ton Markdown doit être bien structuré, facile à lire et mettre en valeur les 
             stream: false,
             config: DEFAULT_STREAM_CONFIG,
             save: false,
+            label: 'Formatage du résultat',
           } as ToolResult;
         }
       } catch (error) {
@@ -120,6 +123,7 @@ Ton Markdown doit être bien structuré, facile à lire et mettre en valeur les 
           stream: false,
           config: DEFAULT_STREAM_CONFIG,
           save: false,
+          label: 'Formatage du résultat',
         } as ToolResult;
       }
     },

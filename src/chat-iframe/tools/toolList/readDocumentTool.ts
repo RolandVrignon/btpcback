@@ -42,7 +42,8 @@ export const createReadDocumentTool = (
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
             save: false,
-          };
+            label: 'Lecture du document',
+          } as ToolResult;
         }
 
         if (document.projectId !== projectId) {
@@ -51,7 +52,8 @@ export const createReadDocumentTool = (
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
             save: false,
-          };
+            label: 'Lecture du document',
+          } as ToolResult;
         }
 
         // Vérifier que le document est dans un état utilisable
@@ -64,7 +66,8 @@ export const createReadDocumentTool = (
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
             save: false,
-          };
+            label: 'Lecture du document',
+          } as ToolResult;
         }
 
         // Récupérer tous les chunks du document, ordonnés
@@ -76,7 +79,8 @@ export const createReadDocumentTool = (
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
             save: false,
-          };
+            label: 'Lecture du document',
+          } as ToolResult;
         }
 
         // Trier les chunks par ordre (si le champ existe)

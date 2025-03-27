@@ -43,6 +43,7 @@ export const createGetProjectSummaryTool = (
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
             save: false,
+            label: 'Récupération du résumé du projet',
           } as ToolResult;
         }
 
@@ -53,6 +54,7 @@ export const createGetProjectSummaryTool = (
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
             save: false,
+            label: 'Récupération du résumé du projet',
           } as ToolResult;
         }
 
@@ -93,6 +95,7 @@ ${summary}
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
           save: true,
+          label: 'Récupération du résumé du projet',
         } as ToolResult;
       } catch (error) {
         logger.error(
@@ -105,6 +108,7 @@ ${summary}
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
           save: false,
+          label: 'Récupération du résumé du projet',
         } as ToolResult;
       }
     },

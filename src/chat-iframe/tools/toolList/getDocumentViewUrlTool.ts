@@ -43,6 +43,7 @@ export const createGetDocumentViewUrlTool = (
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
             save: false,
+            label: "Récupération de l'URL de visualisation du document",
           } as ToolResult;
         }
 
@@ -52,6 +53,7 @@ export const createGetDocumentViewUrlTool = (
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
             save: false,
+            label: "Récupération de l'URL de visualisation du document",
           } as ToolResult;
         }
 
@@ -63,6 +65,7 @@ export const createGetDocumentViewUrlTool = (
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
           save: false,
+          label: "Récupération de l'URL de visualisation du document",
         } as ToolResult;
       } catch (error) {
         logger.error(
@@ -73,6 +76,7 @@ export const createGetDocumentViewUrlTool = (
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
           save: false,
+          label: "Récupération de l'URL de visualisation du document",
         } as ToolResult;
       }
     },

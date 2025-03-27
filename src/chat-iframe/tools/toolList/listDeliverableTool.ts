@@ -89,6 +89,7 @@ export const createListDeliverableTool = () => ({
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
           save: false,
+          label: 'Lister les délivrables',
         } as ToolResult;
       } catch (error) {
         logger.error(
@@ -99,6 +100,7 @@ export const createListDeliverableTool = () => ({
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
           save: false,
+          label: 'Lister les délivrables',
         } as ToolResult;
       }
     },
