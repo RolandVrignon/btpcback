@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { DocumentsService } from '../../../documents/documents.service';
 import { z } from 'zod';
 import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
+import { ToolResult } from '..';
 
 const logger = new Logger('GetDocumentMetadataTool');
 
@@ -23,7 +24,11 @@ export const createGetDocumentMetadataTool = (
         .string()
         .describe('ID du document pour lequel récupérer les métadonnées AI'),
     }),
-    execute: async ({ documentId }: { documentId: string }) => {
+    execute: async ({
+      documentId,
+    }: {
+      documentId: string;
+    }): Promise<ToolResult> => {
       try {
         logger.debug(
           `Récupération des métadonnées AI pour le document: ${documentId}`,
@@ -38,7 +43,8 @@ export const createGetDocumentMetadataTool = (
             text: `Aucun document trouvé avec l'ID: ${documentId}`,
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
-          };
+            save: false,
+          } as ToolResult;
         }
 
         // Vérifier si le document appartient au projet actuel
@@ -47,7 +53,8 @@ export const createGetDocumentMetadataTool = (
             text: `Le document avec l'ID ${documentId} n'appartient pas au projet actuel.`,
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
-          };
+            save: false,
+          } as ToolResult;
         }
 
         // Vérifier si les métadonnées AI existent
@@ -56,7 +63,8 @@ export const createGetDocumentMetadataTool = (
             text: `Aucune métadonnée AI disponible pour le document "${document.filename}"`,
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
-          };
+            save: false,
+          } as ToolResult;
         }
 
         // Formater les métadonnées AI pour l'affichage
@@ -68,6 +76,7 @@ export const createGetDocumentMetadataTool = (
           text: responseText,
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
+          save: false,
         };
       } catch (error) {
         logger.error(
@@ -77,7 +86,8 @@ export const createGetDocumentMetadataTool = (
           text: 'Une erreur est survenue lors de la récupération des métadonnées AI du document.',
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
-        };
+          save: false,
+        } as ToolResult;
       }
     },
   },

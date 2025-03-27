@@ -6,6 +6,7 @@ import { DeliverablesService } from '../../../deliverables/deliverables.service'
 import { OrganizationEntity } from '../../../types';
 import { CreateDeliverableDto } from '../../../deliverables/dto/create-deliverable.dto';
 import { DeliverableEntity } from '../../../deliverables/entities/deliverable.entity';
+import { ToolResult } from '../index';
 
 const logger = new Logger('GetDeliverableTool');
 
@@ -30,7 +31,9 @@ export const createGetDeliverableTool = (
       type: DeliverableEnum.describe('Type de délivrable à générer'),
       documentIds: z
         .array(z.string())
-        .describe('Liste des IDs des documents à utiliser (optionnel)')
+        .describe(
+          "Liste des IDs des documents à utiliser. Demander à l'utilisateur si tu as un doute concernant des paramètres manquants. Par défaut, on utilise tous les documents du projet mais à confirmer par l'utilisateur.",
+        )
         .default([])
         .optional(),
     }),
@@ -40,7 +43,7 @@ export const createGetDeliverableTool = (
     }: {
       type: DeliverableType;
       documentIds?: string[];
-    }) => {
+    }): Promise<ToolResult> => {
       try {
         logger.debug(
           `Génération d'un délivrable de type ${type} pour le projet ${projectId}`,
@@ -89,6 +92,7 @@ export const createGetDeliverableTool = (
             text: `${responseText}\n\nVoici le contenu formaté du délivrable:`,
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
+            save: true,
             toolCallData: {
               name: 'jsonToMarkdown',
               arguments: {
@@ -96,7 +100,7 @@ export const createGetDeliverableTool = (
                 title: `Délivrable ${type}`,
               },
             },
-          };
+          } as ToolResult;
         }
 
         // Si pas de short_result, retourner juste le message de base
@@ -104,7 +108,9 @@ export const createGetDeliverableTool = (
           text: responseText,
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
-        };
+          state: 'result',
+          save: true,
+        } as ToolResult;
       } catch (error) {
         logger.error(
           `Erreur lors de la génération du délivrable: ${
@@ -117,7 +123,8 @@ export const createGetDeliverableTool = (
           }`,
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
-        };
+          save: false,
+        } as ToolResult;
       }
     },
   },

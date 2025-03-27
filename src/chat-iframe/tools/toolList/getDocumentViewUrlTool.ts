@@ -2,15 +2,16 @@ import { Logger } from '@nestjs/common';
 import { DocumentsService } from '../../../documents/documents.service';
 import { z } from 'zod';
 import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
+import { ToolResult } from '../index';
 
 const logger = new Logger('GetDocumentViewUrlTool');
 
 /**
- * Definition of document view URL retrieval tool
- * @param documentsService Documents service
- * @param projectId Project ID
- * @param organizationId Organization ID
- * @returns The document view URL tool definition
+ * Définition de l'outil pour récupérer l'URL de visualisation d'un document
+ * @param documentsService Service des documents
+ * @param projectId ID du projet
+ * @param organizationId ID de l'organisation
+ * @returns La définition de l'outil
  */
 export const createGetDocumentViewUrlTool = (
   documentsService: DocumentsService,
@@ -19,45 +20,60 @@ export const createGetDocumentViewUrlTool = (
 ) => ({
   getDocumentViewUrl: {
     description:
-      'Récupère une URL présignée pour visualiser un document spécifique. Cette URL est temporaire et valide pour une durée limitée.',
+      "Récupère l'URL pour visualiser un document spécifique dans l'interface utilisateur",
     parameters: z.object({
-      fileName: z.string().describe('Nom du fichier à visualiser'),
+      documentId: z.string().describe('ID du document à visualiser'),
     }),
-    execute: async ({ fileName }: { fileName: string }) => {
+    execute: async ({
+      documentId,
+    }: {
+      documentId: string;
+    }): Promise<ToolResult> => {
       try {
         logger.debug(
-          `Génération d'URL de visualisation pour le fichier: ${fileName} dans le projet: ${projectId}`,
+          `Récupération de l'URL de visualisation pour le document: ${documentId}`,
         );
 
-        // Préparer les données pour la requête
-        const viewDocumentDto = {
-          fileName,
-          projectId,
-        };
+        // Vérifier que le document existe et appartient au projet
+        const document = await documentsService.findOne(documentId);
 
-        // Récupérer l'URL de visualisation
-        const viewUrlResponse = await documentsService.getViewUrl(
-          viewDocumentDto,
-          organizationId,
-        );
+        if (!document) {
+          return {
+            text: "Document non trouvé. Veuillez vérifier l'ID du document.",
+            stream: true,
+            config: DEFAULT_STREAM_CONFIG,
+            save: false,
+          } as ToolResult;
+        }
 
-        // Formater la réponse
-        const responseText = `URL de visualisation pour le document "${fileName}":\n\n${viewUrlResponse.url}\n\nCette URL est valide pour ${viewUrlResponse.expiresIn} secondes.`;
+        if (document.projectId !== projectId) {
+          return {
+            text: "Ce document n'appartient pas au projet actuel.",
+            stream: true,
+            config: DEFAULT_STREAM_CONFIG,
+            save: false,
+          } as ToolResult;
+        }
+
+        // Générer l'URL de visualisation du document
+        const viewUrl = `/organization/${organizationId}/project/${projectId}/documents/${documentId}`;
 
         return {
-          text: responseText,
+          text: `URL de visualisation du document "${document.filename}":\n\n${viewUrl}\n\nVous pouvez copier ce lien dans votre navigateur pour accéder au document.`,
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
-        };
+          save: false,
+        } as ToolResult;
       } catch (error) {
         logger.error(
-          `Erreur lors de la génération de l'URL de visualisation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+          `Erreur lors de la récupération de l'URL: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
         );
         return {
-          text: "Une erreur est survenue lors de la génération de l'URL de visualisation du document.",
+          text: "Une erreur est survenue lors de la récupération de l'URL de visualisation du document.",
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
-        };
+          save: false,
+        } as ToolResult;
       }
     },
   },

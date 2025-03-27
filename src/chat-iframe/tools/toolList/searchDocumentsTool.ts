@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { SearchService } from '../../../search/search.service';
 import { z } from 'zod';
 import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
+import { ToolResult } from '../index';
 
 const logger = new Logger('SearchDocumentsTool');
 
@@ -22,7 +23,7 @@ export const createSearchDocumentsTool = (
     parameters: z.object({
       query: z.string().describe('La requête de recherche'),
     }),
-    execute: async ({ query }: { query: string }) => {
+    execute: async ({ query }: { query: string }): Promise<ToolResult> => {
       try {
         logger.debug(`Exécution de la recherche RAG avec la requête: ${query}`);
         const searchResults = await searchService.vectorSearch(
@@ -59,7 +60,8 @@ export const createSearchDocumentsTool = (
           text: responseText,
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
-        };
+          save: false,
+        } as ToolResult;
       } catch (error) {
         logger.error(
           `Erreur lors de la recherche RAG: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
@@ -68,7 +70,8 @@ export const createSearchDocumentsTool = (
           text: 'Une erreur est survenue lors de la recherche dans les documents.',
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
-        };
+          save: false,
+        } as ToolResult;
       }
     },
   },

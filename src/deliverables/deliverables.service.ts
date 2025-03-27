@@ -227,6 +227,8 @@ export class DeliverablesService {
     const checkDeliverableStatus = async () => {
       attempts++;
 
+      this.logger.log(`Vérification de l'état du délivrable ${deliverable.id}`);
+
       const currentDeliverable = await this.findOne(
         deliverable.id,
         organization,

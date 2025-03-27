@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
 import { generateText } from 'ai';
 import { model } from '../streamConfig';
+import { ToolResult } from '../index';
+
 const logger = new Logger('JsonToMarkdownTool');
 
 /**
@@ -19,7 +21,13 @@ export const createJsonToMarkdownTool = () => ({
         .describe('Titre optionnel pour le document Markdown')
         .optional(),
     }),
-    execute: async ({ json, title }: { json: any; title?: string }) => {
+    execute: async ({
+      json,
+      title,
+    }: {
+      json: any;
+      title?: string;
+    }): Promise<ToolResult> => {
       try {
         logger.debug('Conversion JSON vers Markdown via Vercel AI SDK');
         logger.debug(`Clé OpenAI présente: ${!!process.env.OPENAI_API_KEY}`);
@@ -56,7 +64,8 @@ Ton Markdown doit être bien structuré, facile à lire et mettre en valeur les 
             text: 'Erreur: Clé API OpenAI manquante. Impossible de convertir le JSON en Markdown.',
             stream: false,
             config: DEFAULT_STREAM_CONFIG,
-          };
+            save: false,
+          } as ToolResult;
         }
 
         // Titre préfixé si fourni
@@ -77,7 +86,9 @@ Ton Markdown doit être bien structuré, facile à lire et mettre en valeur les 
             text: titlePrefix + result.text,
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
-          };
+            state: 'result',
+            save: false,
+          } as ToolResult;
         } catch (apiError) {
           logger.error(
             `Erreur lors de l'appel à l'API OpenAI: ${
@@ -90,7 +101,8 @@ Ton Markdown doit être bien structuré, facile à lire et mettre en valeur les 
             }`,
             stream: false,
             config: DEFAULT_STREAM_CONFIG,
-          };
+            save: false,
+          } as ToolResult;
         }
       } catch (error) {
         logger.error(
@@ -107,7 +119,8 @@ Ton Markdown doit être bien structuré, facile à lire et mettre en valeur les 
           }`,
           stream: false,
           config: DEFAULT_STREAM_CONFIG,
-        };
+          save: false,
+        } as ToolResult;
       }
     },
   },

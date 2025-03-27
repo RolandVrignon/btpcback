@@ -216,9 +216,7 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
           `Taille du payload: ${payloadSizeInBytes} octets (${payloadSizeInKB.toFixed(2)} KB, ${payloadSizeInMB.toFixed(2)} MB)`,
         );
 
-        const n8nWebhookUrl = this.configService.get<string>(
-          'N8N_WEBHOOK_URL',
-        );
+        const n8nWebhookUrl = this.configService.get<string>('N8N_WEBHOOK_URL');
         this.logger.log('n8nWebhookUrl:', n8nWebhookUrl);
 
         if (!n8nWebhookUrl) {

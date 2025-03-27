@@ -71,10 +71,13 @@ export class ChatIframeController {
     @Res() res: Response,
   ) {
     try {
-      this.logger.log('body:', JSON.stringify(body, null, 2));
       const allMessages = body.messages;
       const userMessage = allMessages.at(-1)?.content || '';
       const conversationHistory = allMessages.slice(0, -1);
+
+      this.logger.debug(
+        `Conversation history: ${JSON.stringify(conversationHistory, null, 2)}`,
+      );
 
       await this.chatIframeService.processMessageWithStreaming(
         projectId,

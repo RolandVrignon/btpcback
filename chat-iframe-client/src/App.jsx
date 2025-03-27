@@ -1,11 +1,13 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { useChat } from 'ai/react';
-import Markdown from './ui/markdown';
-import ToolInvocation from './ui/toolInvocation';
 import { ScrollArea } from './ui/scroll-area';
 import './styles.css'; // S'assurer que le fichier de styles est importé
-import 'katex/dist/katex.min.css';
+// import 'katex/dist/katex.min.css';
 import 'highlight.js/styles/github.css';
+
+// Import dynamique des composants lourds
+const Markdown = lazy(() => import('./ui/markdown'));
+const ToolInvocation = lazy(() => import('./ui/toolInvocation'));
 
 function formatMessage(message) {
   if (message.role === 'user') {
@@ -26,6 +28,10 @@ function formatMessage(message) {
             return part.text;
           } else if (part.type === 'tool-invocation') {
             const toolInfo = part.toolInvocation;
+            // On filtre seulement le texte mais on garde l'indication de l'outil
+            if (toolInfo.result && toolInfo.result.save === false) {
+              return `[Outil: ${toolInfo.toolName} - Résultat masqué pour ne pas encombrer la conversation. Si besoin, vous pouvez re faire l'appel de l'outil.]`;
+            }
             return `[Outil: ${toolInfo.toolName}${toolInfo.state === 'result' ? ' - Terminé' : ' - En cours...'}]`;
           }
           return '';
@@ -58,6 +64,14 @@ function formatMessage(message) {
   if (message.role === 'tool') {
     try {
       const parsed = JSON.parse(message.content);
+      // Filtrer seulement le texte pour les outils avec save=false
+      if (parsed.save === false) {
+        return {
+          icon: '🛠',
+          label: `Tool: ${message.name || 'outil'}`,
+          text: "[Résultat masqué pour ne pas encombrer la conversation. Si besoin, vous pouvez re faire l'appel de l'outil.]",
+        };
+      }
       return {
         icon: '🛠',
         label: `Tool: ${message.name || 'outil'}`,
@@ -101,10 +115,74 @@ export default function App() {
     setApiUrl(`/chat/${extractedProjectId}/message?apiKey=${extractedApiKey}`);
   }, []);
 
-  // Récupérer les messages sauvegardés au chargement
+  // Fonction pour nettoyer les messages qui ont save à false
+  const cleanMessagesWithSaveFalse = (messages) => {
+    return messages.map(message => {
+      // Cloner le message pour éviter de modifier l'original
+      const messageCopy = { ...message };
+
+      // Traiter les messages d'assistant avec parts
+      if (message.role === 'assistant' && message.parts && Array.isArray(message.parts)) {
+        messageCopy.parts = message.parts.map(part => {
+          // Si c'est une invocation d'outil avec save=false, nettoyer le résultat
+          if (part.type === 'tool-invocation' &&
+              part.toolInvocation &&
+              part.toolInvocation.result &&
+              part.toolInvocation.result.save === false) {
+            return {
+              ...part,
+              toolInvocation: {
+                ...part.toolInvocation,
+                result: {
+                  ...part.toolInvocation.result,
+                  text: "[Résultat masqué pour ne pas encombrer la conversation. Si besoin, vous pouvez re faire l'appel de l'outil.]", // Remplacer par un message plutôt que vider
+                },
+              }
+            };
+          }
+          return part;
+        });
+      }
+
+      // Traiter les toolInvocations au niveau racine
+      if (message.toolInvocations && Array.isArray(message.toolInvocations)) {
+        messageCopy.toolInvocations = message.toolInvocations.map(tool => {
+          if (tool.result && tool.result.save === false) {
+            return {
+              ...tool,
+              result: {
+                ...tool.result,
+                text: "[Résultat masqué pour ne pas encombrer la conversation. Si besoin, vous pouvez re faire l'appel de l'outil.]", // Remplacer par un message plutôt que vider
+              },
+            };
+          }
+          return tool;
+        });
+      }
+
+      // Traiter les messages d'outil avec save=false
+      if (message.role === 'tool') {
+        try {
+          const content = JSON.parse(message.content);
+          if (content.save === false) {
+            messageCopy.content = JSON.stringify({
+              ...content,
+              text: "[Résultat masqué pour ne pas encombrer la conversation. Si besoin, vous pouvez re faire l'appel de l'outil.]", // Remplacer par un message plutôt que vider
+            });
+          }
+        } catch (e) {
+          // Si le parsing échoue, on ne modifie pas le contenu
+        }
+      }
+
+      return messageCopy;
+    });
+  };
+
+  // Récupérer les messages sauvegardés au chargement et les nettoyer
   const savedMessages =
     typeof sessionStorage !== 'undefined'
-      ? JSON.parse(sessionStorage.getItem('chatMessages') || '[]')
+      ? cleanMessagesWithSaveFalse(JSON.parse(sessionStorage.getItem('chatMessages') || '[]'))
       : [];
 
   const {
@@ -112,7 +190,7 @@ export default function App() {
     input: inputValue,
     handleInputChange,
     handleSubmit,
-    append,
+    append: originalAppend,
     isLoading,
     setMessages,
   } = useChat({
@@ -120,12 +198,26 @@ export default function App() {
     initialMessages: savedMessages,
   });
 
-  // Sauvegarde des messages dans sessionStorage à chaque changement
-  useEffect(() => {
-    if (messages.length > 0 && typeof sessionStorage !== 'undefined') {
-      sessionStorage.setItem('chatMessages', JSON.stringify(messages));
+  // Surcharger la fonction append pour nettoyer les messages avant de les ajouter
+  const append = (message) => {
+    // Si c'est un message utilisateur, on l'ajoute directement
+    if (message.role === 'user') {
+      originalAppend(message);
+      return;
     }
-  }, [messages]);
+
+    // Sinon, on nettoie d'abord le message
+    const cleanedMessage = cleanMessagesWithSaveFalse([message])[0];
+    originalAppend(cleanedMessage);
+  };
+
+  useEffect(() => {
+    if (!isLoading && messages) {
+      const cleanedMessages = cleanMessagesWithSaveFalse(messages);
+      sessionStorage.setItem('chatMessages', JSON.stringify(cleanedMessages));
+      setMessages(cleanedMessages);
+    }
+  }, [messages, isLoading]);
 
   // Fonction pour effacer la conversation et le sessionStorage
   const clearConversation = () => {
@@ -294,13 +386,18 @@ export default function App() {
                           <div>
                             {m.parts.map((part, partIndex) => {
                               if (part.type === 'text') {
-                                return <Markdown>{part.text}</Markdown>;
+                                return (
+                                  <Suspense fallback={<Loading />} key={`text-${partIndex}`}>
+                                    <Markdown>{part.text}</Markdown>
+                                  </Suspense>
+                                );
                               } else if (part.type === 'tool-invocation') {
                                 return (
-                                  <ToolInvocation
-                                    key={`tool-${partIndex}`}
-                                    toolInfo={part.toolInvocation}
-                                  />
+                                  <Suspense fallback={<Loading />} key={`tool-${partIndex}`}>
+                                    <ToolInvocation
+                                      toolInfo={part.toolInvocation}
+                                    />
+                                  </Suspense>
                                 );
                               }
                               return null;
@@ -313,7 +410,9 @@ export default function App() {
                             }
                           >
                             {m.role === 'assistant' ? (
-                              <Markdown>{text}</Markdown>
+                              <Suspense fallback={<Loading />}>
+                                <Markdown>{text}</Markdown>
+                              </Suspense>
                             ) : (
                               text
                             )}
@@ -386,3 +485,8 @@ export default function App() {
     </div>
   );
 }
+
+// Composant de chargement
+const Loading = () => (
+  <div className="p-2 text-gray-400">Chargement...</div>
+);

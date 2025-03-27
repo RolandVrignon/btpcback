@@ -1,7 +1,7 @@
 // Re-export de tous les outils pour faciliter l'import par les consommateurs
 import { createSearchDocumentsTool } from './toolList/searchDocumentsTool';
 import { createListDocumentsTool } from './toolList/listDocumentsTool';
-import { createSummarizeDocumentTool } from './toolList/summarizeDocumentTool';
+import { createReadDocumentTool } from './toolList/readDocumentTool';
 import { createGetProjectSummaryTool } from './toolList/getProjectSummaryTool';
 import { createGetDeliverableTool } from './toolList/getDeliverableTool';
 import { createJsonToMarkdownTool } from './toolList/jsonToMarkdownTool';
@@ -13,6 +13,7 @@ import { ProjectsService } from '../../projects/projects.service';
 import { DeliverablesService } from '../../deliverables/deliverables.service';
 import { OrganizationEntity } from '../../types';
 import { createListDeliverableTool } from './toolList/listDeliverableTool';
+import { StreamConfig } from './streamConfig';
 /**
  * Crée tous les outils nécessaires pour le chat
  * @param searchService Service de recherche
@@ -23,6 +24,14 @@ import { createListDeliverableTool } from './toolList/listDeliverableTool';
  * @param organization L'organisation de l'utilisateur
  * @returns Tous les outils combinés
  */
+
+export type ToolResult = {
+  text: string; // Texte de la réponse de l'outil
+  stream: boolean; // Si true, la réponse de l'outil sera envoyée en streaming, sinon non.
+  config: StreamConfig; // Configuration du streaming
+  save: boolean; // Si true, la réponse de l'outil sera enregistré dans la conversation, sinon non.
+};
+
 export const createChatTools = (
   searchService: SearchService,
   documentsService: DocumentsService,
@@ -40,7 +49,7 @@ export const createChatTools = (
 
   const listTools = createListDocumentsTool(documentsService, projectId);
 
-  const summarizeTools = createSummarizeDocumentTool(
+  const readTools = createReadDocumentTool(
     documentsService,
     searchService,
     projectId,
@@ -77,7 +86,7 @@ export const createChatTools = (
   return {
     ...searchTools,
     ...listTools,
-    ...summarizeTools,
+    ...readTools,
     ...getProjectSummaryTool,
     ...getDeliverableTool,
     ...jsonToMarkdownTool,
@@ -91,7 +100,7 @@ export const createChatTools = (
 export {
   createSearchDocumentsTool,
   createListDocumentsTool,
-  createSummarizeDocumentTool,
+  createReadDocumentTool,
   createGetProjectSummaryTool,
   createGetDeliverableTool,
   createJsonToMarkdownTool,

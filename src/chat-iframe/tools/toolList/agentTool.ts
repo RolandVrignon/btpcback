@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
 import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
+import { ToolResult } from '../index';
 
 const logger = new Logger('AgentTool');
 const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -52,7 +53,7 @@ export const createAgentTool = (availableTools: Record<string, Tool>) => ({
       userRequest: string;
       conversationHistory: Array<{ role: string; content: string }>;
       lastToolResult?: string;
-    }) => {
+    }): Promise<ToolResult> => {
       try {
         logger.debug('Agent analyzing user request and available tools');
 
@@ -115,6 +116,8 @@ Quel outil devrais-je utiliser ensuite et pourquoi?`;
             text: `Décision de l'agent:\n${JSON.stringify(decision, null, 2)}`,
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
+            state: 'result',
+            save: true,
             toolCallData: decision.isComplete
               ? null
               : {
@@ -126,7 +129,7 @@ Quel outil devrais-je utiliser ensuite et pourquoi?`;
               tool: decision.nextTool,
               reasoning: decision.reasoning,
             },
-          };
+          } as ToolResult;
         } catch (parseError) {
           logger.error(
             `Error parsing agent response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`,
@@ -135,7 +138,8 @@ Quel outil devrais-je utiliser ensuite et pourquoi?`;
             text: "Une erreur est survenue lors de l'analyse de la requête.",
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
-          };
+            save: false,
+          } as ToolResult;
         }
       } catch (error) {
         logger.error(
@@ -145,7 +149,8 @@ Quel outil devrais-je utiliser ensuite et pourquoi?`;
           text: "Une erreur est survenue lors de l'exécution de l'agent.",
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
-        };
+          save: false,
+        } as ToolResult;
       }
     },
   },

@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import { ProjectsService } from '../../../projects/projects.service';
 import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
 import { z } from 'zod';
-
+import { ToolResult } from '../index';
 const logger = new Logger('GetProjectSummaryTool');
 
 /**
@@ -28,7 +28,7 @@ export const createGetProjectSummaryTool = (
     }),
     execute: async ({
       summaryType = 'long',
-    }: { summaryType?: 'short' | 'long' } = {}) => {
+    }: { summaryType?: 'short' | 'long' } = {}): Promise<ToolResult> => {
       try {
         logger.debug(
           `Récupération du résumé ${summaryType} pour le projet ${projectId}`,
@@ -38,14 +38,22 @@ export const createGetProjectSummaryTool = (
         const project = await projectsService.findOne(projectId);
 
         if (!project) {
-          throw new Error(`Projet ${projectId} non trouvé`);
+          return {
+            text: `Projet ${projectId} non trouvé`,
+            stream: true,
+            config: DEFAULT_STREAM_CONFIG,
+            save: false,
+          } as ToolResult;
         }
 
         // Vérifier que le projet appartient à l'organisation
         if (project.organizationId !== organizationId) {
-          throw new Error(
-            "Vous n'avez pas accès à ce projet depuis cette organisation",
-          );
+          return {
+            text: "Vous n'avez pas accès à ce projet depuis cette organisation",
+            stream: true,
+            config: DEFAULT_STREAM_CONFIG,
+            save: false,
+          } as ToolResult;
         }
 
         // Formater les informations du projet
@@ -84,7 +92,8 @@ ${summary}
           text: response,
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
-        };
+          save: true,
+        } as ToolResult;
       } catch (error) {
         logger.error(
           `Erreur lors de la récupération du résumé du projet: ${
@@ -95,7 +104,8 @@ ${summary}
           text: 'Une erreur est survenue lors de la récupération du résumé du projet.',
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
-        };
+          save: false,
+        } as ToolResult;
       }
     },
   },

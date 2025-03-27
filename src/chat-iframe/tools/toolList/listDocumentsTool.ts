@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { DocumentsService } from '../../../documents/documents.service';
 import { z } from 'zod';
 import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
+import { ToolResult } from '../index';
 
 const logger = new Logger('ListDocumentsTool');
 
@@ -18,7 +19,7 @@ export const createListDocumentsTool = (
   listProjectDocuments: {
     description: 'Liste tous les documents disponibles dans le projet',
     parameters: z.object({}),
-    execute: async () => {
+    execute: async (): Promise<ToolResult> => {
       try {
         logger.debug(`Listage des documents pour le projet: ${projectId}`);
 
@@ -30,7 +31,8 @@ export const createListDocumentsTool = (
             text: "Aucun document n'est disponible dans ce projet.",
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
-          };
+            save: false,
+          } as ToolResult;
         }
 
         // Formater la liste des documents
@@ -57,7 +59,8 @@ export const createListDocumentsTool = (
             text: "Le projet contient des documents, mais aucun n'est prêt à être utilisé.",
             stream: true,
             config: DEFAULT_STREAM_CONFIG,
-          };
+            save: false,
+          } as ToolResult;
         }
 
         const documentsList = formattedList
@@ -72,7 +75,9 @@ export const createListDocumentsTool = (
           text: responseText,
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
-        };
+          state: 'result',
+          save: true,
+        } as ToolResult;
       } catch (error) {
         logger.error(
           `Erreur lors du listage des documents: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
@@ -81,7 +86,8 @@ export const createListDocumentsTool = (
           text: 'Une erreur est survenue lors de la récupération de la liste des documents.',
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
-        };
+          save: false,
+        } as ToolResult;
       }
     },
   },
