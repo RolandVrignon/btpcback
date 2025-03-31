@@ -163,14 +163,10 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
 
     // Prepare document data for the webhook
     const documentData = await Promise.all(
-      documents.map((doc, index) => {
-        this.logger.log(`doc ${index} metadata:`, doc.ai_metadata);
-
+      documents.map((doc) => {
         const metadata = this.documentsRepository.restoreFieldOrder(
           doc.ai_metadata,
         ) as JSONValue;
-
-        this.logger.log(`doc ${index} metadata restored:`, metadata);
 
         return {
           id: doc.id,

@@ -122,13 +122,9 @@ export class StorageService {
         organizationId,
       );
 
-    this.logger.log('One');
-
     if (!project) {
       throw new NotFoundException('Projet non trouvé');
     }
-
-    this.logger.log('Two');
 
     const expiresIn = 3600; // 1 heure par défaut
 
@@ -138,16 +134,12 @@ export class StorageService {
 
     const key = `${process.env.AWS_S3_BUCKET}${dto.projectId}/${dto.fileName}`;
 
-    this.logger.log('Three');
-
     // Vérifier si le fichier existe
     try {
       const headCommand = new HeadObjectCommand({
         Bucket: this.bucketName,
         Key: key,
       });
-
-      this.logger.log('Four');
 
       await this.s3Client.send(headCommand);
     } catch (error) {
@@ -170,10 +162,7 @@ export class StorageService {
       Key: key,
     });
 
-    this.logger.log('Five');
-
     const url = await getSignedUrl(this.s3Client, command, { expiresIn });
-    this.logger.log('url:', url);
 
     return {
       url,
