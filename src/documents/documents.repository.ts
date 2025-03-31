@@ -183,7 +183,7 @@ export class DocumentsRepository {
    * @param data Données JSON à traiter
    * @returns Données JSON avec métadonnées d'ordre
    */
-  private preserveFieldOrder(data: any): any {
+  preserveFieldOrder(data: any): any {
     if (data === null || typeof data !== 'object') {
       return data;
     }
@@ -254,7 +254,7 @@ export class DocumentsRepository {
    * @param data Données JSON avec métadonnées d'ordre
    * @returns Données JSON avec l'ordre original
    */
-  private restoreFieldOrder(data: any): any {
+  restoreFieldOrder(data: any): any {
     if (data === null || typeof data !== 'object') {
       return data;
     }

@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { BaseDeliverableStrategy } from './base-deliverable.strategy';
-import { DeliverableResult } from '../interfaces/deliverable-result.interface';
 import { DeliverableContext } from '../interfaces/deliverable-context.interface';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Document, DeliverableType } from '@prisma/client';
@@ -8,6 +7,7 @@ import { DeliverablesRepository } from '../deliverables.repository';
 import { ConfigService } from '@nestjs/config';
 import { DocumentsRepository } from '../../documents/documents.repository';
 import { ProjectsRepository } from '../../projects/projects.repository';
+import { JSONValue } from 'ai';
 
 interface WorkSummary {
   title: string;
@@ -27,7 +27,7 @@ interface WebhookPayload {
   documents: {
     id: string;
     filename: string;
-    ai_metadata: Record<string, unknown>;
+    ai_metadata: JSONValue;
   }[];
 }
 
@@ -88,10 +88,13 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
         this.logger.log('First document ID:', documents[0].id);
         // Check if chunks exist in a type-safe way
         const firstDoc = documents[0];
+        const hasChunks =
+          'chunks' in firstDoc &&
+          Array.isArray((firstDoc as Document & { chunks?: unknown[] }).chunks);
         this.logger.log(
           'First document has chunks:',
-          'chunks' in firstDoc && Array.isArray((firstDoc as any).chunks)
-            ? (firstDoc as any).chunks.length
+          hasChunks
+            ? (firstDoc as Document & { chunks?: unknown[] }).chunks.length
             : 'No chunks property',
         );
       }
@@ -160,29 +163,19 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
 
     // Prepare document data for the webhook
     const documentData = await Promise.all(
-      documents.map((doc) => {
-        let result: Record<string, unknown> | undefined;
+      documents.map((doc, index) => {
+        this.logger.log(`doc ${index} metadata:`, doc.ai_metadata);
 
-        if (doc.ai_metadata && typeof doc.ai_metadata === 'object') {
-          const metadata = doc.ai_metadata as Record<string, unknown>;
-          const data = metadata['__data'] as Record<string, unknown>;
-          if (data && typeof data === 'object') {
-            const procedes = data['Procédés à risque'] as Record<
-              string,
-              unknown
-            >;
-            if (procedes && typeof procedes === 'object') {
-              result = {
-                'Procédés à risques': procedes['__data'],
-              };
-            }
-          }
-        }
+        const metadata = this.documentsRepository.restoreFieldOrder(
+          doc.ai_metadata,
+        ) as JSONValue;
+
+        this.logger.log(`doc ${index} metadata restored:`, metadata);
 
         return {
           id: doc.id,
           filename: doc.filename,
-          ai_metadata: result,
+          ai_metadata: metadata,
         };
       }),
     );
