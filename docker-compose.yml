@@ -1,42 +1,47 @@
-version: "3.8"
+version: '3.8'
 
 services:
-  ynor-back:
-    image: iadopt/btpc-api:latest
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: btpc-api:latest
+    container_name: btpc-api
+    restart: always
     ports:
-      - "8888:8080"
-    volumes:
-      - btpc-aec-document-processing:/tmp/document-processing
-    env_file:
-      - .env.docker
-
-  ynor-front:
-    image: iadopt/btpc-front:latest
-    ports:
-      - "3092:3000"
-    env_file:
-      - .env.docker
-
-  ynor-n8n:
-    image: n8nio/n8n:latest
-    ports:
-      - "5678:5678"
+      - "8080:8080"
     env_file:
       - .env.docker
     depends_on:
-      - ynor-n8n-db
+      postgres:
+        condition: service_healthy
+    networks:
+      - btpc-network
 
-  ynor-n8n-db:
-    image: postgres:latest
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: btpc-postgres
+    restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: secretpassword
-      POSTGRES_DB: n8n
-    volumes:
-      - n8n-db-data:/var/lib/postgresql/data
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: btpc
     ports:
-      - "5432:5432"
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - btpc-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  btpc-aec-document-processing:
-  n8n-db-data:
+  postgres_data:
+    name: btpc_postgres_data
+
+networks:
+  btpc-network:
+    driver: bridge
