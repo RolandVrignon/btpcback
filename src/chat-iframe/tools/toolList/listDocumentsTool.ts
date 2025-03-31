@@ -53,6 +53,15 @@ export const createListDocumentsTool = (
             updatedAt: doc.updatedAt,
             status: doc.status,
             nbPages: doc.metadata_numPages || 'Non disponible',
+            lots: doc.ai_lot_identification,
+            typeDocument: doc.ai_Type_document,
+            typeBatiment: doc.ai_Type_batiment,
+            typeOperation: doc.ai_Type_operation,
+            phaseProjet: doc.ai_Phase_projet,
+            category:
+              doc.category === 'PROJECT'
+                ? 'Le document est lié au projet'
+                : "Le document n'est pas lié au projet",
           }));
 
         if (formattedList.length === 0) {
@@ -67,9 +76,12 @@ export const createListDocumentsTool = (
 
         const documentsList = formattedList
           .map(
-            (doc) => `- ${doc.filename} (${doc.nbPages} pages, ID: ${doc.id})`,
+            (doc) =>
+              `- ${doc.filename} (${doc.nbPages} pages, ID: ${doc.id}, lot ${JSON.stringify(doc.lots)}, type de document ${JSON.stringify(doc.typeDocument)}, type de batiment ${JSON.stringify(doc.typeBatiment)}, type d'opération ${JSON.stringify(doc.typeOperation)}, phase du projet ${JSON.stringify(doc.phaseProjet)}, catégorie ${JSON.stringify(doc.category)})`,
           )
           .join('\n');
+
+        logger.debug('documentsList', documentsList);
 
         const responseText = `Documents disponibles dans le projet:\n\n${documentsList}\n\nVous pouvez rechercher des informations dans ces documents en utilisant l'outil searchDocuments.`;
 
