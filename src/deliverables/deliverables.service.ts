@@ -82,6 +82,7 @@ export class DeliverablesService {
     const projectId = createDeliverableDto.projectId;
     const type = createDeliverableDto.type;
     const documentIds = createDeliverableDto.documentIds || [];
+    const new_deliverable = createDeliverableDto.new || false;
 
     if (documentIds.length) {
       const documents =
@@ -101,11 +102,24 @@ export class DeliverablesService {
       }
     }
 
+    if (!new_deliverable) {
+      const existingDeliverables =
+        await this.deliverablesRepository.findByProject(projectId);
+
+      const existingDeliverable = existingDeliverables.find(
+        (deliverable) => deliverable.type === type,
+      );
+
+      if (existingDeliverable) {
+        return existingDeliverable;
+      }
+    }
     // Utiliser la relation documents avec create pour ajouter les DocumentDeliverable
     const deliverable = await this.deliverablesRepository.create({
       type,
       projectId,
-      documentIds, // Les documents sont maintenant passés au repository
+      documentIds,
+      new: new_deliverable,
     });
 
     if (!deliverable) {
@@ -196,23 +210,30 @@ export class DeliverablesService {
     createDeliverableDto: CreateDeliverableDto,
     organization: OrganizationEntity,
   ) {
-    const { projectId, type } = createDeliverableDto;
+    const { projectId, type, new: skipExistenceCheck } = createDeliverableDto;
 
     // Vérifier si un délivrable du même type existe déjà pour ce projet
-    const existingDeliverables =
-      await this.deliverablesRepository.findByProject(projectId);
+    // Sauf si skipExistenceCheck est à true
+    if (!skipExistenceCheck) {
+      const existingDeliverables =
+        await this.deliverablesRepository.findByProject(projectId);
 
-    const existingDeliverable = existingDeliverables.find(
-      (deliverable) =>
-        deliverable.type === type && deliverable.status === 'COMPLETED',
-    );
-
-    // Si un déliverable existe déjà, le retourner directement
-    if (existingDeliverable) {
-      this.logger.log(
-        `Délivrable existant trouvé de type ${type} pour le projet ${projectId}`,
+      const existingDeliverable = existingDeliverables.find(
+        (deliverable) =>
+          deliverable.type === type && deliverable.status === 'COMPLETED',
       );
-      return existingDeliverable;
+
+      // Si un déliverable existe déjà, le retourner directement
+      if (existingDeliverable) {
+        this.logger.log(
+          `Délivrable existant trouvé de type ${type} pour le projet ${projectId}`,
+        );
+        return existingDeliverable;
+      }
+    } else {
+      this.logger.log(
+        `Vérification d'existence désactivée, création d'un nouveau délivrable de type ${type} pour le projet ${projectId}`,
+      );
     }
 
     // Création du délivrable

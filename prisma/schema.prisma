@@ -225,9 +225,10 @@ model Usage {
 }
 
 model Deliverable {
-  id        String   @id @unique @default(uuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @unique @default(uuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user_prompt String?  @default("")
 
   type   DeliverableType
   status Status          @default(DRAFT)
