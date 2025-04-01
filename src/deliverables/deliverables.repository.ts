@@ -10,34 +10,88 @@ export class DeliverablesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateDeliverableDto): Promise<Deliverable> {
-    return this.prisma.executeWithQueue(() =>
-      this.prisma.deliverable.create({
-        data: {
-          type: dto.type,
-          status: 'PENDING',
-          project: {
-            connect: { id: dto.projectId },
-          },
-          documents: dto.documentIds
-            ? {
-                create: dto.documentIds.map((documentId) => ({
-                  document: {
-                    connect: { id: documentId },
-                  },
-                  usage: 'primary',
-                })),
-              }
-            : undefined,
-        },
-        include: {
-          documents: {
-            include: {
-              document: true,
+    // Ajout de logs pour le débogage
+    console.log('CreateDeliverableDto reçu:', JSON.stringify(dto, null, 2));
+    console.log('documentIds présents:', dto.documentIds?.length || 0);
+
+    if (dto.documentIds && dto.documentIds.length > 0) {
+      console.log('documentIds:', dto.documentIds);
+    }
+
+    try {
+      // Utiliser une transaction pour s'assurer que tout est créé ou rien ne l'est
+      return await this.prisma.executeWithQueue(async () => {
+        // Si documentIds est vide, récupérer tous les documents du projet
+        let documentsToLink = dto.documentIds || [];
+
+        if (documentsToLink.length === 0) {
+          console.log(
+            'Aucun document spécifié, récupération de tous les documents du projet',
+          );
+
+          // Récupérer tous les documents du projet
+          const projectDocuments = await this.prisma.document.findMany({
+            where: { projectId: dto.projectId },
+            select: { id: true },
+          });
+
+          documentsToLink = projectDocuments.map((doc) => doc.id);
+          console.log(
+            `${documentsToLink.length} documents trouvés dans le projet`,
+          );
+        }
+
+        // Étape 1: Créer le Deliverable sans les documents
+        const deliverable = await this.prisma.deliverable.create({
+          data: {
+            type: dto.type,
+            status: 'PENDING',
+            project: {
+              connect: { id: dto.projectId },
             },
           },
-        },
-      }),
-    );
+        });
+
+        console.log('Deliverable créé avec ID:', deliverable.id);
+
+        // Étape 2: Si des documents à lier sont disponibles, créer les DocumentDeliverable
+        if (documentsToLink.length > 0) {
+          console.log(
+            `Création de ${documentsToLink.length} DocumentDeliverable`,
+          );
+
+          // Créer tous les DocumentDeliverable en une seule opération
+          await this.prisma.documentDeliverable.createMany({
+            data: documentsToLink.map((documentId) => ({
+              documentId,
+              deliverableId: deliverable.id,
+              usage: 'primary',
+            })),
+          });
+
+          console.log(`${documentsToLink.length} DocumentDeliverable créés`);
+
+          // Récupérer le deliverable avec ses relations
+          return this.prisma.deliverable.findUnique({
+            where: { id: deliverable.id },
+            include: {
+              documents: {
+                include: {
+                  document: true,
+                },
+              },
+            },
+          });
+        }
+
+        // Si pas de documentIds, retourner simplement le deliverable
+        return deliverable;
+      });
+    } catch (error) {
+      // Capturer et afficher toute erreur lors de la création
+      console.error('ERREUR lors de la création du deliverable:', error);
+      throw error;
+    }
   }
 
   async update(id: string, dto: UpdateDeliverableDto): Promise<Deliverable> {
