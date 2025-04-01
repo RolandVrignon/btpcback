@@ -101,9 +101,11 @@ export class DeliverablesService {
       }
     }
 
+    // Utiliser la relation documents avec create pour ajouter les DocumentDeliverable
     const deliverable = await this.deliverablesRepository.create({
       type,
       projectId,
+      documentIds, // Les documents sont maintenant passés au repository
     });
 
     if (!deliverable) {
