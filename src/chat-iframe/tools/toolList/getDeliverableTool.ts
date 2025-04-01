@@ -36,13 +36,30 @@ export const createGetDeliverableTool = (
         )
         .default([])
         .optional(),
+      user_prompt: z
+        .string()
+        .describe(
+          "Instructions spécifiques de l'utilisateur pour affiner la qualité du délivrable",
+        )
+        .optional(),
+      new: z
+        .boolean()
+        .describe(
+          "Force la création d'un nouveau délivrable même si des délivrables similaires existent déjà",
+        )
+        .default(false)
+        .optional(),
     }),
     execute: async ({
       type,
       documentIds = [],
+      user_prompt,
+      new: forceNew = false,
     }: {
       type: DeliverableType;
       documentIds?: string[];
+      user_prompt?: string;
+      new?: boolean;
     }): Promise<ToolResult> => {
       try {
         logger.debug(
@@ -54,6 +71,8 @@ export const createGetDeliverableTool = (
           projectId,
           type,
           documentIds,
+          user_prompt,
+          new: forceNew,
         };
 
         logger.debug(

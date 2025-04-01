@@ -29,6 +29,7 @@ interface WebhookPayload {
     filename: string;
     ai_metadata: JSONValue;
   }[];
+  userPrompt: string;
 }
 
 @Injectable()
@@ -99,7 +100,7 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
         );
       }
 
-      await this.generateWorkSummary(documents, context.projectId, context.id);
+      await this.generateWorkSummary(documents, context);
     } catch (error: unknown) {
       this.logger.error('Error generating deliverable:', error);
       // Don't return anything in the error case since the return type is void
@@ -117,13 +118,12 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
 
   private async generateWorkSummary(
     documents: Document[],
-    projectId: string,
-    deliverableId: string,
+    context: DeliverableContext,
   ): Promise<WorkSummary> {
     this.logger.log('START DESCRIPTIF SOMMAIRE DES TRAVAUX');
 
     // Trigger the webhook
-    await this.triggerWebhook(documents, projectId, deliverableId);
+    await this.triggerWebhook(documents, context);
 
     // Return a placeholder result until the webhook processes the data
     return {
@@ -147,13 +147,12 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
 
   private async triggerWebhook(
     documents: Document[],
-    projectId: string,
-    deliverableId: string,
+    context: DeliverableContext,
   ): Promise<void> {
     this.logger.log('triggerWebhook called with documents:', documents.length);
 
     // Get project details to include the long_summary
-    const project = await this.projectsRepository.findById(projectId);
+    const project = await this.projectsRepository.findById(context.projectId);
 
     // Ensure project is valid before using it
     if (!project || typeof project !== 'object') {
@@ -178,11 +177,12 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
 
     // Prepare the webhook payload
     const payload: WebhookPayload = {
-      projectId,
+      projectId: context.projectId,
       deliverableType: DeliverableType.DESCRIPTIF_SOMMAIRE_DES_TRAVAUX,
-      deliverableId,
+      deliverableId: context.deliverableId,
       projectSummary: project.long_summary,
       documents: documentData,
+      userPrompt: context.user_prompt,
     };
 
     const n8nPromise = (async () => {
@@ -253,7 +253,7 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
 
         if (n8nResponse.ok) {
           this.logger.log('Webhook n8n completed successfully.');
-          await this.deliverablesRepository.update(deliverableId, {
+          await this.deliverablesRepository.update(context.deliverableId, {
             process_duration_in_seconds: durationInSeconds,
           });
         } else {

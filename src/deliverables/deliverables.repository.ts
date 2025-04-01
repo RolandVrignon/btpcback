@@ -29,6 +29,8 @@ export class DeliverablesRepository {
             project: {
               connect: { id: dto.projectId },
             },
+            user_prompt: dto.user_prompt ? dto.user_prompt : '',
+            new: dto.new ? dto.new : false,
           },
         });
 

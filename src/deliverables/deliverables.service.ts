@@ -24,6 +24,7 @@ interface DeliverableProcessEvent {
   type: DeliverableType;
   projectId: string;
   documentIds: string[];
+  user_prompt?: string;
 }
 
 @Injectable()
@@ -57,6 +58,8 @@ export class DeliverablesService {
           type: data.type,
           projectId: data.projectId,
           documentIds: data.documentIds,
+          user_prompt: data.user_prompt,
+          deliverableId: data.deliverableId,
         };
         await strategy.generate(context);
       } catch (error) {
@@ -114,12 +117,16 @@ export class DeliverablesService {
         return existingDeliverable;
       }
     }
+
+    const userPrompt = createDeliverableDto.user_prompt || '';
+
     // Utiliser la relation documents avec create pour ajouter les DocumentDeliverable
     const deliverable = await this.deliverablesRepository.create({
       type,
       projectId,
       documentIds,
       new: new_deliverable,
+      user_prompt: userPrompt,
     });
 
     if (!deliverable) {
@@ -131,6 +138,7 @@ export class DeliverablesService {
       type: deliverable.type,
       projectId: deliverable.projectId,
       documentIds,
+      user_prompt: userPrompt,
     });
 
     return deliverable;
@@ -212,23 +220,22 @@ export class DeliverablesService {
   ) {
     const { projectId, type, new: skipExistenceCheck } = createDeliverableDto;
 
-    // Vérifier si un délivrable du même type existe déjà pour ce projet
-    // Sauf si skipExistenceCheck est à true
     if (!skipExistenceCheck) {
       const existingDeliverables =
         await this.deliverablesRepository.findByProject(projectId);
 
-      const existingDeliverable = existingDeliverables.find(
-        (deliverable) =>
-          deliverable.type === type && deliverable.status === 'COMPLETED',
+      const existingDeliverable = existingDeliverables.filter(
+        (deliverable) => deliverable.type === type,
       );
 
-      // Si un déliverable existe déjà, le retourner directement
-      if (existingDeliverable) {
+      const selectedDeliverable =
+        existingDeliverable[existingDeliverable.length - 1];
+
+      if (selectedDeliverable && selectedDeliverable.status === 'COMPLETED') {
         this.logger.log(
           `Délivrable existant trouvé de type ${type} pour le projet ${projectId}`,
         );
-        return existingDeliverable;
+        return selectedDeliverable;
       }
     } else {
       this.logger.log(

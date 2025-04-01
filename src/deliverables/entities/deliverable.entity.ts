@@ -43,6 +43,21 @@ export class DeliverableEntity {
   updatedAt: Date;
 
   @ApiProperty({
+    description:
+      "Instructions spécifiques de l'utilisateur pour affiner la qualité du délivrable",
+    example: 'Focus sur les aspects techniques',
+    required: false,
+  })
+  user_prompt?: string;
+
+  @ApiProperty({
+    description: "Force la création d'un nouveau délivrable",
+    example: false,
+    required: false,
+  })
+  new?: boolean;
+
+  @ApiProperty({
     description: 'Résultat court du livrable',
     example: {
       result: 'Résumé du travail effectué...',
