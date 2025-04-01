@@ -6,6 +6,7 @@ import {
   IsArray,
   IsObject,
   IsInt,
+  IsNumber,
 } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateDocumentDto } from './create-document.dto';
@@ -21,6 +22,24 @@ export class UpdateDocumentDto extends PartialType(CreateDocumentDto) {
   @IsEnum(Status)
   @IsOptional()
   status?: Status;
+
+  @ApiProperty({
+    description: "Durée d'extraction de métadonnées du document en secondes",
+    example: 15.3,
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  extraction_duration_in_seconds?: number;
+
+  @ApiProperty({
+    description: "Durée d'indexation du document en secondes",
+    example: 123.45,
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  indexation_duration_in_seconds?: number;
 
   @ApiProperty({
     description: 'Identification du lot',

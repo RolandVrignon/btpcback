@@ -45,8 +45,9 @@ export class DeliverablesRepository {
     const dtoCopy = { ...dto };
 
     // Remove fields that are not part of the Prisma schema
-    delete dtoCopy.projectId;
-    delete dtoCopy.deliverableId;
+    // Use optional chaining to safely handle potentially undefined properties
+    if ('projectId' in dtoCopy) delete dtoCopy.projectId;
+    if ('deliverableId' in dtoCopy) delete dtoCopy.deliverableId;
 
     const updateData: Prisma.DeliverableUpdateInput = {
       ...dtoCopy,

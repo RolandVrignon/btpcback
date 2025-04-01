@@ -133,6 +133,9 @@ model Document {
   status            Status @default(DRAFT)
   indexation_status Status @default(PENDING)
 
+  extraction_duration_in_seconds Float? @default(0)
+  indexation_duration_in_seconds Float? @default(0)
+
   // Catégorisation du document
   category DocumentCategory @default(PROJECT)
 
@@ -228,6 +231,8 @@ model Deliverable {
 
   type   DeliverableType
   status Status          @default(DRAFT)
+
+  process_duration_in_seconds Float? @default(0)
 
   // Relations
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)

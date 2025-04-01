@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsObject, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsObject,
+  IsEnum,
+  IsNumber,
+} from 'class-validator';
 import { DeliverableType, Status } from '@prisma/client';
 import { JsonValue } from '@prisma/client/runtime/library';
 
@@ -10,7 +16,7 @@ export class UpdateDeliverableDto {
   })
   @IsString()
   @IsOptional()
-  projectId: string;
+  projectId?: string;
 
   @ApiProperty({
     description: 'The ID of the deliverable to update',
@@ -18,7 +24,7 @@ export class UpdateDeliverableDto {
   })
   @IsString()
   @IsOptional()
-  deliverableId: string;
+  deliverableId?: string;
 
   @ApiProperty({
     description: 'The type of the deliverable',
@@ -28,6 +34,15 @@ export class UpdateDeliverableDto {
   @IsOptional()
   @IsEnum(DeliverableType)
   type?: DeliverableType;
+
+  @ApiProperty({
+    description: 'The duration of the deliverable in seconds',
+    example: 123.45,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  process_duration_in_seconds?: number;
 
   @ApiProperty({
     description: 'The status of the deliverable',

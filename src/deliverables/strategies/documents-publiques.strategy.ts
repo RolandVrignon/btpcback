@@ -20,6 +20,7 @@ export class DocumentsPubliquesStrategy implements DeliverableStrategy {
 
   async generate(context: DeliverableContext): Promise<void> {
     try {
+      const startTime = Date.now();
       // Update deliverable status to PROGRESS
       await this.deliverablesRepository.updateStatus(
         context.id,
@@ -54,6 +55,13 @@ export class DocumentsPubliquesStrategy implements DeliverableStrategy {
         Status.COMPLETED,
         data as unknown as JsonValue,
       );
+
+      const endTime = Date.now();
+      const durationInSeconds = (endTime - startTime) / 1000;
+
+      await this.deliverablesRepository.update(context.id, {
+        process_duration_in_seconds: durationInSeconds,
+      });
     } catch (error) {
       console.error('Error generating DOCUMENTS_PUBLIQUES deliverable:', error);
       await this.deliverablesRepository.updateStatus(context.id, Status.ERROR);

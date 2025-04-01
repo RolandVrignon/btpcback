@@ -55,6 +55,8 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
 
       this.logger.log('context:', context);
 
+      const startTime = Date.now();
+
       await this.deliverablesRepository.update(context.id, {
         status: Status.PROGRESS,
         projectId: context.projectId,
@@ -80,6 +82,13 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
         deliverableId: context.id,
         short_result: result,
         long_result: [],
+      });
+
+      const endTime = Date.now();
+      const durationInSeconds = (endTime - startTime) / 1000;
+
+      await this.deliverablesRepository.update(context.id, {
+        process_duration_in_seconds: durationInSeconds,
       });
     } catch (error: unknown) {
       this.logger.error(

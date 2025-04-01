@@ -1450,6 +1450,8 @@ export class DocumentsService {
       try {
         const { document, extractedTextPerPage } = docData;
 
+        const startTime = Date.now();
+
         if (extractedTextPerPage.length === 0) {
           continue; // Ignorer les documents sans texte extrait
         }
@@ -1463,6 +1465,19 @@ export class DocumentsService {
             chunks,
             document.id,
             document.projectId,
+          );
+
+          // Calculer la durée d'indexation
+          const endTime = Date.now();
+          const durationInSeconds = (endTime - startTime) / 1000;
+
+          // Mettre à jour le document avec la durée d'indexation
+          await this.documentsRepository.update(document.id, {
+            indexation_duration_in_seconds: durationInSeconds,
+          });
+
+          this.logger.log(
+            `Indexation terminée pour le document ${document.id} en ${durationInSeconds} secondes`,
           );
         } catch (e) {
           this.logger.error(

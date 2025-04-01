@@ -187,6 +187,7 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
 
     const n8nPromise = (async () => {
       try {
+        const startTime = Date.now();
         // Convertir le payload en JSON
         const payloadStringified = JSON.stringify(payload);
 
@@ -247,8 +248,14 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
           }
         })();
 
+        const endTime = Date.now();
+        const durationInSeconds = (endTime - startTime) / 1000;
+
         if (n8nResponse.ok) {
           this.logger.log('Webhook n8n completed successfully.');
+          await this.deliverablesRepository.update(deliverableId, {
+            process_duration_in_seconds: durationInSeconds,
+          });
         } else {
           this.logger.error('Webhook n8n failed.');
         }
