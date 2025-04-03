@@ -356,7 +356,7 @@ export default function App() {
         <ScrollArea className="w-full h-full flex-1 pb-8">
           <div className="flex flex-col h-full">
             {messages?.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-gray-400 italic">
+              <div className="flex items-center justify-center h-screen text-gray-400 italic">
                 Démarrez une conversation en posant une question...
               </div>
             ) : (

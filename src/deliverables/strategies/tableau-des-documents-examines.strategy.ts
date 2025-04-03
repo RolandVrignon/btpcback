@@ -63,9 +63,13 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
         deliverableId: context.id,
       });
 
+      this.logger.log('context:', context);
+
+      this.logger.log('context.documentIds:', context.documentIds);
+
       // Get all documents for the project
       const documents = await this.getProjectDocumentsWithAiFields(
-        context.projectId,
+        context.documentIds,
       );
 
       // Format the data as needed for the deliverable
@@ -111,7 +115,7 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
   }
 
   private async getProjectDocumentsWithAiFields(
-    projectId: string,
+    documentIds: string[],
   ): Promise<FilteredDocument[]> {
     try {
       // Define AI fields manually instead of using Prisma's internal _dmmf property
@@ -126,9 +130,17 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
         'ai_societe_editrice_document',
       ];
 
+      this.logger.log('documentIds:', documentIds);
+
       // Get all documents for the project (we will filter fields manually)
-      const allDocuments =
-        await this.documentsRepository.findByProject(projectId);
+      const allDocuments = await Promise.all(
+        documentIds.map(async (id) => {
+          const doc = await this.documentsRepository.findOne(id);
+          return doc;
+        }),
+      );
+
+      this.logger.log('allDocuments:', allDocuments);
 
       // Filter out only the fields we want
       const documents = allDocuments.map((doc: Document) => {
