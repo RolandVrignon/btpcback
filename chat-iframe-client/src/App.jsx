@@ -244,7 +244,9 @@ export default function App() {
 
   // Effet pour le défilement qui dépend de messages - maintenant après la déclaration de useChat
   useEffect(() => {
-    scrollToBottom();
+    setTimeout(() => {
+      scrollToBottom();
+    }, 1000);
   }, [messages]);
 
   // Envoie automatique du message initial (si présent dans l'URL)
@@ -376,7 +378,7 @@ export default function App() {
                       <div
                         className={`text-sm ${
                           m.role === 'user'
-                            ? 'message-bubble p-2 inline-block max-w-[60%] break-words shadow-sm text-sm mb-1.5 user-message bg-blue-600 ml-auto text-white text-right'
+                            ? 'message-bubble p-2 pl-4 inline-block max-w-[60%] break-words shadow-sm text-sm mb-1.5 user-message bg-blue-600 ml-auto text-white text-left'
                             : 'bg-transparent w-full'
                         }`}
                       >

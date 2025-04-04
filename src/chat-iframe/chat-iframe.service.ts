@@ -207,7 +207,12 @@ export class ChatIframeService {
         Cependant ne prends pas d'initiative à propos des fonctions, utilise uniquement les outils qui sont explicitement lisés et demandés et demande à l'utilisateur si tu as un doute concernant des paramètres manquants.
         Formates chaque réponse en markdown avec le plus de clarté possible. Ceci implique que tu dois utiliser des titres, des listes, des tableaux, etc.
         Le chat est déstiné à des personnes qui n'ont pas de connaissances en informatique. Il faut donc que tes réponses soient simples et claires. Ne fournit pas de nom de fonctions typés informatique, ou d'id ou ne parles pas de paramètres ect ect.
-        A la fin de chaque reponse, propose une action à l'utilisateur pour continuer l'etude du projet.`,
+        A la fin de chaque reponse, propose une action à l'utilisateur pour continuer l'etude du projet.
+        Pour info, nous sommes le ${new Date().toLocaleDateString('fr-FR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        })}`,
       },
       ...(conversationHistory || []),
       { role: 'user', content: message },

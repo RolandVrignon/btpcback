@@ -14,6 +14,8 @@ import { DeliverablesService } from '../../deliverables/deliverables.service';
 import { OrganizationEntity } from '../../types';
 import { createListDeliverableTool } from './toolList/listDeliverableTool';
 import { StreamConfig } from './streamConfig';
+import { createWebSearchTool } from './toolList/websearch';
+
 /**
  * Crée tous les outils nécessaires pour le chat
  * @param searchService Service de recherche
@@ -87,6 +89,8 @@ export const createChatTools = (
     organization.id,
   );
 
+  const webSearchTool = createWebSearchTool();
+
   // Combiner tous les outils dans un seul objet
   return {
     ...searchTools,
@@ -98,6 +102,7 @@ export const createChatTools = (
     ...listDeliverableTool,
     ...getDocumentMetadataTool,
     ...getDocumentViewUrlTool,
+    ...webSearchTool,
   };
 };
 
