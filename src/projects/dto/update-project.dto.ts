@@ -76,6 +76,15 @@ export class UpdateProjectDto {
   ai_country?: string;
 
   @ApiProperty({
+    description: "L'adresse formatée la plus proche trouvée.",
+    example: "123 rue de l'Innovation, 75001 Paris",
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  closest_formatted_address?: string;
+
+  @ApiProperty({
     description: 'Le statut du projet',
     enum: Status,
     required: false,

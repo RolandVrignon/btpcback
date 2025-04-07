@@ -8,8 +8,10 @@ import { DeliverableContext } from '../interfaces/deliverable-context.interface'
 import { Status } from '@prisma/client';
 import { PublicDataResponse } from '../interfaces/public-data.interface';
 import { JsonValue } from '@prisma/client/runtime/library';
-
+import { Logger } from '@nestjs/common';
 export class GeorisquesStrategy implements DeliverableStrategy {
+  private readonly logger = new Logger(GeorisquesStrategy.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly deliverablesRepository: DeliverablesRepository,
@@ -26,7 +28,6 @@ export class GeorisquesStrategy implements DeliverableStrategy {
         context.id,
         Status.PROGRESS,
       );
-
       // Get project info to retrieve city and address
       const project = await this.projectsRepository.findById(context.projectId);
 
@@ -34,10 +35,17 @@ export class GeorisquesStrategy implements DeliverableStrategy {
         throw new Error('Project city or address is not defined');
       }
 
+      this.logger.log(
+        'Generating GEORISQUES => Project address:',
+        project.closest_formatted_address,
+      );
+
       // Call the n8n webhook to get georisques data
       const n8nUrl = this.configService.get<string>('N8N_WEBHOOK_URL');
-      const address = `${project.ai_address}, ${project.ai_city}`;
+      const address = `${project.closest_formatted_address}`;
       const url = `${n8nUrl}/public-data`;
+
+      this.logger.log('Generating GEORISQUES => Calling n8n webhook:', url);
 
       const payload = {
         address,

@@ -8,8 +8,10 @@ import { DeliverableContext } from '../interfaces/deliverable-context.interface'
 import { Status } from '@prisma/client';
 import { CityDocumentsResponse } from '../interfaces/city-documents.interface';
 import { JsonValue } from '@prisma/client/runtime/library';
-
+import { Logger } from '@nestjs/common';
 export class DocumentsPubliquesStrategy implements DeliverableStrategy {
+  private readonly logger = new Logger(DocumentsPubliquesStrategy.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly deliverablesRepository: DeliverablesRepository,
@@ -30,14 +32,21 @@ export class DocumentsPubliquesStrategy implements DeliverableStrategy {
       // Get project info to retrieve city
       const project = await this.projectsRepository.findById(context.projectId);
 
-      if (!project.ai_city) {
+      if (!project.closest_formatted_address) {
         throw new Error('Project city is not defined');
       }
 
+      this.logger.log(
+        'Generating DOCUMENTS_PUBLIQUES => Project address:',
+        project.closest_formatted_address,
+      );
+
       // Call the n8n webhook to get city documents
       const n8nUrl = this.configService.get<string>('N8N_WEBHOOK_URL');
-      const city = project.ai_city;
-      const url = `${n8nUrl}/public-docs?ville=${city}`;
+
+      // Add null check and type assertion to ensure address is a string
+      const address = project.closest_formatted_address;
+      const url = `${n8nUrl}/public-docs?ville=${address}`;
 
       const response = await fetch(url, {
         method: 'GET',

@@ -102,24 +102,25 @@ model Apikey {
 }
 
 model Project {
-  id             String        @id @unique @default(uuid())
-  name           String        @default("New Project") @db.VarChar(255)
-  short_summary  String?       @default("") @db.Text
-  long_summary   String?       @default("") @db.Text
-  salesforce_id  String?       @default("") @db.VarChar(255)
-  ai_address     String?       @default("") @db.VarChar(255)
-  ai_city        String?       @default("") @db.VarChar(255)
-  ai_zip_code    String?       @default("") @db.VarChar(10)
-  ai_country     String?       @default("") @db.VarChar(255)
-  status         Status        @default(DRAFT)
-  tags           ProjectTag[]
-  organizationId String        @db.VarChar(255)
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  documents      Document[]
-  usages         Usage[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  deliverables   Deliverable[]
+  id                        String        @id @unique @default(uuid())
+  name                      String        @default("New Project") @db.VarChar(255)
+  short_summary             String?       @default("") @db.Text
+  long_summary              String?       @default("") @db.Text
+  salesforce_id             String?       @default("") @db.VarChar(255)
+  ai_address                String?       @default("") @db.VarChar(255)
+  ai_city                   String?       @default("") @db.VarChar(255)
+  ai_zip_code               String?       @default("") @db.VarChar(10)
+  ai_country                String?       @default("") @db.VarChar(255)
+  closest_formatted_address String?       @default("") @db.VarChar(255)
+  status                    Status        @default(DRAFT)
+  tags                      ProjectTag[]
+  organizationId            String        @db.VarChar(255)
+  organization              Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documents                 Document[]
+  usages                    Usage[]
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+  deliverables              Deliverable[]
 
   @@index([organizationId])
 }
