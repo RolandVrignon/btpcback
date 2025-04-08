@@ -35,6 +35,10 @@ do
 done
 echo "PostgreSQL is ready!"
 
+# Reset database with prisma migrate reset
+echo "Resetting database with prisma migrate reset..."
+pnpm prisma migrate reset --force
+
 # Generate Prisma client with runtime DATABASE_URL
 echo "Generating Prisma client..."
 npx prisma generate
