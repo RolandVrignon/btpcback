@@ -36,19 +36,22 @@ export class GeorisquesStrategy implements DeliverableStrategy {
       }
 
       this.logger.log(
-        'Generating GEORISQUES => Project address:',
-        project.closest_formatted_address,
+        'Generating GEORISQUES => Latitude and longitude:',
+        project.latitude,
+        project.longitude,
       );
 
       // Call the n8n webhook to get georisques data
       const n8nUrl = this.configService.get<string>('N8N_WEBHOOK_URL');
-      const address = `${project.closest_formatted_address}`;
+      const latitude = project.latitude;
+      const longitude = project.longitude;
       const url = `${n8nUrl}/public-data`;
 
       this.logger.log('Generating GEORISQUES => Calling n8n webhook:', url);
 
       const payload = {
-        address,
+        latitude,
+        longitude,
         publicDataType: 'GEORISQUES',
       };
 
@@ -80,7 +83,7 @@ export class GeorisquesStrategy implements DeliverableStrategy {
         process_duration_in_seconds: durationInSeconds,
       });
     } catch (error) {
-      console.error('Error generating GEORISQUES deliverable:', error);
+      this.logger.error('Error generating GEORISQUES deliverable:', error);
       await this.deliverablesRepository.updateStatus(context.id, Status.ERROR);
     }
   }

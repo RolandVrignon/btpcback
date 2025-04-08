@@ -112,6 +112,8 @@ model Project {
   ai_zip_code               String?       @default("") @db.VarChar(10)
   ai_country                String?       @default("") @db.VarChar(255)
   closest_formatted_address String?       @default("") @db.VarChar(255)
+  latitude                  Float?        @default(0)
+  longitude                 Float?        @default(0)
   status                    Status        @default(DRAFT)
   tags                      ProjectTag[]
   organizationId            String        @db.VarChar(255)

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsEnum, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsArray, IsNumber } from 'class-validator';
 import { Status, ProjectTag } from './create-project.dto';
 
 export class UpdateProjectDto {
@@ -83,6 +83,24 @@ export class UpdateProjectDto {
   @IsString()
   @IsOptional()
   closest_formatted_address?: string;
+
+  @ApiProperty({
+    description: 'La latitude du projet',
+    example: '48.8566',
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  latitude?: number;
+
+  @ApiProperty({
+    description: 'La longitude du projet',
+    example: '2.3522',
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  longitude?: number;
 
   @ApiProperty({
     description: 'Le statut du projet',
