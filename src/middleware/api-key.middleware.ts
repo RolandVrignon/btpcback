@@ -3,12 +3,15 @@ import {
   NestMiddleware,
   UnauthorizedException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ApiKeyMiddleware implements NestMiddleware {
+  private readonly logger = new Logger(ApiKeyMiddleware.name);
+
   constructor(private prisma: PrismaService) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
@@ -19,7 +22,7 @@ export class ApiKeyMiddleware implements NestMiddleware {
     }
 
     try {
-      // Rechercher la clé API dans la base de données
+      // Try to find the specific API key
       const apiKeyData = await this.prisma.executeWithQueue(() =>
         this.prisma.apikey.findUnique({
           where: { key: apiKey },
@@ -38,6 +41,7 @@ export class ApiKeyMiddleware implements NestMiddleware {
 
       next();
     } catch (error) {
+      this.logger.error('API key verification error', error);
       if (error instanceof UnauthorizedException) {
         throw error;
       }
@@ -50,6 +54,8 @@ export class ApiKeyMiddleware implements NestMiddleware {
 
 @Injectable()
 export class AdminApiKeyMiddleware implements NestMiddleware {
+  private readonly logger = new Logger(AdminApiKeyMiddleware.name);
+
   constructor(private prisma: PrismaService) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
@@ -84,6 +90,7 @@ export class AdminApiKeyMiddleware implements NestMiddleware {
 
       next();
     } catch (error) {
+      this.logger.error('Admin API key verification error', error);
       if (
         error instanceof UnauthorizedException ||
         error instanceof ForbiddenException

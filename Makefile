@@ -93,9 +93,9 @@ push-image:
 	@aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin $(ECR_REGISTRY)
 	@echo "\033[1;33mTaggage de l'image avec $(ECR_REGISTRY)/$(ECR_REPO):$(DOCKER_IMAGE_TAG)...\033[0m"
 	@docker tag btpc-api:latest $(ECR_REGISTRY)/$(ECR_REPO):$(DOCKER_IMAGE_TAG)
-	@echo "\033[1;33mEnvoi de l'image vers Docker Hub...\033[0m"
+	@echo "\033[1;33mEnvoi de l'image vers l'ECR...\033[0m"
 	@docker push $(ECR_REGISTRY)/$(ECR_REPO):$(DOCKER_IMAGE_TAG)
-	@echo "\033[1;32mImage envoyée avec succès vers Docker Hub !\033[0m"
+	@echo "\033[1;32mImage envoyée avec succès vers l'ECR !\033[0m"
 	@echo "L'image est disponible à l'adresse: $(ECR_REGISTRY)/$(ECR_REPO):$(DOCKER_IMAGE_TAG)"
 
 .PHONY: docker-stop
@@ -125,8 +125,8 @@ prisma-generate:
 
 .PHONY: prisma-migrate-dev
 prisma-migrate-dev:
-	@echo "Création d'une nouvelle migration..."
-	pnpm prisma migrate dev
+	@echo "Migrations en cours..."
+	@pnpm prisma migrate dev
 
 .PHONY: prisma-migrate-reset
 prisma-migrate-reset:

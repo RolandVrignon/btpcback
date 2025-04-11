@@ -3,17 +3,18 @@ set -e
 
 # Display startup information
 echo "Démarrage du conteneur..."
-echo "DATABASE_URL: $DATABASE_URL"
+echo "YIIIIIIIHA"
+echo "Here we are"
+
+# Debug : Afficher le PATH et le résultat de 'which sed'
+echo "PATH: $PATH"
+echo "Chemin de sed: $(which sed)"
 
 # Check if DATABASE_URL is defined
 if [ -z "$DATABASE_URL" ]; then
   echo "ERREUR: La variable DATABASE_URL n'est pas définie!"
   exit 1
 fi
-
-# Execute RDS configuration script
-echo "Configuration de la sécurité RDS..."
-npx ts-node scripts/configure-rds-security_back.ts
 
 # Wait for PostgreSQL to be ready
 echo "Waiting for PostgreSQL to be ready..."
@@ -35,10 +36,6 @@ do
 done
 echo "PostgreSQL is ready!"
 
-# Reset database with prisma migrate reset
-echo "Resetting database with prisma migrate reset..."
-pnpm prisma migrate reset --force
-
 # Generate Prisma client with runtime DATABASE_URL
 echo "Generating Prisma client..."
 npx prisma generate
@@ -46,6 +43,13 @@ npx prisma generate
 # Run Prisma migrations
 echo "Running Prisma migrations..."
 npx prisma migrate deploy
+
+# Reset database with prisma migrate reset
+if [ "$DB_INIT" = "true" ]; then
+    echo "Resetting database with prisma migrate reset..."
+    pnpm prisma migrate reset --force
+    npx prisma db seed
+fi
 
 # Debug: Show what command will be executed
 echo "Command to be executed: $@"

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -30,7 +31,7 @@ import { ProjectsRepository } from '../projects/projects.repository';
 import { Logger } from '@nestjs/common';
 
 @Injectable()
-export class StorageService {
+export class StorageService implements OnModuleInit {
   private readonly logger = new Logger(StorageService.name);
   private s3Client: S3Client;
   private bucketName: string;
@@ -53,6 +54,44 @@ export class StorageService {
       'AWS_S3_BUCKET',
       'btpc-documents',
     );
+  }
+
+  /**
+   * Lifecycle hook that runs when the module is initialized
+   * Verifies the connection to S3 and checks if the configured bucket exists
+   */
+  async onModuleInit() {
+    try {
+      this.logger.log('Verifying S3 connection...');
+
+      // Test the connection by listing buckets
+      const command = new ListBucketsCommand({});
+      const { Buckets } = await this.s3Client.send(command);
+
+      this.logger.log(
+        `Successfully connected to S3. Found ${Buckets?.length || 0} buckets.`,
+      );
+
+      // Check if the configured bucket exists
+      const bucketExists = Buckets?.some(
+        (bucket) => bucket.Name === this.bucketName,
+      );
+
+      if (bucketExists) {
+        this.logger.log(`Configured bucket '${this.bucketName}' exists.`);
+      } else {
+        this.logger.warn(
+          `Configured bucket '${this.bucketName}' does not exist. You may need to create it.`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to connect to S3: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      this.logger.error(
+        'Application will continue, but S3 operations may fail.',
+      );
+    }
   }
 
   /**
