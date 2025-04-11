@@ -10,7 +10,8 @@ DOCKER_HUB_USERNAME = roland.vrignon@iadopt.fr
 DOCKER_HUB_PREFIX = iadopt
 DOCKER_IMAGE_NAME = btpc-api
 DOCKER_IMAGE_TAG = latest
-
+ECR_REGISTRY = 929387410269.dkr.ecr.eu-north-1.amazonaws.com
+ECR_REPO = ynor/core
 # Commandes Docker
 .PHONY: docker-start
 docker-start:
@@ -51,7 +52,7 @@ db-setup: db-up db-migrate db-generate
 
 .PHONY: db-init-all
 db-init-all: db-up db-migrate db-generate db-seed
-	@echo "\033[1;32m=== Initialisation complète de la base de données terminée ===\033[0m"
+	@echo "\033[1;32m=== Initialisation complète de la base de données teminée ===\033[0m"
 	@echo "Base de données démarrée, migrations appliquées, client généré et données initiales créées"
 
 .PHONY: db-reset
@@ -88,12 +89,14 @@ push-image:
 	@echo "\033[1;36m=== Préparation et envoi de l'image Docker vers Docker Hub ===\033[0m"
 	@echo "\033[1;33mConstruction de l'image Docker...\033[0m"
 	@docker-compose build
-	@echo "\033[1;33mTaggage de l'image avec $(DOCKER_HUB_PREFIX)/$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)...\033[0m"
-	@docker tag btpc-api:latest $(DOCKER_HUB_PREFIX)/$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)
+	@echo "\033[1;33mConnexion au Registery ECR...\033[0m"
+	@aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin $(ECR_REGISTRY)
+	@echo "\033[1;33mTaggage de l'image avec $(ECR_REGISTRY)/$(ECR_REPO):$(DOCKER_IMAGE_TAG)...\033[0m"
+	@docker tag btpc-api:latest $(ECR_REGISTRY)/$(ECR_REPO):$(DOCKER_IMAGE_TAG)
 	@echo "\033[1;33mEnvoi de l'image vers Docker Hub...\033[0m"
-	@docker push $(DOCKER_HUB_PREFIX)/$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)
+	@docker push $(ECR_REGISTRY)/$(ECR_REPO):$(DOCKER_IMAGE_TAG)
 	@echo "\033[1;32mImage envoyée avec succès vers Docker Hub !\033[0m"
-	@echo "L'image est disponible à l'adresse: $(DOCKER_HUB_PREFIX)/$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)"
+	@echo "L'image est disponible à l'adresse: $(ECR_REGISTRY)/$(ECR_REPO):$(DOCKER_IMAGE_TAG)"
 
 .PHONY: docker-stop
 docker-stop:
