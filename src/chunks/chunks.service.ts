@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { CreateChunkDto } from './dto/create-chunk.dto';
-import { UpdateChunkDto } from './dto/update-chunk.dto';
-import { ChunksRepository } from './chunks.repository';
+import { CreateChunkDto } from '@/chunks/dto/create-chunk.dto';
+import { UpdateChunkDto } from '@/chunks/dto/update-chunk.dto';
+import { ChunksRepository } from '@/chunks/chunks.repository';
 
 @Injectable()
 export class ChunksService {

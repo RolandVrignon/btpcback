@@ -1,14 +1,14 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
-import { StorageController } from './storage.controller';
-import { StorageService } from './storage.service';
+import { StorageController } from '@/storage/storage.controller';
+import { StorageService } from '@/storage/storage.service';
 import { ConfigModule } from '@nestjs/config';
 import {
   ApiKeyMiddleware,
   AdminApiKeyMiddleware,
 } from '../middleware/api-key.middleware';
 import { RequestMethod } from '@nestjs/common';
-import { PrismaModule } from '../prisma/prisma.module';
-import { ProjectsModule } from '../projects/projects.module';
+import { PrismaModule } from '@/prisma/prisma.module';
+import { ProjectsModule } from '@/projects/projects.module';
 
 @Module({
   imports: [ConfigModule, PrismaModule, ProjectsModule],

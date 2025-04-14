@@ -7,12 +7,12 @@ import {
   ApiHeader,
   ApiBody,
 } from '@nestjs/swagger';
-import { DeliverablesService } from './deliverables.service';
-import { CreateDeliverableDto } from './dto/create-deliverable.dto';
-import { DeliverableEntity } from './entities/deliverable.entity';
-import { Organization } from '../decorators/organization.decorator';
-import { OrganizationEntity } from '../types';
-import { UpdateDeliverableDto } from './dto/update-deliverable.dto';
+import { DeliverablesService } from '@/deliverables/deliverables.service';
+import { CreateDeliverableDto } from '@/deliverables/dto/create-deliverable.dto';
+import { DeliverableEntity } from '@/deliverables/entities/deliverable.entity';
+import { Organization } from '@/decorators/organization.decorator';
+import { OrganizationEntity } from '@/types';
+import { UpdateDeliverableDto } from '@/deliverables/dto/update-deliverable.dto';
 
 @ApiTags('deliverables')
 @ApiHeader({

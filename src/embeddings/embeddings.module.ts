@@ -1,10 +1,10 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
-import { EmbeddingsService } from './embeddings.service';
-import { EmbeddingsController } from './embeddings.controller';
-import { ApiKeyMiddleware } from '../middleware/api-key.middleware';
-import { EmbeddingsRepository } from './embeddings.repository';
-import { PrismaModule } from '../prisma/prisma.module';
-import { UsageModule } from '../usage/usage.module';
+import { EmbeddingsService } from '@/embeddings/embeddings.service';
+import { EmbeddingsController } from '@/embeddings/embeddings.controller';
+import { ApiKeyMiddleware } from '@/middleware/api-key.middleware';
+import { EmbeddingsRepository } from '@/embeddings/embeddings.repository';
+import { PrismaModule } from '@/prisma/prisma.module';
+import { UsageModule } from '@/usage/usage.module';
 
 @Module({
   imports: [PrismaModule, UsageModule],

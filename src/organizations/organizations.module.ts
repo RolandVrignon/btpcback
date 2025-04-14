@@ -4,14 +4,11 @@ import {
   MiddlewareConsumer,
   RequestMethod,
 } from '@nestjs/common';
-import { OrganizationsService } from './organizations.service';
-import { OrganizationsController } from './organizations.controller';
-import {
-  AdminApiKeyMiddleware,
-  ApiKeyMiddleware,
-} from '../middleware/api-key.middleware';
-import { OrganizationsRepository } from './organizations.repository';
-import { PrismaModule } from '../prisma/prisma.module';
+import { OrganizationsService } from '@/organizations/organizations.service';
+import { OrganizationsController } from '@/organizations/organizations.controller';
+import { AdminApiKeyMiddleware } from '@/middleware/api-key.middleware';
+import { OrganizationsRepository } from '@/organizations/organizations.repository';
+import { PrismaModule } from '@/prisma/prisma.module';
 
 @Module({
   imports: [PrismaModule],

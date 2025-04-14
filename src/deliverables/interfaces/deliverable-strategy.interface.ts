@@ -1,4 +1,4 @@
-import { DeliverableContext } from './deliverable-context.interface';
+import { DeliverableContext } from '@/deliverables/interfaces/deliverable-context.interface';
 
 export interface DeliverableStrategy {
   /**

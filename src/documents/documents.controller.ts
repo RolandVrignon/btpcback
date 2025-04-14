@@ -19,24 +19,23 @@ import {
   ApiHeader,
   ApiParam,
 } from '@nestjs/swagger';
-import { DocumentsService } from './documents.service';
-import { CreateDocumentDto } from './dto/create-document.dto';
+import { DocumentsService } from '@/documents/documents.service';
+import { CreateDocumentDto } from '@/documents/dto/create-document.dto';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
-import { Organization } from '../decorators/organization.decorator';
-import { UpdateDocumentDto } from './dto/update-document.dto';
-import { OrganizationEntity } from '../types';
-import { UpdateStatusDto } from './dto/update-document-status.dto';
-import { MonitorDocumentDto } from './dto/monitor-document.dto';
-import { ApiKeyGuard } from '../common/guards/api-key.guard';
-import { ViewDocumentDto } from './dto/view-document.dto';
-import { ViewDocumentResponseDto } from './dto/view-document-response.dto';
-import { GetDocumentMetadataDto } from './dto/get-document-metadata.dto';
-import { DocumentMetadataResponseDto } from './dto/document-metadata-response.dto';
-import { ConfirmMultipleUploadsDto } from './dto/confirm-multiple-uploads.dto';
-import { GetDocumentByFilenameDto } from './dto/get-document-by-filename.dto';
+import { Organization } from '@/decorators/organization.decorator';
+import { UpdateDocumentDto } from '@/documents/dto/update-document.dto';
+import { OrganizationEntity } from '@/types';
+import { UpdateStatusDto } from '@/documents/dto/update-document-status.dto';
+import { MonitorDocumentDto } from '@/documents/dto/monitor-document.dto';
+import { ApiKeyGuard } from '@/common/guards/api-key.guard';
+import { ViewDocumentDto } from '@/documents/dto/view-document.dto';
+import { ViewDocumentResponseDto } from '@/documents/dto/view-document-response.dto';
+import { GetDocumentMetadataDto } from '@/documents/dto/get-document-metadata.dto';
+import { DocumentMetadataResponseDto } from '@/documents/dto/document-metadata-response.dto';
+import { ConfirmMultipleUploadsDto } from '@/documents/dto/confirm-multiple-uploads.dto';
+import { GetDocumentByFilenameDto } from '@/documents/dto/get-document-by-filename.dto';
 import { Logger } from '@nestjs/common';
-
 @ApiTags('documents')
 @ApiHeader({
   name: 'x-api-key',

@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import Exa from 'exa-js';
-import { ToolResult } from '../index';
-import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
+import { ToolResult } from '@/chat-iframe/tools/index';
+import { DEFAULT_STREAM_CONFIG } from '@/chat-iframe/tools/streamConfig';
 import { Logger } from '@nestjs/common';
+
 export const exa = new Exa(process.env.EXA_API_KEY);
 
 const logger = new Logger('WebSearchTool');

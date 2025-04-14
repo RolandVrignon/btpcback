@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { UsageRepository } from './usage.repository';
+import { UsageRepository } from '@/usage/usage.repository';
 import { AI_Provider, UsageType } from '@prisma/client';
 
 /**

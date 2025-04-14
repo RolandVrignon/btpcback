@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
-import { OrganizationsService } from './organizations.service';
-import { CreateOrganizationDto } from './dto/create-organization.dto';
+import { OrganizationsService } from '@/organizations/organizations.service';
+import { CreateOrganizationDto } from '@/organizations/dto/create-organization.dto';
 
 @ApiTags('organizations')
 @ApiHeader({

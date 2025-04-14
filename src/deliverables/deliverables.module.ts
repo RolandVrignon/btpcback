@@ -1,16 +1,16 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
-import { DeliverablesController } from './deliverables.controller';
-import { DeliverablesService } from './deliverables.service';
-import { DeliverableFactory } from './factories/deliverable.factory';
-import { PrismaModule } from '../prisma/prisma.module';
-import { DeliverablesRepository } from './deliverables.repository';
-import { DeliverableQueueService } from './services/deliverable-queue.service';
+import { DeliverablesController } from '@/deliverables/deliverables.controller';
+import { DeliverablesService } from '@/deliverables/deliverables.service';
+import { DeliverableFactory } from '@/deliverables/factories/deliverable.factory';
+import { PrismaModule } from '@/prisma/prisma.module';
+import { DeliverablesRepository } from '@/deliverables/deliverables.repository';
+import { DeliverableQueueService } from '@/deliverables/services/deliverable-queue.service';
 import { ConfigModule } from '@nestjs/config';
-import { ApiKeyMiddleware } from '../middleware/api-key.middleware';
+import { ApiKeyMiddleware } from '@/middleware/api-key.middleware';
 import { HttpModule } from '@nestjs/axios';
-import { DocumentsModule } from '../documents/documents.module';
-import { ProjectsModule } from '../projects/projects.module';
-import { ChunksModule } from '../chunks/chunks.module';
+import { DocumentsModule } from '@/documents/documents.module';
+import { ProjectsModule } from '@/projects/projects.module';
+import { ChunksModule } from '@/chunks/chunks.module';
 
 @Module({
   imports: [

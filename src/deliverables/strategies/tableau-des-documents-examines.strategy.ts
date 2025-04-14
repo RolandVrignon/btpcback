@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Status, Document } from '@prisma/client';
-import { DeliverableContext } from '../interfaces/deliverable-context.interface';
-import { DeliverablesRepository } from '../deliverables.repository';
-import { DocumentsRepository } from '../../documents/documents.repository';
-import { PrismaService } from '../../prisma/prisma.service';
+import { DeliverableContext } from '@/deliverables/interfaces/deliverable-context.interface';
+import { DeliverablesRepository } from '@/deliverables/deliverables.repository';
+import { DocumentsRepository } from '@/documents/documents.repository';
+import { PrismaService } from '@/prisma/prisma.service';
 import { BaseDeliverableStrategy } from './base-deliverable.strategy';
 import { ConfigService } from '@nestjs/config';
-import { ProjectsRepository } from 'src/projects/projects.repository';
+import { ProjectsRepository } from '@/projects/projects.repository';
 
 interface FilteredDocument {
   [key: string]: any;
@@ -14,7 +14,7 @@ interface FilteredDocument {
 
 @Injectable()
 export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy {
-  private readonly logger = new Logger(
+  protected readonly logger = new Logger(
     TableauDesDocumentsExaminesStrategy.name,
   );
 

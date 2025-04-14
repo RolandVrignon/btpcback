@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateChunkDto } from './dto/create-chunk.dto';
-import { UpdateChunkDto } from './dto/update-chunk.dto';
+import { PrismaService } from '@/prisma/prisma.service';
+import { CreateChunkDto } from '@/chunks/dto/create-chunk.dto';
+import { UpdateChunkDto } from '@/chunks/dto/update-chunk.dto';
 import { Prisma } from '@prisma/client';
 
 @Injectable()

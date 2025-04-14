@@ -4,12 +4,12 @@ import {
   MiddlewareConsumer,
   RequestMethod,
 } from '@nestjs/common';
-import { ApikeysService } from './apikeys.service';
-import { ApikeysController } from './apikeys.controller';
+import { ApikeysService } from '@/apikeys/apikeys.service';
+import { ApikeysController } from '@/apikeys/apikeys.controller';
 import {
   AdminApiKeyMiddleware,
   ApiKeyMiddleware,
-} from '../middleware/api-key.middleware';
+} from '@/middleware/api-key.middleware';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({

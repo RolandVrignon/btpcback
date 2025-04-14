@@ -11,15 +11,15 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   CreateEmbeddingDto,
   CreateFromQueryDto,
-} from './dto/create-embedding.dto';
+} from '@/embeddings/dto/create-embedding.dto';
 import {
   EmbeddingsRepository,
   EmbeddingSearchResult,
   DotProductSearchResult,
   HybridSearchResult,
   FullTextSearchResult,
-} from './embeddings.repository';
-import { UsageService } from '../usage/usage.service';
+} from '@/embeddings/embeddings.repository';
+import { UsageService } from '@/usage/usage.service';
 import { AI_Provider } from '@prisma/client';
 import { openai } from '@ai-sdk/openai';
 import { embed } from 'ai';

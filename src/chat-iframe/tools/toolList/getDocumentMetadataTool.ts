@@ -1,8 +1,9 @@
 import { Logger } from '@nestjs/common';
-import { DocumentsService } from '../../../documents/documents.service';
+
+import { DocumentsService } from '@/documents/documents.service';
 import { z } from 'zod';
-import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
-import { ToolResult } from '..';
+import { DEFAULT_STREAM_CONFIG } from '@/chat-iframe/tools/streamConfig';
+import { ToolResult } from '@/chat-iframe/tools/index';
 
 const logger = new Logger('GetDocumentMetadataTool');
 

@@ -1,8 +1,9 @@
 import { Logger } from '@nestjs/common';
-import { SearchService } from '../../../search/search.service';
+
+import { SearchService } from '@/search/search.service';
 import { z } from 'zod';
-import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
-import { ToolResult } from '../index';
+import { DEFAULT_STREAM_CONFIG } from '@/chat-iframe/tools/streamConfig';
+import { ToolResult } from '@/chat-iframe/tools/index';
 
 const logger = new Logger('SearchDocumentsTool');
 

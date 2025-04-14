@@ -3,8 +3,8 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateEmbeddingDto } from './dto/create-embedding.dto';
+import { PrismaService } from '@/prisma/prisma.service';
+import { CreateEmbeddingDto } from '@/embeddings/dto/create-embedding.dto';
 import * as crypto from 'crypto';
 import { Prisma } from '@prisma/client';
 

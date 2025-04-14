@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateApikeyDto } from './dto/create-apikey.dto';
-import { UpdateApikeyDto } from './dto/update-apikey.dto';
+import { PrismaService } from '@/prisma/prisma.service';
+import { CreateApikeyDto } from '@/apikeys/dto/create-apikey.dto';
+import { UpdateApikeyDto } from '@/apikeys/dto/update-apikey.dto';
 import * as crypto from 'crypto';
 
 @Injectable()

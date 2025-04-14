@@ -1,16 +1,16 @@
 import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
-import { StorageService } from './storage.service';
-import { UploadUrlDto } from './dto/upload-url.dto';
-import { UploadUrlResponseDto } from './dto/upload-url-response.dto';
-import { BucketListResponseDto } from './dto/bucket-list-response.dto';
-import { CreateBucketResponseDto } from './dto/create-bucket-response.dto';
-import { DownloadFileDto } from './dto/download-file.dto';
-import { DownloadFileResponseDto } from './dto/download-file-response.dto';
-import { RootObjectsResponseDto } from './dto/root-objects-response.dto';
-import { Organization } from '../decorators/organization.decorator';
-import { OrganizationEntity } from '../types/index';
-import { ApiKeyGuard } from '../common/guards/api-key.guard';
+import { StorageService } from '@/storage/storage.service';
+import { UploadUrlDto } from '@/storage/dto/upload-url.dto';
+import { UploadUrlResponseDto } from '@/storage/dto/upload-url-response.dto';
+import { BucketListResponseDto } from '@/storage/dto/bucket-list-response.dto';
+import { CreateBucketResponseDto } from '@/storage/dto/create-bucket-response.dto';
+import { DownloadFileDto } from '@/storage/dto/download-file.dto';
+import { DownloadFileResponseDto } from '@/storage/dto/download-file-response.dto';
+import { RootObjectsResponseDto } from '@/storage/dto/root-objects-response.dto';
+import { Organization } from '@/decorators/organization.decorator';
+import { OrganizationEntity } from '@/types';
+import { ApiKeyGuard } from '@/common/guards/api-key.guard';
 import { Logger } from '@nestjs/common';
 
 @ApiTags('storage')

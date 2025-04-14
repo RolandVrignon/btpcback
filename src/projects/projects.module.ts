@@ -1,9 +1,9 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
-import { ProjectsService } from './projects.service';
-import { ProjectsController } from './projects.controller';
-import { ProjectsRepository } from './projects.repository';
-import { PrismaModule } from '../prisma/prisma.module';
-import { ApiKeyMiddleware } from '../middleware/api-key.middleware';
+import { ProjectsService } from '@/projects/projects.service';
+import { ProjectsController } from '@/projects/projects.controller';
+import { ProjectsRepository } from '@/projects/projects.repository';
+import { PrismaModule } from '@/prisma/prisma.module';
+import { ApiKeyMiddleware } from '@/middleware/api-key.middleware';
 
 @Module({
   imports: [PrismaModule],

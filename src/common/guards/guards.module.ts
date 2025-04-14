@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ApiKeyGuard } from './api-key.guard';
+import { ApiKeyGuard } from '@/common/guards/api-key.guard';
 
 @Module({
   providers: [ApiKeyGuard],

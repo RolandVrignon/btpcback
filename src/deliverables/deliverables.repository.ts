@@ -1,27 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '@/prisma/prisma.service';
 import { Deliverable, Prisma, Status } from '@prisma/client';
-import { UpdateDeliverableDto } from './dto/update-deliverable.dto';
-import { CreateDeliverableDto } from './dto/create-deliverable.dto';
+import { UpdateDeliverableDto } from '@/deliverables/dto/update-deliverable.dto';
+import { CreateDeliverableDto } from '@/deliverables/dto/create-deliverable.dto';
 import { JsonValue } from '@prisma/client/runtime/library';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class DeliverablesRepository {
+  private readonly logger = new Logger(DeliverablesRepository.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateDeliverableDto): Promise<Deliverable> {
-    // Ajout de logs pour le débogage
-    console.log('CreateDeliverableDto reçu:', JSON.stringify(dto, null, 2));
-    console.log('documentIds présents:', dto.documentIds?.length || 0);
-
-    if (dto.documentIds && dto.documentIds.length > 0) {
-      console.log('documentIds:', dto.documentIds);
-    }
-
     try {
-      // Utiliser une transaction pour s'assurer que tout est créé ou rien ne l'est
       return await this.prisma.executeWithQueue(async () => {
-        // Étape 1: Créer le Deliverable sans les documents
         const deliverable = await this.prisma.deliverable.create({
           data: {
             type: dto.type,
@@ -34,18 +27,10 @@ export class DeliverablesRepository {
           },
         });
 
-        console.log('Deliverable créé avec ID:', deliverable.id);
-
-        // Étape 2: Si des documentIds sont fournis, créer manuellement les DocumentDeliverable
         if (dto.documentIds && dto.documentIds.length > 0) {
           const documentDeliverables = [];
 
           for (const documentId of dto.documentIds) {
-            console.log(
-              'Création de DocumentDeliverable pour document:',
-              documentId,
-            );
-
             // Créer chaque DocumentDeliverable un par un
             const docDeliverable = await this.prisma.documentDeliverable.create(
               {
@@ -60,14 +45,8 @@ export class DeliverablesRepository {
                 },
               },
             );
-
-            console.log('DocumentDeliverable créé avec ID:', docDeliverable.id);
             documentDeliverables.push(docDeliverable);
           }
-
-          console.log(
-            `${documentDeliverables.length} DocumentDeliverable créés`,
-          );
 
           // Récupérer le deliverable avec ses relations
           return this.prisma.deliverable.findUnique({
@@ -87,7 +66,7 @@ export class DeliverablesRepository {
       });
     } catch (error) {
       // Capturer et afficher toute erreur lors de la création
-      console.error('ERREUR lors de la création du deliverable:', error);
+      this.logger.error('ERREUR lors de la création du deliverable:', error);
       throw error;
     }
   }

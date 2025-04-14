@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
 import { Injectable } from '@nestjs/common';
-import { CreateOrganizationDto } from './dto/create-organization.dto';
-import { UpdateOrganizationDto } from './dto/update-organization.dto';
-import { OrganizationsRepository } from './organizations.repository';
+import { CreateOrganizationDto } from '@/organizations/dto/create-organization.dto';
+import { UpdateOrganizationDto } from '@/organizations/dto/update-organization.dto';
+import { OrganizationsRepository } from '@/organizations/organizations.repository';
 
 @Injectable()
 export class OrganizationsService {

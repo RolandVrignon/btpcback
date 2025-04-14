@@ -1,8 +1,9 @@
 import { Logger } from '@nestjs/common';
-import { ProjectsService } from '../../../projects/projects.service';
-import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
+
+import { ProjectsService } from '@/projects/projects.service';
+import { DEFAULT_STREAM_CONFIG } from '@/chat-iframe/tools/streamConfig';
 import { z } from 'zod';
-import { ToolResult } from '../index';
+import { ToolResult } from '@/chat-iframe/tools/index';
 const logger = new Logger('GetProjectSummaryTool');
 
 /**

@@ -1,7 +1,7 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { EmbeddingsService } from './embeddings.service';
-import { CreateEmbeddingDto } from './dto/create-embedding.dto';
+import { EmbeddingsService } from '@/embeddings/embeddings.service';
+import { CreateEmbeddingDto } from '@/embeddings/dto/create-embedding.dto';
 
 @ApiTags('embeddings')
 @Controller('embeddings')

@@ -5,9 +5,9 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { CreateDocumentDto } from './dto/create-document.dto';
+import { CreateDocumentDto } from '@/documents/dto/create-document.dto';
 import { Project, Status, AI_Provider } from '@prisma/client';
-import { UpdateDocumentDto } from './dto/update-document.dto';
+import { UpdateDocumentDto } from '@/documents/dto/update-document.dto';
 import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
@@ -15,14 +15,14 @@ import {
   S3ServiceException,
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
-import { ViewDocumentDto } from './dto/view-document.dto';
-import { ViewDocumentResponseDto } from './dto/view-document-response.dto';
+import { ViewDocumentDto } from '@/documents/dto/view-document.dto';
+import { ViewDocumentResponseDto } from '@/documents/dto/view-document-response.dto';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { ChunksService } from '../chunks/chunks.service';
-import { EmbeddingsService } from '../embeddings/embeddings.service';
-import { UsageService } from '../usage/usage.service';
-import { DocumentsRepository } from './documents.repository';
+import { ChunksService } from '@/chunks/chunks.service';
+import { EmbeddingsService } from '@/embeddings/embeddings.service';
+import { UsageService } from '@/usage/usage.service';
+import { DocumentsRepository } from '@/documents/documents.repository';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Readable } from 'stream';
@@ -31,8 +31,8 @@ import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { openai } from '@ai-sdk/openai';
 import { embed } from 'ai';
-import { ConfirmMultipleUploadsDto } from './dto/confirm-multiple-uploads.dto';
-import { PrismaService } from '../prisma/prisma.service';
+import { ConfirmMultipleUploadsDto } from '@/documents/dto/confirm-multiple-uploads.dto';
+import { PrismaService } from '@/prisma/prisma.service';
 import { Chunk } from '@prisma/client';
 @Injectable()
 export class DocumentsService {

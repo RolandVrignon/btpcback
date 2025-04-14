@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
-import { ChunksService } from './chunks.service';
-import { CreateChunkDto } from './dto/create-chunk.dto';
+import { ChunksService } from '@/chunks/chunks.service';
+import { CreateChunkDto } from '@/chunks/dto/create-chunk.dto';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNumber, IsOptional, IsNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';

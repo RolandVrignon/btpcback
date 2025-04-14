@@ -1,16 +1,16 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { DocumentsService } from './documents.service';
-import { DocumentsController } from './documents.controller';
+import { DocumentsService } from '@/documents/documents.service';
+import { DocumentsController } from '@/documents/documents.controller';
 import { MulterModule } from '@nestjs/platform-express';
-import { ApiKeyMiddleware } from '../middleware/api-key.middleware';
-import { UsageModule } from '../usage/usage.module';
-import { DocumentsRepository } from './documents.repository';
-import { PrismaModule } from '../prisma/prisma.module';
-import { EmbeddingsModule } from '../embeddings/embeddings.module';
-import { ChunksModule } from '../chunks/chunks.module';
-import { IndexationQueueModule } from './queue/indexation-queue.module';
-import { GuardsModule } from '../common/guards/guards.module';
+import { ApiKeyMiddleware } from '@/middleware/api-key.middleware';
+import { UsageModule } from '@/usage/usage.module';
+import { DocumentsRepository } from '@/documents/documents.repository';
+import { PrismaModule } from '@/prisma/prisma.module';
+import { EmbeddingsModule } from '@/embeddings/embeddings.module';
+import { ChunksModule } from '@/chunks/chunks.module';
+import { IndexationQueueModule } from '@/documents/queue/indexation-queue.module';
+import { GuardsModule } from '@/common/guards/guards.module';
 
 @Module({
   imports: [

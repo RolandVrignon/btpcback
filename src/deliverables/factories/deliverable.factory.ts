@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { DeliverablesRepository } from '../deliverables.repository';
+import { PrismaService } from '@/prisma/prisma.service';
+import { DeliverablesRepository } from '@/deliverables/deliverables.repository';
 import { DeliverableType } from '@prisma/client';
-import { DescriptifSommaireDesTravauxStrategy } from '../strategies/descriptif-sommaire-des-travaux.strategy';
-import { TableauDesDocumentsExaminesStrategy } from '../strategies/tableau-des-documents-examines.strategy';
-import { DocumentsRepository } from '../../documents/documents.repository';
-import { ProjectsRepository } from '../../projects/projects.repository';
-import { ChunksRepository } from '../../chunks/chunks.repository';
+import { DescriptifSommaireDesTravauxStrategy } from '@/deliverables/strategies/descriptif-sommaire-des-travaux.strategy';
+import { TableauDesDocumentsExaminesStrategy } from '@/deliverables/strategies/tableau-des-documents-examines.strategy';
+import { DocumentsRepository } from '@/documents/documents.repository';
+import { ProjectsRepository } from '@/projects/projects.repository';
+import { ChunksRepository } from '@/chunks/chunks.repository';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
-import { DocumentsPubliquesStrategy } from '../strategies/documents-publiques.strategy';
-import { GeorisquesStrategy } from '../strategies/georisques.strategy';
+import { DocumentsPubliquesStrategy } from '@/deliverables/strategies/documents-publiques.strategy';
+import { GeorisquesStrategy } from '@/deliverables/strategies/georisques.strategy';
 
 @Injectable()
 export class DeliverableFactory {

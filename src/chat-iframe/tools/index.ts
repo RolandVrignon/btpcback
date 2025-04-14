@@ -1,20 +1,20 @@
 // Re-export de tous les outils pour faciliter l'import par les consommateurs
-import { createSearchDocumentsTool } from './toolList/searchDocumentsTool';
-import { createListDocumentsTool } from './toolList/listDocumentsTool';
-import { createReadDocumentTool } from './toolList/readDocumentTool';
-import { createGetProjectSummaryTool } from './toolList/getProjectSummaryTool';
-import { createGetDeliverableTool } from './toolList/getDeliverableTool';
-import { createJsonToMarkdownTool } from './toolList/jsonToMarkdownTool';
-import { createGetDocumentMetadataTool } from './toolList/getDocumentMetadataTool';
-import { createGetDocumentViewUrlTool } from './toolList/getDocumentViewUrlTool';
-import { SearchService } from '../../search/search.service';
-import { DocumentsService } from '../../documents/documents.service';
-import { ProjectsService } from '../../projects/projects.service';
-import { DeliverablesService } from '../../deliverables/deliverables.service';
-import { OrganizationEntity } from '../../types';
-import { createListDeliverableTool } from './toolList/listDeliverableTool';
-import { StreamConfig } from './streamConfig';
-import { createWebSearchTool } from './toolList/websearch';
+import { createSearchDocumentsTool } from '@/chat-iframe/tools/toolList/searchDocumentsTool';
+import { createListDocumentsTool } from '@/chat-iframe/tools/toolList/listDocumentsTool';
+import { createReadDocumentTool } from '@/chat-iframe/tools/toolList/readDocumentTool';
+import { createGetProjectSummaryTool } from '@/chat-iframe/tools/toolList/getProjectSummaryTool';
+import { createGetDeliverableTool } from '@/chat-iframe/tools/toolList/getDeliverableTool';
+import { createJsonToMarkdownTool } from '@/chat-iframe/tools/toolList/jsonToMarkdownTool';
+import { createGetDocumentMetadataTool } from '@/chat-iframe/tools/toolList/getDocumentMetadataTool';
+import { createGetDocumentViewUrlTool } from '@/chat-iframe/tools/toolList/getDocumentViewUrlTool';
+import { SearchService } from '@/search/search.service';
+import { DocumentsService } from '@/documents/documents.service';
+import { ProjectsService } from '@/projects/projects.service';
+import { DeliverablesService } from '@/deliverables/deliverables.service';
+import { OrganizationEntity } from '@/types';
+import { createListDeliverableTool } from '@/chat-iframe/tools/toolList/listDeliverableTool';
+import { StreamConfig } from '@/chat-iframe/tools/streamConfig';
+import { createWebSearchTool } from '@/chat-iframe/tools/toolList/websearch';
 
 /**
  * Crée tous les outils nécessaires pour le chat

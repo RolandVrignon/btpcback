@@ -1,10 +1,10 @@
 import { Controller, Post, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
-import { SearchService } from './search.service';
-import { SearchRequestDto, SearchResponseDto } from './dto';
-import { ApiKeyGuard } from '../common/guards/api-key.guard';
-import { Organization } from '../decorators/organization.decorator';
-import { OrganizationEntity } from '../types';
+import { SearchService } from '@/search/search.service';
+import { SearchRequestDto, SearchResponseDto } from '@/search/dto';
+import { ApiKeyGuard } from '@/common/guards/api-key.guard';
+import { Organization } from '@/decorators/organization.decorator';
+import { OrganizationEntity } from '@/types';
 
 @ApiTags('search')
 @ApiHeader({

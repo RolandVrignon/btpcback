@@ -4,7 +4,7 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ApikeysRepository } from '../../apikeys/apikeys.repository';
+import { ApikeysRepository } from '@/apikeys/apikeys.repository';
 
 @Injectable()
 export class ApiKeyGuard implements CanActivate {

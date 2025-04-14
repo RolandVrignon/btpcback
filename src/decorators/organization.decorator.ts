@@ -1,5 +1,5 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { OrganizationEntity, RequestWithOrganization } from '../types';
+import { OrganizationEntity, RequestWithOrganization } from '@/types';
 
 export const Organization = createParamDecorator(
   (data: unknown, ctx: ExecutionContext): OrganizationEntity => {

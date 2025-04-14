@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IndexationQueueRepository } from './indexation-queue.repository';
+import { IndexationQueueRepository } from '@/documents/queue/indexation-queue.repository';
 
 interface IndexationTask {
   id: string;

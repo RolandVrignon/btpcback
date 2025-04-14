@@ -1,14 +1,15 @@
-import { PrismaService } from '../../prisma/prisma.service';
-import { DeliverablesRepository } from '../deliverables.repository';
-import { DocumentsRepository } from '../../documents/documents.repository';
-import { ProjectsRepository } from '../../projects/projects.repository';
+import { PrismaService } from '@/prisma/prisma.service';
+import { DeliverablesRepository } from '@/deliverables/deliverables.repository';
+import { DocumentsRepository } from '@/documents/documents.repository';
+import { ProjectsRepository } from '@/projects/projects.repository';
 import { ConfigService } from '@nestjs/config';
-import { DeliverableStrategy } from '../interfaces/deliverable-strategy.interface';
-import { DeliverableContext } from '../interfaces/deliverable-context.interface';
+import { DeliverableStrategy } from '@/deliverables/interfaces/deliverable-strategy.interface';
+import { DeliverableContext } from '@/deliverables/interfaces/deliverable-context.interface';
 import { Status } from '@prisma/client';
-import { PublicDataResponse } from '../interfaces/public-data.interface';
+import { PublicDataResponse } from '@/deliverables/interfaces/public-data.interface';
 import { JsonValue } from '@prisma/client/runtime/library';
 import { Logger } from '@nestjs/common';
+
 export class GeorisquesStrategy implements DeliverableStrategy {
   private readonly logger = new Logger(GeorisquesStrategy.name);
 

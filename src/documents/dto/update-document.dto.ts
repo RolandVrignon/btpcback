@@ -9,7 +9,7 @@ import {
   IsNumber,
 } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
-import { CreateDocumentDto } from './create-document.dto';
+import { CreateDocumentDto } from '@/documents/dto/create-document.dto';
 import { Status } from '@prisma/client';
 
 export class UpdateDocumentDto extends PartialType(CreateDocumentDto) {

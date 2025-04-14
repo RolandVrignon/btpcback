@@ -1,2 +1,2 @@
-export * from './search-request.dto';
-export * from './search-response.dto';
+export * from '@/search/dto/search-request.dto';
+export * from '@/search/dto/search-response.dto';

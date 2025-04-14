@@ -20,14 +20,14 @@ import {
   ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { UploadUrlDto } from './dto/upload-url.dto';
-import { UploadUrlResponseDto } from './dto/upload-url-response.dto';
-import { BucketListResponseDto } from './dto/bucket-list-response.dto';
-import { CreateBucketResponseDto } from './dto/create-bucket-response.dto';
-import { DownloadFileDto } from './dto/download-file.dto';
-import { DownloadFileResponseDto } from './dto/download-file-response.dto';
-import { RootObjectsResponseDto } from './dto/root-objects-response.dto';
-import { ProjectsRepository } from '../projects/projects.repository';
+import { UploadUrlDto } from '@/storage/dto/upload-url.dto';
+import { UploadUrlResponseDto } from '@/storage/dto/upload-url-response.dto';
+import { BucketListResponseDto } from '@/storage/dto/bucket-list-response.dto';
+import { CreateBucketResponseDto } from '@/storage/dto/create-bucket-response.dto';
+import { DownloadFileDto } from '@/storage/dto/download-file.dto';
+import { DownloadFileResponseDto } from '@/storage/dto/download-file-response.dto';
+import { RootObjectsResponseDto } from '@/storage/dto/root-objects-response.dto';
+import { ProjectsRepository } from '@/projects/projects.repository';
 import { Logger } from '@nestjs/common';
 
 @Injectable()

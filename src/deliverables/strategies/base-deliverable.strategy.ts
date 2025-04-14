@@ -1,15 +1,18 @@
 import {
   DeliverableResult,
   DeliverableContext,
-} from '../interfaces/deliverable-result.interface';
-import { PrismaService } from '../../prisma/prisma.service';
+} from '@/deliverables/interfaces/deliverable-result.interface';
+import { PrismaService } from '@/prisma/prisma.service';
 import { Injectable } from '@nestjs/common';
-import { DeliverablesRepository } from '../deliverables.repository';
-import { ProjectsRepository } from '../../projects/projects.repository';
-import { DocumentsRepository } from '../../documents/documents.repository';
+import { DeliverablesRepository } from '@/deliverables/deliverables.repository';
+import { ProjectsRepository } from '@/projects/projects.repository';
+import { DocumentsRepository } from '@/documents/documents.repository';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export abstract class BaseDeliverableStrategy {
+  protected readonly logger = new Logger(BaseDeliverableStrategy.name);
+
   constructor(
     protected readonly prisma: PrismaService,
     protected readonly deliverablesRepository: DeliverablesRepository,
@@ -52,7 +55,7 @@ export abstract class BaseDeliverableStrategy {
    * Common method to handle errors during generation
    */
   protected handleError(error: Error): DeliverableResult {
-    console.error('Error generating deliverable:', error);
+    this.logger.error('Error generating deliverable:', error);
     return {
       success: false,
       data: null,
@@ -67,7 +70,7 @@ export abstract class BaseDeliverableStrategy {
       const project = await this.projectsRepository.findById(context.projectId);
       return !!project;
     } catch (error) {
-      console.error('Error validating project:', error);
+      this.logger.error('Error validating project:', error);
       return false;
     }
   }

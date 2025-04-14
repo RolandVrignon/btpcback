@@ -8,16 +8,16 @@ import {
   Logger,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { DeliverableFactory } from './factories/deliverable.factory';
-import { CreateDeliverableDto } from './dto/create-deliverable.dto';
-import { DeliverablesRepository } from './deliverables.repository';
+import { DeliverableFactory } from '@/deliverables/factories/deliverable.factory';
+import { CreateDeliverableDto } from '@/deliverables/dto/create-deliverable.dto';
+import { DeliverablesRepository } from '@/deliverables/deliverables.repository';
 import { DeliverableType } from '@prisma/client';
-import { DeliverableContext } from './interfaces/deliverable-context.interface';
-import { DeliverableQueueService } from './services/deliverable-queue.service';
-import { OrganizationEntity } from '../types';
-import { ProjectsRepository } from '../projects/projects.repository';
-import { DocumentsRepository } from '../documents/documents.repository';
-import { UpdateDeliverableDto } from './dto/update-deliverable.dto';
+import { DeliverableContext } from '@/deliverables/interfaces/deliverable-context.interface';
+import { DeliverableQueueService } from '@/deliverables/services/deliverable-queue.service';
+import { OrganizationEntity } from '@/types';
+import { ProjectsRepository } from '@/projects/projects.repository';
+import { DocumentsRepository } from '@/documents/documents.repository';
+import { UpdateDeliverableDto } from '@/deliverables/dto/update-deliverable.dto';
 
 interface DeliverableProcessEvent {
   deliverableId: string;

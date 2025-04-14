@@ -1,10 +1,14 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { EmbeddingsService } from '../embeddings/embeddings.service';
-import { SearchRequestDto, SearchResponseDto, SearchResultDto } from './dto';
+import { EmbeddingsService } from '@/embeddings/embeddings.service';
+import {
+  SearchRequestDto,
+  SearchResponseDto,
+  SearchResultDto,
+} from '@/search/dto';
 import { NotFoundException } from '@nestjs/common';
-import { ProjectsRepository } from '../projects/projects.repository';
-import { SearchRepository } from './search.repository';
-import { ChunksRepository } from '../chunks/chunks.repository';
+import { ProjectsRepository } from '@/projects/projects.repository';
+import { SearchRepository } from '@/search/search.repository';
+import { ChunksRepository } from '@/chunks/chunks.repository';
 import { Logger } from '@nestjs/common';
 
 // Interface pour les résultats de recherche vectorielle

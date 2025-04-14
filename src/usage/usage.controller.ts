@@ -1,10 +1,8 @@
 import { Controller, Post, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
-import { UsageService } from './usage.service';
-import { CreateUsageDto } from './dto/create-usage.dto';
-import { Organization } from '../decorators/organization.decorator';
-import { OrganizationEntity } from '../types';
-import { ApiKeyGuard } from '../common/guards/api-key.guard';
+import { UsageService } from '@/usage/usage.service';
+import { CreateUsageDto } from '@/usage/dto/create-usage.dto';
+import { ApiKeyGuard } from '@/common/guards/api-key.guard';
 
 @ApiTags('usage')
 @ApiHeader({
@@ -28,12 +26,7 @@ export class UsageController {
     status: 400,
     description: 'Données invalides',
   })
-  async create(
-    @Body() createUsageDto: CreateUsageDto,
-    @Organization() organization: OrganizationEntity,
-  ) {
-    // Vérifier que le projet appartient à l'organisation
-    // Cette vérification est déjà faite dans le service
+  async create(@Body() createUsageDto: CreateUsageDto) {
     return this.usageService.create(createUsageDto);
   }
 }

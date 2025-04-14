@@ -6,10 +6,10 @@ import {
   ApiHeader,
   ApiParam,
 } from '@nestjs/swagger';
-import { ApikeysService } from './apikeys.service';
-import { CreateApikeyDto } from './dto/create-apikey.dto';
-import { Organization } from '../decorators/organization.decorator';
-import { OrganizationEntity } from '../types';
+import { ApikeysService } from '@/apikeys/apikeys.service';
+import { CreateApikeyDto } from '@/apikeys/dto/create-apikey.dto';
+import { Organization } from '@/decorators/organization.decorator';
+import { OrganizationEntity } from '@/types';
 
 @ApiTags('apikeys')
 @ApiHeader({

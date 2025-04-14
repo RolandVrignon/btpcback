@@ -10,10 +10,10 @@ import {
   NotFoundException,
   Logger,
 } from '@nestjs/common';
-import { ChatIframeService } from './chat-iframe.service';
+import { ChatIframeService } from '@/chat-iframe/chat-iframe.service';
 import { Response } from 'express';
 import { join } from 'path';
-import { ChatRequestDto } from './dto/chatRequest.dto';
+import { ChatRequestDto } from '@/chat-iframe/dto/chatRequest.dto';
 
 @Controller('chat')
 export class ChatIframeController {

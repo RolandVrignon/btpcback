@@ -1,9 +1,9 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
-import { ChunksService } from './chunks.service';
-import { ChunksController } from './chunks.controller';
-import { ApiKeyMiddleware } from '../middleware/api-key.middleware';
-import { ChunksRepository } from './chunks.repository';
-import { PrismaModule } from '../prisma/prisma.module';
+import { ChunksService } from '@/chunks/chunks.service';
+import { ChunksController } from '@/chunks/chunks.controller';
+import { ApiKeyMiddleware } from '@/middleware/api-key.middleware';
+import { ChunksRepository } from '@/chunks/chunks.repository';
+import { PrismaModule } from '@/prisma/prisma.module';
 
 @Module({
   imports: [PrismaModule],

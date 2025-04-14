@@ -5,16 +5,16 @@ import {
   Logger,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '@/prisma/prisma.service';
 import { streamText, Message, smoothStream } from 'ai';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
-import { SearchService } from '../search/search.service';
-import { DocumentsService } from '../documents/documents.service';
-import { ProjectsService } from '../projects/projects.service';
-import { DeliverablesService } from '../deliverables/deliverables.service';
-import { createChatTools } from './tools';
-import { DEFAULT_STREAM_CONFIG, model } from './tools/streamConfig';
+import { SearchService } from '@/search/search.service';
+import { DocumentsService } from '@/documents/documents.service';
+import { ProjectsService } from '@/projects/projects.service';
+import { DeliverablesService } from '@/deliverables/deliverables.service';
+import { createChatTools } from '@/chat-iframe/tools';
+import { DEFAULT_STREAM_CONFIG, model } from '@/chat-iframe/tools/streamConfig';
 import { UsageType, AI_Provider } from '@prisma/client';
 
 interface Usage {

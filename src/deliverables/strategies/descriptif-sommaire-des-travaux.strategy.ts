@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { BaseDeliverableStrategy } from './base-deliverable.strategy';
-import { DeliverableContext } from '../interfaces/deliverable-context.interface';
-import { PrismaService } from '../../prisma/prisma.service';
+import { DeliverableContext } from '@/deliverables/interfaces/deliverable-context.interface';
+import { PrismaService } from '@/prisma/prisma.service';
 import { Document, DeliverableType } from '@prisma/client';
-import { DeliverablesRepository } from '../deliverables.repository';
+import { DeliverablesRepository } from '@/deliverables/deliverables.repository';
 import { ConfigService } from '@nestjs/config';
-import { DocumentsRepository } from '../../documents/documents.repository';
-import { ProjectsRepository } from '../../projects/projects.repository';
+import { DocumentsRepository } from '@/documents/documents.repository';
+import { ProjectsRepository } from '@/projects/projects.repository';
 import { JSONValue } from 'ai';
 
 interface WorkSummary {
@@ -34,7 +34,7 @@ interface WebhookPayload {
 
 @Injectable()
 export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrategy {
-  private readonly logger = new Logger(
+  protected readonly logger = new Logger(
     DescriptifSommaireDesTravauxStrategy.name,
   );
 

@@ -1,12 +1,13 @@
 import { Logger } from '@nestjs/common';
-import { DEFAULT_STREAM_CONFIG } from '../streamConfig';
+
+import { DEFAULT_STREAM_CONFIG } from '@/chat-iframe/tools/streamConfig';
 import { z } from 'zod';
 import { DeliverableType } from '@prisma/client';
-import { DeliverablesService } from '../../../deliverables/deliverables.service';
-import { OrganizationEntity } from '../../../types';
-import { CreateDeliverableDto } from '../../../deliverables/dto/create-deliverable.dto';
-import { DeliverableEntity } from '../../../deliverables/entities/deliverable.entity';
-import { ToolResult } from '../index';
+import { DeliverablesService } from '@/deliverables/deliverables.service';
+import { OrganizationEntity } from '@/types';
+import { CreateDeliverableDto } from '@/deliverables/dto/create-deliverable.dto';
+import { DeliverableEntity } from '@/deliverables/entities/deliverable.entity';
+import { ToolResult } from '@/chat-iframe/tools/index';
 
 const logger = new Logger('GetDeliverableTool');
 

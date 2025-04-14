@@ -6,11 +6,11 @@ import {
   ApiHeader,
   ApiParam,
 } from '@nestjs/swagger';
-import { ProjectsService } from './projects.service';
-import { CreateProjectDto } from './dto/create-project.dto';
-import { UpdateProjectDto } from './dto/update-project.dto';
-import { Organization } from '../decorators/organization.decorator';
-import { OrganizationEntity } from '../types';
+import { ProjectsService } from '@/projects/projects.service';
+import { CreateProjectDto } from '@/projects/dto/create-project.dto';
+import { UpdateProjectDto } from '@/projects/dto/update-project.dto';
+import { Organization } from '@/decorators/organization.decorator';
+import { OrganizationEntity } from '@/types';
 
 @ApiTags('projects')
 @ApiHeader({
