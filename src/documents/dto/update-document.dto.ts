@@ -42,6 +42,15 @@ export class UpdateDocumentDto extends PartialType(CreateDocumentDto) {
   indexation_duration_in_seconds?: number;
 
   @ApiProperty({
+    description: 'Titre du document',
+    example: 'Plan de masse',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  ai_titre_document?: string;
+
+  @ApiProperty({
     description: 'Identification du lot',
     example: ['LOT-01', 'LOT-02'],
     required: false,

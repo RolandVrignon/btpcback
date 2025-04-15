@@ -114,6 +114,7 @@ model Project {
   closest_formatted_address String?       @default("") @db.VarChar(255)
   latitude                  Float?        @default(0)
   longitude                 Float?        @default(0)
+  altitude                  Float?        @default(0)
   status                    Status        @default(DRAFT)
   tags                      ProjectTag[]
   organizationId            String        @db.VarChar(255)
@@ -149,6 +150,7 @@ model Document {
   updatedAt DateTime @updatedAt
 
   // Champs existants d'analyse AI
+  ai_titre_document            String?               @default("")
   ai_lot_identification        String[]              @default([])
   ai_Type_batiment             String[]              @default([])
   ai_Type_operation            String[]              @default([])

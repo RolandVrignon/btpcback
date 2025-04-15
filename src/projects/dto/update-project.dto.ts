@@ -109,6 +109,15 @@ export class UpdateProjectDto {
   longitude?: number;
 
   @ApiProperty({
+    description: 'Altitude du document',
+    example: 123.45,
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  altitude?: number;
+
+  @ApiProperty({
     description: 'Le statut du projet',
     enum: Status,
     required: false,
