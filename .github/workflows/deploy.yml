@@ -22,11 +22,11 @@ jobs:
       - name: Login to ECR
         run: |
           aws ecr get-login-password --region eu-north-1 \
-          | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
+          | docker login --username AWS --password-stdin 929387410269.dkr.ecr.eu-north-1.amazonaws.com
 
       - name: Build and push Docker image
         run: |
-          IMAGE=${{ secrets.ECR_REGISTRY }}/ynor/core:latest
+          IMAGE=929387410269.dkr.ecr.eu-north-1.amazonaws.com/ynor/core:latest
           docker build -t $IMAGE .
           docker push $IMAGE
 
@@ -39,7 +39,7 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST_CORE }} << 'EOF'
             cd /home/ubuntu
-            aws ecr get-login-password --region eu-north-1   | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
+            aws ecr get-login-password --region eu-north-1   | docker login --username AWS --password-stdin 929387410269.dkr.ecr.eu-north-1.amazonaws.com
             docker compose pull
             docker compose up -d
           EOF
