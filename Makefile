@@ -62,27 +62,36 @@ db-reset:
 	@npx prisma migrate reset --force
 	@echo "\033[1;32mBase de données réinitialisée avec succès\033[0m"
 
-# Commandes Docker pour le déploiement
 .PHONY: deploy
 deploy:
-	@echo "\033[1;36m=== Déploiement de l'application avec Docker ===\033[0m"
-	@if [ ! -f .env.docker ]; then \
-		echo "\033[1;31mErreur: Le fichier .env.docker n'existe pas.\033[0m"; \
-		echo "Veuillez créer ce fichier avec les variables d'environnement nécessaires."; \
-		exit 1; \
-	fi
-	@echo "\033[1;33mArrêt des conteneurs existants...\033[0m"
-	@docker-compose down || true
-	@echo "\033[1;33mConstruction de l'image Docker...\033[0m"
-	@docker-compose build
-	@echo "\033[1;33mDémarrage du conteneur avec les variables d'environnement de .env.docker...\033[0m"
-	@docker-compose up -d
-	@echo "\033[1;33mExécution des migrations Prisma...\033[0m"
-	@docker-compose exec -T api npx prisma migrate deploy || echo "\033[1;31mAttention: Échec de l'exécution des migrations. Vérifiez la connexion à la base de données.\033[0m"
-	@echo "\033[1;32mDéploiement terminé avec succès !\033[0m"
-	@echo "Pour voir les logs de l'API, exécutez: docker-compose logs -f api"
-	@echo "\033[1;33mConteneurs en cours d'exécution:\033[0m"
-	@docker-compose ps
+	@# Everything in one shell block for clarity:
+	@( \
+	  echo "Step 1: check if current branch is 'main'"; \
+	  CURRENT_BRANCH=$$(git rev-parse --abbrev-ref HEAD); \
+	  if [ "$$CURRENT_BRANCH" != "main" ]; then \
+	    echo "Error: you must be on 'main' branch to deploy."; \
+	    exit 1; \
+	  fi; \
+	  echo "Step 2: verify uncommitted changes"; \
+	  CHANGES=$$(git status --porcelain); \
+	  if [ -n "$$CHANGES" ]; then \
+	    echo "You have local changes. Let's commit them."; \
+	    read -p "Enter production commit message: " MSG; \
+	    git add .; \
+	    git commit -m "$$MSG"; \
+	    git push origin main; \
+	  else \
+	    echo "No uncommitted changes found, continuing..."; \
+	  fi; \
+	  echo "Step 3: checkout 'prod', merge 'main', push, then come back"; \
+	  git checkout prod; \
+	  git merge main; \
+	  git push origin prod; \
+	  git checkout main; \
+	  echo "✅ Deployment completed!"; \
+	)
+
+
 
 # Commande pour pousser l'image sur Docker Hub
 .PHONY: push-image
