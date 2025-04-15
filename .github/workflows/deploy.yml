@@ -42,4 +42,6 @@ jobs:
             aws ecr get-login-password --region eu-north-1   | docker login --username AWS --password-stdin 929387410269.dkr.ecr.eu-north-1.amazonaws.com
             docker compose pull
             docker compose up -d
+            # Clean up unused Docker images to prevent accumulation
+            docker image prune -af
           EOF
