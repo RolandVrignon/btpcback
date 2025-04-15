@@ -39,6 +39,6 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST_CORE }} << 'EOF'
             cd /home/ubuntu
-            docker-compose pull
-            docker-compose up -d
+            docker compose pull
+            docker compose up -d
           EOF
