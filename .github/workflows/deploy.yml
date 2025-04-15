@@ -22,11 +22,11 @@ jobs:
       - name: Login to ECR
         run: |
           aws ecr get-login-password --region eu-north-1 \
-          | docker login --username AWS --password-stdin 929587410269.dkr.ecr.eu-north-1.amazonaws.com
+          | docker login --username AWS --password-stdin 929387410269.dkr.ecr.eu-north-1.amazonaws.com
 
       - name: Build and push Docker image
         run: |
-          IMAGE=929587410269.dkr.ecr.eu-north-1.amazonaws.com/ynor/core:latest
+          IMAGE=929387410269.dkr.ecr.eu-north-1.amazonaws.com/ynor/core:latest
           docker build -t $IMAGE .
           docker push $IMAGE
 
