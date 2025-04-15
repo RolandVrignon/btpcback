@@ -1,0 +1,45 @@
+name: Deploy Core API
+
+on:
+  push:
+    branches: [prod]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-north-1
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region eu-north-1 \
+          | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
+
+      - name: Build and push Docker image
+        run: |
+          IMAGE=${{ secrets.ECR_REGISTRY }}/ynor/core:latest
+          docker build -t $IMAGE .
+          docker push $IMAGE
+
+      - name: Write SSH key
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" | base64 -d > ec2_key.pem
+          chmod 600 ec2_key.pem
+
+      - name: Deploy via SSH
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST_CORE }} << 'EOF'
+            cd /home/ubuntu
+            aws ecr get-login-password --region eu-north-1   | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
+            docker compose pull
+            docker compose up -d
+          EOF
