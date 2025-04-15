@@ -956,6 +956,7 @@ export class DocumentsService {
                         // Extraire les métadonnées du PDF
                         const metadata =
                           await this.extractPdfMetadata(pdfFilePath);
+
                         const numPages = extractedText.length;
 
                         await this.documentsRepository.update(document.id, {
@@ -969,7 +970,12 @@ export class DocumentsService {
 
                         return {
                           document,
-                          text: extractedText.map((pt) => pt.text).join('\n\n'),
+                          text: extractedText
+                            .map(
+                              (pt, index) =>
+                                `\n\n---------------------- Page Selector ${index + 1} -----------------------------\n\n${pt.text}`,
+                            )
+                            .join('\n'),
                           extractedTextPerPage: extractedText,
                         };
                       }
