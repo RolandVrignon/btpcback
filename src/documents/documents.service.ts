@@ -973,7 +973,7 @@ export class DocumentsService {
                           text: extractedText
                             .map(
                               (pt, index) =>
-                                `\n\n---------------------- Page Selector ${index + 1} -----------------------------\n\n${pt.text}`,
+                                `-------------- Page Selector ${index + 1} --------------\n\n${pt.text}\n\n`,
                             )
                             .join('\n'),
                           extractedTextPerPage: extractedText,
