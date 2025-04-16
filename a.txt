@@ -1,0 +1,72 @@
+├── chat-iframe-client
+│   ├── index.html
+│   ├── package.json
+│   ├── pnpm-lock.yaml
+│   ├── postcss.config.cjs
+│   ├── public
+│   │   └── index.html
+│   ├── src
+│   │   ├── App.jsx
+│   │   ├── main.jsx
+│   │   └── styles.css
+│   ├── tailwind.config.cjs
+│   └── vite.config.js
+├── clear-db.sql
+├── dist
+│   ├── chat-iframe-client
+│   ├── prisma
+│   ├── src
+│   └── tsconfig.build.tsbuildinfo
+├── docker-compose.yml
+├── Dockerfile
+├── eslint.config.mjs
+├── Makefile
+├── nest-cli.json
+├── package.json
+├── pnpm-lock.yaml
+├── prisma
+│   ├── migrations
+│   ├── schema.prisma
+│   └── seed.ts
+├── public
+│   └── chat
+│       ├── assets
+│       │   ├── index-Bwd7kStW.css
+│       │   ├── index-BZfwFWXi.js
+│       │   ├── markdown-BctigNeP.js
+│       │   ├── markdown-DIeG8b1p.js
+│       │   ├── toolInvocation-BsWjOC3b.js
+│       │   ├── ui-D3wPCBrw.js
+│       │   └── vendor-D4LwOIUD.js
+│       └── index.html
+├── README.md
+├── README-QUEUE-SYSTEM.md
+├── src
+│   ├── apikeys
+│   ├── app.controller.spec.ts
+│   ├── app.controller.ts
+│   ├── app.module.ts
+│   ├── app.service.ts
+│   ├── auth
+│   ├── chat-iframe
+│   ├── chunks
+│   ├── common
+│   ├── decorators
+│   ├── deliverables
+│   ├── documents
+│   ├── embeddings
+│   ├── main.ts
+│   ├── middleware
+│   ├── organizations
+│   ├── prisma
+│   ├── projects
+│   ├── search
+│   ├── shared
+│   ├── storage
+│   └── usage
+├── test
+│   ├── app.e2e-spec.ts
+│   └── jest-e2e.json
+├── tsconfig.build.json
+├── tsconfig.json
+└── uploads

@@ -5,10 +5,67 @@ import { ValidationPipe } from '@nestjs/common';
 import { Server } from 'http';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import * as express from 'express';
+import { join } from 'path';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  // Créer spécifiquement une application Express pour accéder à ses méthodes
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // IMPORTANT: Servir les fichiers statiques directement avec Express
+  // Cette méthode remplacera ServeStaticModule pour plus de contrôle
+  logger.log('Setting up direct static file serving with Express');
+
+  // Middleware pour corriger les types MIME
+  app.use('/chat/assets', (req, res, next) => {
+    const url = req.url;
+    logger.debug(`Request to /chat/assets: ${url}`);
+
+    if (url.endsWith('.js')) {
+      logger.debug(
+        'Setting content-type to application/javascript for JS file',
+      );
+      res.type('application/javascript');
+    } else if (url.endsWith('.css')) {
+      logger.debug('Setting content-type to text/css for CSS file');
+      res.type('text/css');
+    }
+    next();
+  });
+
+  // Définir explicitement les options pour le middleware statique
+  const staticOptions = {
+    etag: true,
+    maxAge: '30d',
+    setHeaders: (res, path, stat) => {
+      // Définir explicitement les types MIME pour les extensions courantes
+      if (path.endsWith('.js')) {
+        res.set('Content-Type', 'application/javascript');
+      } else if (path.endsWith('.css')) {
+        res.set('Content-Type', 'text/css');
+      }
+    },
+  };
+
+  // Servir les assets avant tout
+  app.use(
+    '/chat/assets',
+    express.static(
+      join(process.cwd(), 'public', 'chat', 'assets'),
+      staticOptions,
+    ),
+  );
+
+  // Servir les autres fichiers du dossier chat
+  app.use(
+    '/chat',
+    express.static(join(process.cwd(), 'public', 'chat'), {
+      index: false, // Ne pas servir index.html automatiquement
+      ...staticOptions,
+    }),
+  );
 
   // Configuration de Swagger
   const config = new DocumentBuilder()
