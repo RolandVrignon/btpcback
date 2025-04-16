@@ -34,6 +34,8 @@ import { embed } from 'ai';
 import { ConfirmMultipleUploadsDto } from '@/documents/dto/confirm-multiple-uploads.dto';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Chunk } from '@prisma/client';
+import { Mistral } from '@mistralai/mistralai';
+import { StorageService } from '@/storage/storage.service';
 @Injectable()
 export class DocumentsService {
   private readonly logger = new Logger(DocumentsService.name);
@@ -49,6 +51,7 @@ export class DocumentsService {
     private readonly documentsRepository: DocumentsRepository,
     private readonly embeddingsService: EmbeddingsService,
     private readonly chunksService: ChunksService,
+    private readonly storageService: StorageService,
     private readonly prismaService: PrismaService,
   ) {
     this.s3Client = new S3Client({
@@ -549,6 +552,8 @@ export class DocumentsService {
    */
   private async extractTextFromPdf(
     pdfPath: string,
+    projectId: string,
+    fileName: string,
   ): Promise<Array<{ text: string; page: number }>> {
     const exec = promisify(execCallback);
     const tempDir = path.dirname(pdfPath);
@@ -567,6 +572,49 @@ export class DocumentsService {
 
       const totalPages = parseInt(pagesMatch[1], 10);
 
+      this.logger.log(`Nombre de pages du PDF: ${totalPages}`);
+
+      // Vérifier si le PDF est OCRisé en examinant plusieurs pages
+      // Nous vérifierons la première page, une page au milieu et la dernière page
+      const pagesToCheck = [
+        1, // Première page
+        Math.ceil(totalPages / 2), // Page du milieu
+        totalPages > 2 ? totalPages : 1, // Dernière page (si différente de la première)
+      ].filter((v, i, a) => a.indexOf(v) === i); // Éliminer les doublons
+
+      let isOcred = false;
+      let ocrCheckCount = 0;
+
+      for (const pageNum of pagesToCheck) {
+        const checkOcrCommand = `pdftotext -f ${pageNum} -l ${pageNum} "${pdfPath}" "${tempOutputPath}"`;
+        await exec(checkOcrCommand);
+
+        if (fs.existsSync(tempOutputPath)) {
+          const sampleText = fs.readFileSync(tempOutputPath, 'utf8');
+          // Si le texte extrait est significatif (plus de 50 caractères non-espace), considérer que la page est OCRisée
+          const pageHasText = sampleText.trim().replace(/\s+/g, '').length > 50;
+
+          if (pageHasText) {
+            ocrCheckCount++;
+          }
+
+          fs.unlinkSync(tempOutputPath);
+        }
+      }
+
+      // On considère le document comme OCRisé si au moins 2/3 des pages vérifiées contiennent du texte
+      isOcred = ocrCheckCount >= Math.ceil(pagesToCheck.length * 0.66);
+
+      this.logger.log(
+        `${fileName} est ${isOcred ? 'OCRisé' : 'non OCRisé'} (${ocrCheckCount}/${pagesToCheck.length} pages contiennent du texte)`,
+      );
+
+      // Si le document n'est pas OCRisé, traitement alternatif
+      if (!isOcred) {
+        const results = await this.processNonOcrPdf(projectId, fileName);
+        return results;
+      }
+
       // Tableau pour stocker les résultats
       const results: Array<{ text: string; page: number }> = [];
 
@@ -576,7 +624,7 @@ export class DocumentsService {
         const extractCommand = `pdftotext -f ${pageNum} -l ${pageNum} -layout "${pdfPath}" "${tempOutputPath}"`;
         await exec(extractCommand);
 
-        // Lire le contenu du fichier texte
+        // Lire le contenu du fichier texteou
         if (fs.existsSync(tempOutputPath)) {
           const pageText = fs.readFileSync(tempOutputPath, 'utf8');
 
@@ -601,6 +649,56 @@ export class DocumentsService {
       throw new Error(
         `Échec de l'extraction du texte: ${(error as Error).message}`,
       );
+    }
+  }
+
+  /**
+   * Traite un PDF non OCRisé en utilisant Mistral OCR via Vercel AI SDK
+   * Cette méthode envoie chaque page du PDF à Mistral pour OCRisation
+   * @param pdfPath Chemin vers le fichier PDF
+   * @param totalPages Nombre total de pages
+   * @returns Tableau d'objets contenant le texte OCRisé et le numéro de page
+   */
+  private async processNonOcrPdf(
+    projectId: string,
+    fileName: string,
+  ): Promise<Array<{ text: string; page: number }>> {
+    const results: Array<{ text: string; page: number }> = [];
+
+    try {
+      const mistralApiKey = this.configService.get<string>('MISTRAL_API_KEY');
+      if (!mistralApiKey) {
+        throw new Error("La clé API Mistral n'est pas configurée");
+      }
+
+      const presignedUrl = await this.storageService.getPresignedUrl(
+        projectId,
+        fileName,
+      );
+
+      const client = new Mistral({ apiKey: mistralApiKey });
+
+      const ocrResponse = await client.ocr.process({
+        model: 'mistral-ocr-latest',
+        document: {
+          type: 'document_url',
+          documentUrl: presignedUrl.url,
+        },
+        includeImageBase64: true,
+      });
+
+      ocrResponse.pages.forEach((page, index) => {
+        results.push({
+          text: page.markdown,
+          page: index + 1,
+        });
+      });
+
+      return results;
+    } catch (error) {
+      this.logger.error(`Erreur globale durant le processus OCR:`, error);
+
+      return results;
     }
   }
 
@@ -950,8 +1048,11 @@ export class DocumentsService {
                           await this.convertToPdfIfNeeded(tempFilePath);
 
                         // Extraire le texte du PDF
-                        const extractedText =
-                          await this.extractTextFromPdf(pdfFilePath);
+                        const extractedText = await this.extractTextFromPdf(
+                          pdfFilePath,
+                          dto.projectId,
+                          fileName,
+                        );
 
                         // Extraire les métadonnées du PDF
                         const metadata =
