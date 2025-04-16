@@ -1134,14 +1134,20 @@ export class DocumentsService {
                       };
                     }
 
-                    const firstDocument = filteredDocuments[0];
+                    const text = filteredDocuments
+                      .map(
+                        (doc) =>
+                          `##########################################\n${doc.name}\n\n${doc.text}\n\n`,
+                      )
+                      .join('');
 
-                    // Préparer le payload pour le projet
+                    this.logger.log(
+                      `[${indexationId}] Texte du projet: ${text}`,
+                    );
+
                     const payload = JSON.stringify({
                       projectId: dto.projectId,
-                      documentId: firstDocument.documentId,
-                      name: firstDocument.name,
-                      text: firstDocument.text,
+                      text: text,
                     });
 
                     const n8nWebhookUrl =
