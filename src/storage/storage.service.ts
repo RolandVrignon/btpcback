@@ -388,4 +388,55 @@ export class StorageService implements OnModuleInit {
       );
     }
   }
+
+  async getPresignedUrl(
+    projectId: string,
+    fileName: string,
+  ): Promise<DownloadFileResponseDto> {
+    // Vérifier si le projet existe et appartient à l'organisation
+
+    const key = `${process.env.AWS_S3_BUCKET}${projectId}/${fileName}`;
+
+    const expiresIn = 3600; // 1 heure par défaut
+
+    if (!process.env.AWS_S3_BUCKET) {
+      throw new Error('BUCKET_PATH is not defined');
+    }
+
+    // Vérifier si le fichier existe
+    try {
+      const headCommand = new HeadObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+
+      await this.s3Client.send(headCommand);
+    } catch (error) {
+      // Vérifier si l'erreur est due à un fichier inexistant
+      if (
+        error instanceof NoSuchKey ||
+        (error instanceof S3ServiceException && error.name === 'NotFound') ||
+        (error instanceof Error && 'name' in error && error.name === 'NotFound')
+      ) {
+        throw new NotFoundException(
+          `Le fichier ${fileName} n'existe pas dans le projet ${projectId}`,
+        );
+      }
+      throw error;
+    }
+
+    // Générer l'URL présignée
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+    });
+
+    const url = await getSignedUrl(this.s3Client, command, { expiresIn });
+
+    return {
+      url,
+      expiresIn,
+      key,
+    };
+  }
 }

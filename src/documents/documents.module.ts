@@ -11,7 +11,7 @@ import { EmbeddingsModule } from '@/embeddings/embeddings.module';
 import { ChunksModule } from '@/chunks/chunks.module';
 import { IndexationQueueModule } from '@/documents/queue/indexation-queue.module';
 import { GuardsModule } from '@/common/guards/guards.module';
-
+import { StorageModule } from '@/storage/storage.module';
 @Module({
   imports: [
     MulterModule.register({
@@ -24,6 +24,7 @@ import { GuardsModule } from '@/common/guards/guards.module';
     ChunksModule,
     IndexationQueueModule,
     GuardsModule,
+    StorageModule,
   ],
   controllers: [DocumentsController],
   providers: [DocumentsService, DocumentsRepository],
