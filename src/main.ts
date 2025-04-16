@@ -6,66 +6,148 @@ import { Server } from 'http';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import * as express from 'express';
+import * as fs from 'fs';
 import { join } from 'path';
+// Importer les types nécessaires
+import * as express from 'express';
+import { Request, Response } from 'express';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  // Créer spécifiquement une application Express pour accéder à ses méthodes
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // IMPORTANT: Servir les fichiers statiques directement avec Express
-  // Cette méthode remplacera ServeStaticModule pour plus de contrôle
-  logger.log('Setting up direct static file serving with Express');
+  // Chemin vers les assets
+  const chatAssetsPath = join(process.cwd(), 'public', 'chat', 'assets');
+  const chatRootPath = join(process.cwd(), 'public', 'chat');
 
-  // Middleware pour corriger les types MIME
-  app.use('/chat/assets', (req, res, next) => {
-    const url = req.url;
-    logger.debug(`Request to /chat/assets: ${url}`);
+  logger.log('Setting up static file serving for chat application');
 
-    if (url.endsWith('.js')) {
-      logger.debug(
-        'Setting content-type to application/javascript for JS file',
-      );
-      res.type('application/javascript');
-    } else if (url.endsWith('.css')) {
-      logger.debug('Setting content-type to text/css for CSS file');
-      res.type('text/css');
-    }
-    next();
-  });
+  // Vérifier si les dossiers existent
+  if (!fs.existsSync(chatRootPath)) {
+    logger.error(`Chat root directory NOT found at: ${chatRootPath}`);
+  } else {
+    logger.log(`Chat root directory found at: ${chatRootPath}`);
 
-  // Définir explicitement les options pour le middleware statique
-  const staticOptions = {
-    etag: true,
-    maxAge: '30d',
-    setHeaders: (res, path, stat) => {
-      // Définir explicitement les types MIME pour les extensions courantes
-      if (path.endsWith('.js')) {
-        res.set('Content-Type', 'application/javascript');
-      } else if (path.endsWith('.css')) {
-        res.set('Content-Type', 'text/css');
+    if (fs.existsSync(chatAssetsPath)) {
+      logger.log(`Chat assets directory found at: ${chatAssetsPath}`);
+      try {
+        const files = fs.readdirSync(chatAssetsPath);
+        logger.log(
+          `Available chat assets (${files.length}): ${files.join(', ')}`,
+        );
+      } catch (error) {
+        logger.error('Failed to read assets directory', error);
       }
-    },
+    } else {
+      logger.error(`Chat assets directory NOT found at: ${chatAssetsPath}`);
+    }
+  }
+
+  // Créer un routeur Express pour gérer les routes /chat
+  // Utiliser "as any" pour contourner les erreurs de typage de TypeScript
+  const router = express.Router();
+
+  // Définir un type helper pour éviter les répétitions
+  type RouteHandler = (req: Request, res: Response) => void;
+
+  // Servir les fichiers statiques d'assets avec le bon type MIME
+  // Utiliser la fonction comme variable typée pour éviter les erreurs TS
+  const handleAssetRequest: RouteHandler = (req, res) => {
+    const fileName = req.params.file;
+    const filePath = join(chatAssetsPath, fileName);
+
+    logger.debug(`Request for asset: ${fileName}`);
+
+    if (!fs.existsSync(filePath)) {
+      logger.warn(`Asset not found: ${filePath}`);
+      return res.status(404).send('Asset not found');
+    }
+
+    // Définir le bon type MIME
+    if (fileName.endsWith('.js')) {
+      res.set('Content-Type', 'application/javascript');
+      logger.debug(`Serving JavaScript file: ${fileName}`);
+    } else if (fileName.endsWith('.css')) {
+      res.set('Content-Type', 'text/css');
+      logger.debug(`Serving CSS file: ${fileName}`);
+    }
+
+    // Envoyer le fichier
+    return res.sendFile(filePath);
   };
 
-  // Servir les assets avant tout
-  app.use(
-    '/chat/assets',
-    express.static(
-      join(process.cwd(), 'public', 'chat', 'assets'),
-      staticOptions,
-    ),
-  );
+  // Utiliser la méthode "get" avec une fonction typée
+  (router as any).get('/assets/:file', handleAssetRequest);
 
-  // Servir les autres fichiers du dossier chat
-  app.use(
-    '/chat',
-    express.static(join(process.cwd(), 'public', 'chat'), {
-      index: false, // Ne pas servir index.html automatiquement
-      ...staticOptions,
-    }),
-  );
+  // Servir favicon.svg
+  const handleFaviconRequest: RouteHandler = (req, res) => {
+    const faviconPath = join(chatRootPath, 'favicon.svg');
+
+    if (!fs.existsSync(faviconPath)) {
+      logger.warn(`Favicon not found at: ${faviconPath}`);
+      return res.status(404).send('Favicon not found');
+    }
+
+    logger.debug('Serving favicon.svg');
+    res.set('Content-Type', 'image/svg+xml');
+    return res.sendFile(faviconPath);
+  };
+
+  (router as any).get('/favicon.svg', handleFaviconRequest);
+
+  // Route de diagnostic
+  const handleDebugRequest: RouteHandler = (req, res) => {
+    try {
+      const chatRootContent = fs.existsSync(chatRootPath)
+        ? fs.readdirSync(chatRootPath)
+        : 'directory not found';
+
+      const chatAssetsContent = fs.existsSync(chatAssetsPath)
+        ? fs.readdirSync(chatAssetsPath)
+        : 'directory not found';
+
+      const indexHtmlPath = join(chatRootPath, 'index.html');
+      const indexHtmlExists = fs.existsSync(indexHtmlPath);
+      const indexHtmlContent = indexHtmlExists
+        ? fs.readFileSync(indexHtmlPath, 'utf8').substring(0, 500) + '...'
+        : 'file not found';
+
+      return res.json({
+        chatRootPath,
+        chatAssetsPath,
+        chatRootContent,
+        chatAssetsContent,
+        indexHtmlExists,
+        indexHtmlPreview: indexHtmlContent,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        error: 'Error generating debug info',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  };
+
+  (router as any).get('/debug', handleDebugRequest);
+
+  // Fallback pour les routes client-side
+  const handleFallbackRequest: RouteHandler = (req, res) => {
+    const indexPath = join(chatRootPath, 'index.html');
+
+    if (!fs.existsSync(indexPath)) {
+      logger.error(`index.html not found at: ${indexPath}`);
+      return res.status(404).send('index.html not found');
+    }
+
+    logger.debug(`Serving index.html for path: ${req.path}`);
+    return res.sendFile(indexPath);
+  };
+
+  // Utiliser '*path' au lieu de '*' pour nommer le paramètre wildcard
+  (router as any).get('*path', handleFallbackRequest);
+
+  // Monter le routeur sur /chat
+  app.use('/chat', router);
 
   // Configuration de Swagger
   const config = new DocumentBuilder()
