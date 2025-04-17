@@ -21,46 +21,18 @@ export class ChatIframeController {
 
   constructor(private readonly chatIframeService: ChatIframeService) {}
 
-  @Get(':projectId')
-  async renderIframe(
-    @Param('projectId') projectId: string,
-    @Query('apiKey') apiKey: string,
-    @Res() res: Response,
-  ) {
-    try {
-      this.logger.debug(`Demande d'iframe pour projectId=${projectId}`);
+  @Get('/')
+  serveRootChatApp(@Res() res: Response) {
+    this.logger.debug('Serving chat SPA index.html for root request to /chat/');
+    return res.sendFile(join(process.cwd(), 'public', 'chat', 'index.html'));
+  }
 
-      await this.chatIframeService.validateAccessAndGetProject(
-        apiKey,
-        projectId,
-      );
-
-      this.logger.debug('Authentification réussie, service iframe');
-
-      return res.sendFile(join(process.cwd(), 'public', 'chat', 'index.html'));
-    } catch (error) {
-      this.logger.error(
-        `Erreur iframe: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
-      );
-
-      if (error instanceof UnauthorizedException) {
-        return res
-          .status(401)
-          .json({ error: 'Accès non autorisé', message: error.message });
-      }
-
-      if (error instanceof NotFoundException) {
-        return res
-          .status(404)
-          .json({ error: 'Ressource non trouvée', message: error.message });
-      }
-
-      return res.status(500).json({
-        error: 'Erreur interne du serveur',
-        message:
-          "Une erreur s'est produite lors du traitement de votre demande",
-      });
-    }
+  @Get('*path')
+  serveChatApp(@Param('path') path: string, @Res() res: Response) {
+    this.logger.debug(
+      `Serving chat SPA index.html as fallback for route: ${path || '/'}`,
+    );
+    return res.sendFile(join(process.cwd(), 'public', 'chat', 'index.html'));
   }
 
   @Post(':projectId/message')
@@ -76,7 +48,7 @@ export class ChatIframeController {
       const conversationHistory = allMessages.slice(0, -1);
 
       this.logger.debug(
-        `Conversation history: ${JSON.stringify(conversationHistory, null, 2)}`,
+        `Processing message for projectId=${projectId}. History length: ${conversationHistory.length}`,
       );
 
       await this.chatIframeService.processMessageWithStreaming(
@@ -88,7 +60,7 @@ export class ChatIframeController {
       );
     } catch (error: unknown) {
       this.logger.error(
-        `Erreur message: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+        `Erreur processMessage: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
       );
 
       if (!res.headersSent) {
@@ -111,10 +83,20 @@ export class ChatIframeController {
         });
       }
 
-      res.write(
-        `data: ${JSON.stringify({ error: 'Erreur pendant le streaming' })}\n\n`,
-      );
-      res.end();
+      try {
+        res.write(
+          `data: ${JSON.stringify({ error: 'Erreur pendant le streaming', details: error instanceof Error ? error.message : 'Unknown error' })}\n\n`,
+        );
+      } catch (writeError) {
+        this.logger.error(
+          "Impossible d'écrire l'erreur de streaming dans la réponse",
+          writeError,
+        );
+      } finally {
+        if (!res.writableEnded) {
+          res.end();
+        }
+      }
     }
   }
 }

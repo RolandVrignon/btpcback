@@ -918,9 +918,7 @@ export class DocumentsService {
                     try {
                       const response = await fetch(downloadUrl);
                       if (!response.ok) {
-                        throw new Error(
-                          `Erreur lors du téléchargement du fichier: ${response.statusText}`,
-                        );
+                        throw new Error(`${response.statusText}`);
                       }
 
                       // Extraire le nom du fichier depuis les headers ou l'URL
@@ -1091,7 +1089,11 @@ export class DocumentsService {
                         `Erreur lors du traitement du fichier ${downloadUrl}:`,
                         error,
                       );
-                      throw error;
+                      return {
+                        document: null,
+                        text: '',
+                        extractedTextPerPage: [],
+                      };
                     }
                   },
                 );
@@ -1101,13 +1103,13 @@ export class DocumentsService {
 
                 // Préparer les données pour n8n
                 const filteredDocuments = documentsWithText.map((doc) => ({
-                  documentId: doc.document.id,
-                  name: doc.document.filename,
+                  documentId: doc.document !== null && doc.document.id,
+                  name: doc.document !== null && doc.document.filename,
                   text: doc.text || '',
                 }));
-                // Exécuter la requête n8n et le processus d'indexation en parallèle
+
                 this.logger.log(
-                  `[${indexationId}] Démarrage des processus en parallèle: requête n8n et indexation des documents`,
+                  `[${indexationId}] Démarrage des processus en parallèle pour ${filteredDocuments.length} documents: requête n8n et indexation des documents`,
                 );
 
                 //******************************************************//
@@ -1132,14 +1134,20 @@ export class DocumentsService {
                       };
                     }
 
-                    const firstDocument = filteredDocuments[0];
+                    const text = filteredDocuments
+                      .map(
+                        (doc) =>
+                          `##########################################\n${doc.name}\n\n${doc.text}\n\n`,
+                      )
+                      .join('');
 
-                    // Préparer le payload pour le projet
+                    this.logger.log(
+                      `[${indexationId}] Texte du projet: ${text}`,
+                    );
+
                     const payload = JSON.stringify({
                       projectId: dto.projectId,
-                      documentId: firstDocument.documentId,
-                      name: firstDocument.name,
-                      text: firstDocument.text,
+                      text: text,
                     });
 
                     const n8nWebhookUrl =
@@ -1553,7 +1561,12 @@ export class DocumentsService {
     }>,
   ): Promise<void> {
     // Traiter chaque document séquentiellement pour éviter de surcharger la base de données
-    for (const docData of documentsWithText) {
+
+    const documentsWithTextFiltered = documentsWithText.filter(
+      (doc) => doc.document !== null,
+    );
+
+    for (const docData of documentsWithTextFiltered) {
       try {
         const { document, extractedTextPerPage } = docData;
 
