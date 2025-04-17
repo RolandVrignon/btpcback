@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { DocumentsRepository } from '@/documents/documents.repository';
 import { ProjectsRepository } from '@/projects/projects.repository';
 import { JSONValue } from 'ai';
+import { restoreFieldOrder } from '@/utils/fieldOrder';
 
 interface WorkSummary {
   title: string;
@@ -163,9 +164,7 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
     // Prepare document data for the webhook
     const documentData = await Promise.all(
       documents.map((doc) => {
-        const metadata = this.documentsRepository.restoreFieldOrder(
-          doc.ai_metadata,
-        ) as JSONValue;
+        const metadata = restoreFieldOrder(doc.ai_metadata) as JSONValue;
 
         return {
           id: doc.id,

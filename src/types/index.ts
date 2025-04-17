@@ -115,3 +115,9 @@ export type SearchOptions = {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 };
+
+export type FieldOrderObject = {
+  __data: unknown;
+  __fieldOrder: string[];
+  __isArray: boolean;
+};

@@ -7,9 +7,16 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { BaseDeliverableStrategy } from './base-deliverable.strategy';
 import { ConfigService } from '@nestjs/config';
 import { ProjectsRepository } from '@/projects/projects.repository';
-
+import { preserveFieldOrder } from '@/utils/fieldOrder';
+import { FieldOrderObject } from '@/types';
+import { JsonValue } from '@prisma/client/runtime/library';
 interface FilteredDocument {
   [key: string]: any;
+}
+
+interface FieldMapping {
+  dbField: string;
+  frontField: string;
 }
 
 @Injectable()
@@ -72,10 +79,10 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
         context.documentIds,
       );
 
-      // Format the data as needed for the deliverable
-      const result = {
-        result: JSON.parse(JSON.stringify(documents)) as FilteredDocument[],
-      };
+      // Format the data as needed for the deliverable and convert to valid JSON
+      const result = JSON.parse(
+        JSON.stringify({ result: documents }),
+      ) as JsonValue;
 
       this.logger.log('result:', result);
 
@@ -116,23 +123,24 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
 
   private async getProjectDocumentsWithAiFields(
     documentIds: string[],
-  ): Promise<FilteredDocument[]> {
+  ): Promise<FieldOrderObject> {
     try {
-      // Define AI fields manually instead of using Prisma's internal _dmmf property
-      const fields = [
-        'filename',
-        'ai_lot_identification',
-        'ai_Type_document',
-        'version',
-        'ai_Maitre_ouvrage',
-        'ai_Architecte',
-        'ai_Autres_societes',
-        'ai_societe_editrice_document',
+      // Define fields mapping with exact order matching front-end table columns
+      const fieldMappings: FieldMapping[] = [
+        { dbField: 'ai_titre_document', frontField: 'Titre du document' },
+        { dbField: 'ai_Type_document', frontField: 'Type de document' },
+        { dbField: 'ai_lot_identification', frontField: 'Lot' },
+        { dbField: 'ai_Version_document', frontField: 'Version' },
+        {
+          dbField: 'ai_societe_editrice_document',
+          frontField: 'Société éditrice',
+        },
+        { dbField: 'createdAt', frontField: "Date d'upload" },
       ];
 
       this.logger.log('documentIds:', documentIds);
 
-      // Get all documents for the project (we will filter fields manually)
+      // Get all documents for the project
       const allDocuments = await Promise.all(
         documentIds.map(async (id) => {
           const doc = await this.documentsRepository.findOne(id);
@@ -142,22 +150,53 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
 
       this.logger.log('allDocuments:', allDocuments);
 
-      // Filter out only the fields we want
+      // Filter out only the fields we want and rename them for the front-end
+      // The order of fields in the output will match the order in fieldMappings
       const documents = allDocuments.map((doc: Document) => {
         const filteredDoc: FilteredDocument = {};
-        fields.forEach((field: string) => {
-          if (field in doc) {
-            // Fix for 'any' type safety warning
-            filteredDoc[field] = (doc as Record<string, unknown>)[field];
+
+        // Process fields in the specific order defined in fieldMappings
+        fieldMappings.forEach((mapping: FieldMapping) => {
+          if (mapping.dbField in doc) {
+            // Special handling for date field
+            if (mapping.dbField === 'createdAt') {
+              // Format date as DD/MM/YYYY à HH:MM
+              const date = new Date(
+                (doc as Record<string, unknown>)[mapping.dbField] as
+                  | string
+                  | number
+                  | Date,
+              );
+              const day = date.getDate().toString().padStart(2, '0');
+              const month = (date.getMonth() + 1).toString().padStart(2, '0');
+              const year = date.getFullYear();
+              const hours = date.getHours().toString().padStart(2, '0');
+              const minutes = date.getMinutes().toString().padStart(2, '0');
+
+              filteredDoc[mapping.frontField] =
+                `${day}/${month}/${year} à ${hours}:${minutes}`;
+            } else {
+              // Normal field handling
+              filteredDoc[mapping.frontField] = (
+                doc as Record<string, unknown>
+              )[mapping.dbField];
+            }
           }
         });
+
         return filteredDoc;
       });
 
-      return documents;
+      const result = preserveFieldOrder(documents);
+
+      return result;
     } catch (error) {
       this.logger.error('Error fetching documents with AI fields:', error);
-      return [];
+      return {
+        __data: [],
+        __fieldOrder: [],
+        __isArray: false,
+      };
     }
   }
 }
