@@ -3,7 +3,6 @@ npm-debug.log
 pnpm-debug.log
 yarn-debug.log
 yarn-error.log
-chat-iframe-client
 
 # Fichiers de build
 dist
@@ -37,3 +36,8 @@ tmp
 temp
 uploads/*
 !uploads/.gitkeep
+
+README*
+clear-db.sql
+docker-compose.yml
+.prettierrc
