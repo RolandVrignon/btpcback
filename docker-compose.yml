@@ -5,11 +5,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: btpc-api:latest
-    container_name: btpc-api
+    image: test:latest
+    container_name: test
     restart: always
     ports:
-      - "8080:8080"
+      - "8938:8080"
     env_file:
       - .env.docker
     depends_on:

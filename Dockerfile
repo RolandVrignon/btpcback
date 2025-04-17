@@ -21,6 +21,11 @@ COPY . .
 ENV DATABASE_URL="postgresql://fake:fake@localhost:5432/fake"
 RUN npx prisma generate
 
+# Construire le client iframe
+WORKDIR /app/chat-iframe-client
+RUN pnpm install
+RUN pnpm build
+
 # Retourner au répertoire principal et construire l'application backend
 WORKDIR /app
 RUN pnpm run build
@@ -50,9 +55,6 @@ COPY --from=build /app/public ./public
 COPY prisma ./prisma
 COPY scripts ./scripts
 COPY tsconfig.json ./
-
-# Vérification finale de la présence des assets
-RUN ls -la /app/public/chat && ls -la /app/public/chat/assets || echo "Assets directory still missing"
 
 # Créer le répertoire pour les fichiers temporaires
 RUN mkdir -p /tmp/document-processing
