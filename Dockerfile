@@ -8,7 +8,7 @@ RUN npm install -g pnpm
 WORKDIR /app
 
 # Copier les fichiers de dépendances
-COPY package.json pnpm-lock.yaml ./
+COPY package.json ./
 
 # Installer les dépendances
 RUN pnpm install
@@ -17,7 +17,6 @@ RUN pnpm install
 COPY . .
 
 # Générer le client Prisma avec une URL factice pour la compilation
-# Cette URL n'est utilisée que pour la génération des types, pas pour la connexion
 ENV DATABASE_URL="postgresql://fake:fake@localhost:5432/fake"
 RUN npx prisma generate
 
@@ -26,6 +25,10 @@ WORKDIR /app/chat-iframe-client
 RUN pnpm install
 RUN pnpm build
 
+# Lister le contenu du dossier /app/public/chat
+RUN ls -la /app/public/chat || echo "Dossier /app/public/chat non trouvé"
+RUN ls -la /app/public/chat/assets || echo "Dossier /app/public/chat/assets non trouvé"
+RUN ls -la /app/ || echo "Dossier /app/ non trouvé"
 # Retourner au répertoire principal et construire l'application backend
 WORKDIR /app
 RUN pnpm run build

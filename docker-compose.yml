@@ -9,7 +9,7 @@ services:
     container_name: test
     restart: always
     ports:
-      - "8080:8080"
+      - "8938:8080"
     env_file:
       - .env.docker
     depends_on:
