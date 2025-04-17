@@ -2,7 +2,7 @@
 FROM node:20-alpine AS build
 
 # Installer pnpm
-RUN npm install -g pnpm
+RUN npm install -g pnpm@10.6.5
 
 # Créer le répertoire de travail
 WORKDIR /app
@@ -10,8 +10,9 @@ WORKDIR /app
 # Copier les fichiers de dépendances
 COPY package.json ./
 
-# Installer les dépendances
+# Installer les dépendances et approuver explicitement les scripts
 RUN pnpm install
+RUN pnpm approve-builds @nestjs/core @prisma/client @swc/core esbuild prisma
 
 # Copier le reste des fichiers
 COPY . .
@@ -20,9 +21,10 @@ COPY . .
 ENV DATABASE_URL="postgresql://fake:fake@localhost:5432/fake"
 RUN npx prisma generate
 
-# Construire le client iframe
+# Construire le client iframe avec scripts approuvés
 WORKDIR /app/chat-iframe-client
 RUN pnpm install
+RUN pnpm approve-builds @nestjs/core @prisma/client @swc/core esbuild prisma
 RUN pnpm build
 
 # Lister le contenu du dossier /app/public/chat
@@ -49,7 +51,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 
 # Installer toutes les dépendances
-RUN pnpm install
+RUN pnpm install --unsafe-perm
 
 # Copier les fichiers générés depuis l'étape de build
 COPY --from=build /app/dist ./dist
