@@ -2,35 +2,27 @@
 FROM node:20-alpine AS build
 
 # Installer pnpm
-RUN npm install -g pnpm@10.6.5
+RUN npm install -g pnpm
 
 # Créer le répertoire de travail
 WORKDIR /app
 
 # Copier les fichiers de dépendances
-COPY package.json ./
+COPY package.json pnpm-lock.yaml ./
 
-# Installer les dépendances et approuver explicitement les scripts
+# Installer les dépendances
 RUN pnpm install
-RUN pnpm approve-builds @nestjs/core @prisma/client @swc/core esbuild prisma
 
 # Copier le reste des fichiers
 COPY . .
 
-# Générer le client Prisma avec une URL factice pour la compilation
+# Vérifier que le dossier assets existe
+RUN ls -la /app/public/chat/assets || echo "Dossier assets non trouvé"
+
+# Cette URL n'est utilisée que pour la génération des types, pas pour la connexion
 ENV DATABASE_URL="postgresql://fake:fake@localhost:5432/fake"
 RUN npx prisma generate
 
-# Construire le client iframe avec scripts approuvés
-WORKDIR /app/chat-iframe-client
-RUN pnpm install
-RUN pnpm approve-builds @nestjs/core @prisma/client @swc/core esbuild prisma
-RUN pnpm build
-
-# Lister le contenu du dossier /app/public/chat
-RUN ls -la /app/public/chat || echo "Dossier /app/public/chat non trouvé"
-RUN ls -la /app/public/chat/assets || echo "Dossier /app/public/chat/assets non trouvé"
-RUN ls -la /app/ || echo "Dossier /app/ non trouvé"
 # Retourner au répertoire principal et construire l'application backend
 WORKDIR /app
 RUN pnpm run build
@@ -51,7 +43,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 
 # Installer toutes les dépendances
-RUN pnpm install --unsafe-perm
+RUN pnpm install
 
 # Copier les fichiers générés depuis l'étape de build
 COPY --from=build /app/dist ./dist
