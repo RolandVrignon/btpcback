@@ -3,12 +3,6 @@ set -e
 
 # Display startup information
 echo "Démarrage du conteneur..."
-echo "YIIIIIIIHA"
-echo "Here we are"
-
-# Debug : Afficher le PATH et le résultat de 'which sed'
-echo "PATH: $PATH"
-echo "Chemin de sed: $(which sed)"
 
 # Check if DATABASE_URL is defined
 if [ -z "$DATABASE_URL" ]; then
@@ -50,6 +44,10 @@ if [ "$DB_INIT" = "true" ]; then
     pnpm prisma migrate reset --force
     npx prisma db seed
 fi
+
+# Affiche le contenu du dossier /app/public/chat
+echo "Contenu du dossier /app/public/chat:"
+ls -la /app/public/chat
 
 # Debug: Show what command will be executed
 echo "Command to be executed: $@"
