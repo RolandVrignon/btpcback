@@ -49,11 +49,54 @@ fi
 echo "Contenu du dossier /app/public/chat:"
 ls -la /app/public/chat
 
+# Vérifier les chemins possibles du point d'entrée
+echo "Recherche du point d'entrée de l'application..."
+
+# Version compatible avec sh au lieu de bash
+ENTRY_FOUND=false
+
+# Vérifier chaque chemin possible un par un
+if [ -f "dist/src/main.js" ]; then
+  echo "Point d'entrée trouvé: dist/src/main.js"
+  ENTRY_PATH="dist/src/main.js"
+  ENTRY_FOUND=true
+elif [ -f "dist/src/main" ]; then
+  echo "Point d'entrée trouvé: dist/src/main"
+  ENTRY_PATH="dist/src/main"
+  ENTRY_FOUND=true
+elif [ -f "dist/main.js" ]; then
+  echo "Point d'entrée trouvé: dist/main.js"
+  ENTRY_PATH="dist/main.js"
+  ENTRY_FOUND=true
+elif [ -f "dist/main" ]; then
+  echo "Point d'entrée trouvé: dist/main"
+  ENTRY_PATH="dist/main"
+  ENTRY_FOUND=true
+else
+  echo "Aucun point d'entrée standard trouvé."
+fi
+
+if [ "$ENTRY_FOUND" = false ]; then
+  echo "ERREUR: Aucun point d'entrée trouvé!"
+  echo "Contenu du répertoire dist:"
+  find dist -type f -name "*.js" | sort
+
+  # Recherche automatique d'un point d'entrée
+  MAIN_FILE=$(find dist -type f -name "main.js" | head -1)
+  if [ -n "$MAIN_FILE" ]; then
+    echo "Point d'entrée alternatif trouvé: $MAIN_FILE"
+    ENTRY_PATH="$MAIN_FILE"
+    ENTRY_FOUND=true
+  else
+    exit 1
+  fi
+fi
+
 # Debug: Show what command will be executed
-echo "Command to be executed: $@"
+echo "Command to be executed: node $ENTRY_PATH"
 
 # Start the application
 echo "Starting the application..."
 
 echo "Démarrage de l'application..."
-exec node dist/src/main
+exec node "$ENTRY_PATH"
