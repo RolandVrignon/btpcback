@@ -16,12 +16,18 @@ RUN pnpm install
 # Copier le reste des fichiers
 COPY . .
 
-# Vérifier que le dossier assets existe
-RUN ls -la /app/public/chat/assets || echo "Dossier assets non trouvé"
+RUN rm -rf /app/public/chat/assets/*
+RUN rm -rf /app/public/chat/index.html
 
-# Cette URL n'est utilisée que pour la génération des types, pas pour la connexion
+RUN ls -la /app
+
+RUN cd chat-iframe-client && pnpm install
+RUN cd chat-iframe-client && pnpm build
+
 ENV DATABASE_URL="postgresql://fake:fake@localhost:5432/fake"
 RUN npx prisma generate
+
+RUN ls -la /app/public/chat/assets || echo "Dossier assets non trouvé"
 
 # Retourner au répertoire principal et construire l'application backend
 WORKDIR /app

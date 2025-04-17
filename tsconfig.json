@@ -22,5 +22,7 @@
     "paths": {
       "@/*": ["src/*"]
     }
-  }
+  },
+  "include": ["src/**/*", "chat-iframe-client/vite.config.js"],
+  "exclude": ["node_modules", "dist"]
 }
