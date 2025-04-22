@@ -65,6 +65,7 @@ export class DeliverablesController {
     @Param('projectId') projectId: string,
     @Organization() organization: OrganizationEntity,
   ) {
+    console.log('findAll', projectId, organization);
     return this.deliverablesService.findAll(projectId, organization);
   }
 
