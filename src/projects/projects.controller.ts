@@ -9,6 +9,7 @@ import {
 import { ProjectsService } from '@/projects/projects.service';
 import { CreateProjectDto } from '@/projects/dto/create-project.dto';
 import { UpdateProjectDto } from '@/projects/dto/update-project.dto';
+import { UpdateAddressDto } from '@/projects/dto/update-address.dto';
 import { Organization } from '@/decorators/organization.decorator';
 import { OrganizationEntity } from '@/types';
 
@@ -104,5 +105,30 @@ export class ProjectsController {
   @ApiResponse({ status: 403, description: 'Accès non autorisé à ce projet.' })
   update(@Param('id') id: string, @Body() updateProjectDto: UpdateProjectDto) {
     return this.projectsService.update(id, updateProjectDto);
+  }
+
+  @Patch(':id/address')
+  @ApiOperation({ summary: "Mettre à jour l'adresse d'un projet" })
+  @ApiParam({
+    name: 'id',
+    description: "ID du projet dont l'adresse doit être mise à jour",
+    example: '01234567890123456789012345678901',
+  })
+  @ApiResponse({ status: 200, description: 'Adresse mise à jour avec succès.' })
+  @ApiResponse({ status: 404, description: 'Projet non trouvé.' })
+  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
+  @ApiResponse({ status: 403, description: 'Accès non autorisé à ce projet.' })
+  updateAddress(
+    @Param('id') id: string,
+    @Body() updateAddressDto: UpdateAddressDto,
+    @Organization() organization: OrganizationEntity,
+  ) {
+    console.log('updateAddressDto', updateAddressDto);
+
+    return this.projectsService.updateAddress(
+      id,
+      updateAddressDto,
+      organization,
+    );
   }
 }

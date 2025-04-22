@@ -1,11 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { CreateProjectDto } from '@/projects/dto/create-project.dto';
 import { UpdateProjectDto } from '@/projects/dto/update-project.dto';
+import { UpdateAddressDto } from '@/projects/dto/update-address.dto';
 import { ProjectsRepository } from '@/projects/projects.repository';
+import { DeliverablesService } from '@/deliverables/deliverables.service';
+import { DeliverableType } from '@prisma/client';
+import { OrganizationEntity } from '@/types';
 
 @Injectable()
 export class ProjectsService {
-  constructor(private readonly projectsRepository: ProjectsRepository) {}
+  constructor(
+    private readonly projectsRepository: ProjectsRepository,
+    @Inject(forwardRef(() => DeliverablesService))
+    private readonly deliverablesService: DeliverablesService,
+  ) {}
 
   async create(createProjectDto: CreateProjectDto) {
     return this.projectsRepository.create(createProjectDto);
@@ -25,6 +33,43 @@ export class ProjectsService {
 
   async update(id: string, updateProjectDto: UpdateProjectDto) {
     return this.projectsRepository.update(id, updateProjectDto);
+  }
+
+  async updateAddress(
+    id: string,
+    updateAddressDto: UpdateAddressDto,
+    organization: OrganizationEntity,
+  ) {
+    const project = await this.projectsRepository.updateAddress(
+      id,
+      updateAddressDto,
+    );
+
+    // Créer les deux livrables en parallèle
+    await Promise.all([
+      // Livrable DOCUMENTS_PUBLIQUES
+      this.deliverablesService.create(
+        {
+          type: DeliverableType.DOCUMENTS_PUBLIQUES,
+          projectId: id,
+          documentIds: [],
+          new: true,
+        },
+        organization,
+      ),
+      // Livrable GEORISQUES
+      this.deliverablesService.create(
+        {
+          type: DeliverableType.GEORISQUES,
+          projectId: id,
+          documentIds: [],
+          new: true,
+        },
+        organization,
+      ),
+    ]);
+
+    return project;
   }
 
   async remove(id: string) {

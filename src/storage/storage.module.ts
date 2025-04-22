@@ -1,4 +1,9 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import {
+  forwardRef,
+  Module,
+  NestModule,
+  MiddlewareConsumer,
+} from '@nestjs/common';
 import { StorageController } from '@/storage/storage.controller';
 import { StorageService } from '@/storage/storage.service';
 import { ConfigModule } from '@nestjs/config';
@@ -11,7 +16,7 @@ import { PrismaModule } from '@/prisma/prisma.module';
 import { ProjectsModule } from '@/projects/projects.module';
 
 @Module({
-  imports: [ConfigModule, PrismaModule, ProjectsModule],
+  imports: [ConfigModule, PrismaModule, forwardRef(() => ProjectsModule)],
   controllers: [StorageController],
   providers: [StorageService],
   exports: [StorageService],
