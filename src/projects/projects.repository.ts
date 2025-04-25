@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CreateProjectDto, Status } from '@/projects/dto/create-project.dto';
 import { UpdateProjectDto } from '@/projects/dto/update-project.dto';
+import { UpdateAddressDto } from '@/projects/dto/update-address.dto';
 import { Project } from '@prisma/client';
 
 @Injectable()
@@ -137,6 +138,48 @@ export class ProjectsRepository {
       }
       throw new Error(
         `Erreur lors de la mise à jour du projet: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  /**
+   * Met à jour l'adresse d'un projet
+   */
+  async updateAddress(id: string, updateAddressDto: UpdateAddressDto) {
+    try {
+      // Vérifier si le projet existe
+      const existingProject = await this.prisma.executeWithQueue(() =>
+        this.prisma.project.findUnique({
+          where: { id },
+        }),
+      );
+
+      if (!existingProject) {
+        throw new NotFoundException(`Projet avec l'ID ${id} non trouvé`);
+      }
+
+      return await this.prisma.executeWithQueue(() =>
+        this.prisma.project.update({
+          where: { id },
+          data: {
+            ai_address: updateAddressDto.closest_formatted_address,
+            closest_formatted_address:
+              updateAddressDto.closest_formatted_address,
+            latitude: updateAddressDto.latitude,
+            longitude: updateAddressDto.longitude,
+            altitude: updateAddressDto.altitude,
+            ai_city: updateAddressDto.ai_city,
+            ai_zip_code: updateAddressDto.ai_zip_code,
+            ai_country: updateAddressDto.ai_country,
+          },
+        }),
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error(
+        `Erreur lors de la mise à jour de l'adresse du projet: ${(error as Error).message}`,
       );
     }
   }

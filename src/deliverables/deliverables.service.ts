@@ -147,6 +147,8 @@ export class DeliverablesService {
   async findAll(projectId: string, organization: OrganizationEntity) {
     // Verify project access
     const project = await this.projectsRepository.findById(projectId);
+    this.logger.log('project', project);
+    this.logger.log('organization', organization);
     if (project.organizationId !== organization.id) {
       throw new ForbiddenException('Accès non autorisé au projet');
     }

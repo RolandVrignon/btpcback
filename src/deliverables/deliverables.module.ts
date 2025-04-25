@@ -1,4 +1,9 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import {
+  forwardRef,
+  Module,
+  NestModule,
+  MiddlewareConsumer,
+} from '@nestjs/common';
 import { DeliverablesController } from '@/deliverables/deliverables.controller';
 import { DeliverablesService } from '@/deliverables/deliverables.service';
 import { DeliverableFactory } from '@/deliverables/factories/deliverable.factory';
@@ -20,7 +25,7 @@ import { ChunksModule } from '@/chunks/chunks.module';
     }),
     HttpModule,
     DocumentsModule,
-    ProjectsModule,
+    forwardRef(() => ProjectsModule),
     ChunksModule,
   ],
   controllers: [DeliverablesController],

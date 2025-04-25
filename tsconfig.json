@@ -23,6 +23,6 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src/**/*", "chat-iframe-client/vite.config.js"],
+  "include": ["src/**/*", "chat-iframe-client/vite.config.js", "scripts/**/*.ts", "scripts/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

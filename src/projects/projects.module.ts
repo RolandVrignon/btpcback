@@ -1,12 +1,18 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import {
+  forwardRef,
+  Module,
+  NestModule,
+  MiddlewareConsumer,
+} from '@nestjs/common';
 import { ProjectsService } from '@/projects/projects.service';
 import { ProjectsController } from '@/projects/projects.controller';
 import { ProjectsRepository } from '@/projects/projects.repository';
 import { PrismaModule } from '@/prisma/prisma.module';
 import { ApiKeyMiddleware } from '@/middleware/api-key.middleware';
+import { DeliverablesModule } from '@/deliverables/deliverables.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, forwardRef(() => DeliverablesModule)],
   controllers: [ProjectsController],
   providers: [ProjectsService, ProjectsRepository],
   exports: [ProjectsService, ProjectsRepository],

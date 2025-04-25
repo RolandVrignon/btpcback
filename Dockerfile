@@ -58,6 +58,9 @@ RUN apk update && apk add --no-cache poppler-utils
 # Installer pnpm, prisma CLI, typescript et ts-node globalement
 RUN npm install -g pnpm prisma typescript ts-node
 
+# Installer libreoffice pour la conversion de documents
+RUN apk update && apk add --no-cache libreoffice
+
 # Créer le répertoire de travail
 WORKDIR /app
 
