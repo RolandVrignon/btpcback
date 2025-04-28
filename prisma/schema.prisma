@@ -175,6 +175,8 @@ model Document {
   parent   Document?  @relation("DocumentVersions", fields: [parentId], references: [id])
   versions Document[] @relation("DocumentVersions")
 
+  documentReferenceLinks DocumentReferenceLink[] // Links to reference documents
+
   @@index([projectId])
   @@index([category])
 }
@@ -271,4 +273,74 @@ model DocumentDeliverable {
   @@unique([documentId, deliverableId])
   @@index([documentId])
   @@index([deliverableId])
+}
+
+model ReferenceDocument {
+  id                        String                       @id @default(uuid())
+  title                     String                       @db.VarChar(255) // Official title of the reference document
+  application_domain        String? // ex: "maçonnerie", "ossature bois", etc.
+  application_domain_vector Unsupported("vector(1536)")? // Embedding for semantic search on domain
+  category                  String? // ex: "NF DTU", "Eurocode", "RE2020"
+  official_version          String? // ex: "NF DTU 24.1 P1-1 2020"
+  organization              String? // ex: "AFNOR"
+  published_at              DateTime?
+  effective_date            DateTime?
+  path                      String? // File storage path
+  mimetype                  String?
+  size                      Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chunks ReferenceChunk[] // Text chunks for AI analysis
+
+  documentReferenceLinks DocumentReferenceLink[] // Links from user documents
+
+  @@index([category])
+}
+
+model ReferenceChunk {
+  id                  String               @id @default(uuid())
+  text                String
+  order               Int?
+  page                Int?
+  referenceDocumentId String
+  referenceDocument   ReferenceDocument    @relation(fields: [referenceDocumentId], references: [id], onDelete: Cascade)
+  embeddings          ReferenceEmbedding[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([referenceDocumentId])
+  @@index([text])
+}
+
+model ReferenceEmbedding {
+  id               String                       @id @default(uuid())
+  vector           Unsupported("vector(1536)")?
+  modelName        String
+  modelVersion     String
+  dimensions       Int
+  referenceChunkId String
+  referenceChunk   ReferenceChunk               @relation(fields: [referenceChunkId], references: [id], onDelete: Cascade)
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
+
+  @@unique([referenceChunkId, modelName, modelVersion], name: "unique_reference_chunk_model")
+  @@index([referenceChunkId])
+  @@index([vector], map: "reference_embedding_vector_idx")
+}
+
+model DocumentReferenceLink {
+  id                  String   @id @default(uuid())
+  documentId          String
+  referenceDocumentId String
+  comment             String? // Comment about the check/validation
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  document          Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  referenceDocument ReferenceDocument @relation(fields: [referenceDocumentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, referenceDocumentId])
 }

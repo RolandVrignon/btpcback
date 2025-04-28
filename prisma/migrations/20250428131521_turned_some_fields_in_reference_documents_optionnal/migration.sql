@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "ReferenceDocument" ALTER COLUMN "category" DROP NOT NULL,
+ALTER COLUMN "path" DROP NOT NULL,
+ALTER COLUMN "mimetype" DROP NOT NULL,
+ALTER COLUMN "size" DROP NOT NULL;

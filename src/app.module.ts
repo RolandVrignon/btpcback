@@ -16,7 +16,7 @@ import { AppService } from './app.service';
 import { DeliverablesModule } from './deliverables/deliverables.module';
 import { SharedModule } from './shared/shared.module';
 import { ChatIframeModule } from './chat-iframe/chat-iframe.module';
-
+import { ReferenceDocumentsModule } from './reference-documents/reference-documents.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -36,6 +36,7 @@ import { ChatIframeModule } from './chat-iframe/chat-iframe.module';
     SearchModule,
     DeliverablesModule,
     ChatIframeModule,
+    ReferenceDocumentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
