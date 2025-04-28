@@ -401,6 +401,20 @@ export default function App() {
                                     />
                                   </Suspense>
                                 );
+                              } else if (part.type === 'reasoning') {
+                                return (
+                                  <div className="flex flex-col gap-2">
+                                    <div className="flex items-center border border-stone-200 gap-1 text-sm text-stone-300 bg-stone-800 rounded-2xl py-0.5 px-2.5 max-w-max">
+                                      <span className="text-white">🧠</span>
+                                      Réflexion
+                                    </div>
+                                    <Suspense fallback={<Loading />} key={`reasoning-${partIndex}`}>
+                                      { part.details.map(detail =>
+                                        detail.type === 'text' ? <Markdown>{detail.text}</Markdown> : <>...</>
+                                      )}
+                                    </Suspense>
+                                  </div>
+                                );
                               }
                               return null;
                             })}

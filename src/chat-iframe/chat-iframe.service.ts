@@ -222,12 +222,19 @@ export class ChatIframeService {
       const result = streamText({
         model: model.sdk,
         messages: messages as Message[],
+        providerOptions: {
+          openai: { reasoningEffort: 'low' },
+          anthropic: {
+            thinking: { type: 'enabled', budgetTokens: 12000 },
+          },
+        },
         tools,
         toolCallStreaming: true,
         maxSteps: 25,
         experimental_transform: smoothStream(DEFAULT_STREAM_CONFIG),
-        onFinish: async ({ usage }) => {
+        onFinish: async ({ usage, reasoning }) => {
           this.logger.debug('usage:', usage);
+          this.logger.debug('reasoning:', reasoning);
           await this.logUsage(
             projectId,
             model.model,
@@ -242,7 +249,9 @@ export class ChatIframeService {
       });
 
       // Utiliser directement le textStream
-      result.pipeDataStreamToResponse(res);
+      result.pipeDataStreamToResponse(res, {
+        sendReasoning: true,
+      });
     } catch (error) {
       await this.handleStreamError(error, res);
     }

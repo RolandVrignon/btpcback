@@ -1336,6 +1336,8 @@ export class DocumentsService {
                             `Durée: ${webhookDurationSec}s`,
                           );
 
+                          await this.updateStatus(document.documentId, 'ERROR');
+
                           return {
                             success: false,
                             reason: 'webhook_error',

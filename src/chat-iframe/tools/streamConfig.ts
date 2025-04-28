@@ -4,6 +4,7 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import {
   experimental_createProviderRegistry as createProviderRegistry,
   LanguageModelV1,
+  wrapLanguageModel,
 } from 'ai';
 import { AI_Provider, UsageType } from '@prisma/client';
 
@@ -30,25 +31,36 @@ export interface ModelInterface {
 export const model: ModelInterface = (() => {
   if (process.env.ANTHROPIC_API_KEY) {
     return {
-      sdk: registry.languageModel('anthropic:claude-3-7-sonnet-20250219'),
+      sdk: wrapLanguageModel({
+        model: registry.languageModel('anthropic:claude-3-7-sonnet-20250219'),
+        middleware: [],
+      }),
       provider: AI_Provider.ANTHROPIC,
       model: 'claude-3-7-sonnet-20250219',
       type: UsageType.TEXT_TO_TEXT,
     };
+  } else if (process.env.OPENAI_API_KEY) {
+    return {
+      sdk: wrapLanguageModel({
+        model: registry.languageModel('openai:o3-mini'),
+        middleware: [],
+      }),
+      provider: AI_Provider.OPENAI,
+      model: 'o3-mini',
+      type: UsageType.TEXT_TO_TEXT,
+    };
   } else if (process.env.GOOGLE_API_KEY) {
     return {
-      sdk: registry.languageModel('google:gemini-2-0-flash'),
+      sdk: wrapLanguageModel({
+        model: registry.languageModel('google:gemini-2-0-flash'),
+        middleware: [],
+      }),
       provider: AI_Provider.GEMINI,
       model: 'gemini-2-0-flash',
       type: UsageType.TEXT_TO_TEXT,
     };
   } else {
-    return {
-      sdk: registry.languageModel('openai:gpt-4o-mini'),
-      provider: AI_Provider.OPENAI,
-      model: 'gpt-4o-mini',
-      type: UsageType.TEXT_TO_TEXT,
-    };
+    throw new Error('No valid API key found for any provider');
   }
 })();
 
