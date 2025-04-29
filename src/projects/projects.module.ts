@@ -10,9 +10,14 @@ import { ProjectsRepository } from '@/projects/projects.repository';
 import { PrismaModule } from '@/prisma/prisma.module';
 import { ApiKeyMiddleware } from '@/middleware/api-key.middleware';
 import { DeliverablesModule } from '@/deliverables/deliverables.module';
+import { DocumentsModule } from '@/documents/documents.module';
 
 @Module({
-  imports: [PrismaModule, forwardRef(() => DeliverablesModule)],
+  imports: [
+    PrismaModule,
+    forwardRef(() => DeliverablesModule),
+    forwardRef(() => DocumentsModule),
+  ],
   controllers: [ProjectsController],
   providers: [ProjectsService, ProjectsRepository],
   exports: [ProjectsService, ProjectsRepository],

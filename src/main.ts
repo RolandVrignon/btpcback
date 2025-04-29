@@ -43,8 +43,7 @@ async function bootstrap() {
     }
   }
 
-  // Créer un routeur Express pour gérer les routes /chat
-  // Utiliser "as any" pour contourner les erreurs de typage de TypeScript
+  // Create an Express router to handle /chat routes
   const router = express.Router();
 
   // Définir un type helper pour éviter les répétitions
@@ -77,7 +76,7 @@ async function bootstrap() {
   };
 
   // Utiliser la méthode "get" avec une fonction typée
-  (router as any).get('/assets/:file', handleAssetRequest);
+  router.get('/assets/:file', handleAssetRequest);
 
   // Servir favicon.svg
   const handleFaviconRequest: RouteHandler = (req, res) => {
@@ -93,7 +92,7 @@ async function bootstrap() {
     return res.sendFile(faviconPath);
   };
 
-  (router as any).get('/favicon.svg', handleFaviconRequest);
+  router.get('/favicon.svg', handleFaviconRequest);
 
   // Route de diagnostic
   const handleDebugRequest: RouteHandler = (req, res) => {
@@ -128,7 +127,7 @@ async function bootstrap() {
     }
   };
 
-  (router as any).get('/debug', handleDebugRequest);
+  router.get('/debug', handleDebugRequest);
 
   // Fallback pour les routes client-side
   const handleFallbackRequest: RouteHandler = (req, res) => {
@@ -144,7 +143,7 @@ async function bootstrap() {
   };
 
   // Utiliser '*path' au lieu de '*' pour nommer le paramètre wildcard
-  (router as any).get('*path', handleFallbackRequest);
+  router.get('*path', handleFallbackRequest);
 
   // Monter le routeur sur /chat
   app.use('/chat', router);
@@ -177,10 +176,10 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Configuration du timeout HTTP pour les requêtes longues (15 minutes)
-  const httpServer = app.getHttpServer() as Server;
-  httpServer.timeout = 900000; // 15 minutes en millisecondes
-  logger.log('HTTP server timeout set to 900000ms (15 minutes)');
+  // HTTP server timeout for long requests (20 minutes)
+  const httpServer: Server = app.getHttpServer();
+  httpServer.timeout = 1200000; // 20 minutes in milliseconds
+  logger.log('HTTP server timeout set to 1200000ms (20 minutes)');
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') || 8080;

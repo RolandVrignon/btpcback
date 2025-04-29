@@ -36,6 +36,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { Chunk } from '@prisma/client';
 import { Mistral } from '@mistralai/mistralai';
 import { StorageService } from '@/storage/storage.service';
+import { ProjectsService } from '@/projects/projects.service';
 @Injectable()
 export class DocumentsService {
   private readonly logger = new Logger(DocumentsService.name);
@@ -52,6 +53,7 @@ export class DocumentsService {
     private readonly embeddingsService: EmbeddingsService,
     private readonly chunksService: ChunksService,
     private readonly storageService: StorageService,
+    private readonly projectsService: ProjectsService,
     private readonly prismaService: PrismaService,
   ) {
     this.s3Client = new S3Client({
@@ -114,12 +116,55 @@ export class DocumentsService {
     }
   }
 
-  async remove(id: string) {
-    return this.documentsRepository.remove(id);
-  }
+  async updateStatus(
+    documentId: string,
+    status: Status | null,
+    indexationStatus?: Status | null,
+    url?: string,
+    code?: number,
+    message_status?: string,
+    message_indexation?: string,
+  ) {
+    const body = {
+      documentId: documentId,
+      status: status,
+      indexationStatus: indexationStatus,
+      code: code,
+      message_status: message_status,
+      message_indexation: message_indexation,
+      projectId: '',
+    };
 
-  async updateStatus(documentId: string, status: Status) {
-    return this.documentsRepository.updateStatus(documentId, status);
+    const documentUpdated = await this.documentsRepository.updateStatus(
+      documentId,
+      status,
+      indexationStatus,
+      code,
+      message_status,
+      message_indexation,
+    );
+
+    body.projectId = documentUpdated.projectId;
+    body.status = documentUpdated.status;
+    body.indexationStatus = documentUpdated.indexationStatus;
+
+    if (url) {
+      try {
+        this.logger.log(
+          `[${documentUpdated.documentId}] Envoi du webhook [${url}] : \n ${JSON.stringify(body, null, 2)}`,
+        );
+        await fetch(url, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        });
+      } catch {
+        this.logger.error(
+          `[${documentUpdated.documentId}] Erreur lors de l'envoi du webhook [${url}] : \n ${JSON.stringify(body, null, 2)}`,
+        );
+      }
+    }
+
+    return true;
   }
 
   async updateIndexationStatus(documentId: string, status: Status) {
@@ -148,60 +193,58 @@ export class DocumentsService {
   /**
    * Analyse un document avec un modèle de langage
    */
-  async analyzeDocument(documentId: string, model: string) {
-    try {
-      // Récupérer le document
-      const document = await this.documentsRepository.findOne(documentId);
+  // async analyzeDocument(documentId: string, model: string) {
+  //   const document = await this.documentsRepository.findOne(documentId);
 
-      // Mettre à jour le statut du document
-      await this.documentsRepository.updateStatus(
-        documentId,
-        'PROCESSING' as Status,
-      );
+  //   try {
+  //     // Mettre à jour le statut du document
+  //     await this.documentsRepository.updateStatus(
+  //       documentId,
+  //       'PROCESSING' as Status,
+  //     );
 
-      // Logique pour analyser le document...
-      // Cette partie dépend de l'implémentation spécifique pour analyser le document
+  //     // Logique pour analyser le document...
+  //     // Cette partie dépend de l'implémentation spécifique pour analyser le document
 
-      // Enregistrer l'utilisation du modèle
-      const usage = {
-        totalTokens: 2000, // Exemple, à remplacer par la valeur réelle
-      };
+  //     // Enregistrer l'utilisation du modèle
+  //     const usage = {
+  //       totalTokens: 2000, // Exemple, à remplacer par la valeur réelle
+  //     };
 
-      await this.usageService.logTextToTextUsage(
-        'GEMINI' as AI_Provider,
-        model,
-        usage,
-        document.projectId,
-      );
+  //     await this.usageService.logTextToTextUsage(
+  //       'GEMINI' as AI_Provider,
+  //       model,
+  //       usage,
+  //       document.projectId,
+  //     );
 
-      // Mettre à jour le statut du document une fois l'analyse terminée
-      await this.documentsRepository.updateStatus(
-        documentId,
-        'READY' as Status,
-      );
+  //     // Mettre à jour le statut du document une fois l'analyse terminée
+  //     await this.documentsRepository.updateStatus(
+  //       documentId,
+  //       'READY' as Status,
+  //     );
 
-      return { success: true, message: 'Document analysé avec succès' };
-    } catch (error) {
-      // En cas d'erreur, mettre à jour le statut du document
-      try {
-        await this.documentsRepository.updateStatus(
-          documentId,
-          'END' as Status,
-        );
-      } catch (updateError) {
-        this.logger.error(
-          'Erreur lors de la mise à jour du statut du document:',
-          updateError,
-        );
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new Error(
-        `Erreur lors de l'analyse du document: ${(error as Error).message}`,
-      );
-    }
-  }
+  //     return { success: true, message: 'Document analysé avec succès' };
+  //   } catch (error) {
+  //     // En cas d'erreur, mettre à jour le statut du document
+  //     try {
+  //       if (document && document.id) {
+  //         await this.updateStatus(document.id, 'ERROR');
+  //       }
+  //     } catch (updateError) {
+  //       this.logger.error(
+  //         'Erreur lors de la mise à jour du statut du document:',
+  //         updateError,
+  //       );
+  //     }
+  //     if (error instanceof NotFoundException) {
+  //       throw error;
+  //     }
+  //     throw new Error(
+  //       `Erreur lors de l'analyse du document: ${(error as Error).message}`,
+  //     );
+  //   }
+  // }
 
   /**
    * Crée les chunks dans la base de données et génère leurs embeddings
@@ -860,6 +903,12 @@ export class DocumentsService {
     // Enregistrer le temps de début
     const startTime = Date.now();
 
+    this.logger.log(
+      `[${dto.projectId}] Confirmation de l'upload. Début du processus d'indexation... StartTime : ${startTime}`,
+    );
+
+    this.logger.log(`DTO reçu : ${JSON.stringify(dto)}`);
+
     // Vérifier si le projet existe et appartient à l'organisation via le repository
     const project =
       await this.documentsRepository.findProjectByIdAndOrganization(
@@ -891,7 +940,7 @@ export class DocumentsService {
       const indexationTask = new Promise<{ status: string; message?: string }>(
         (resolve, reject) => {
           // Fonction interne asynchrone
-          const processIndexation = async () => {
+          const downloadAndSaveAndReadDocumentsBeforeIndexation = async () => {
             try {
               // Attendre qu'il y ait de la place dans la limite de concurrence
               while (
@@ -916,9 +965,27 @@ export class DocumentsService {
                 const documentPromises = dto.downloadUrls.map(
                   async (downloadUrl) => {
                     try {
+                      const document = await this.create({
+                        filename: '',
+                        path: '',
+                        mimetype: '',
+                        size: 0,
+                        projectId: dto.projectId,
+                      });
+
                       const response = await fetch(downloadUrl);
+
                       if (!response.ok) {
-                        throw new Error(`${response.statusText}`);
+                        await this.updateStatus(
+                          document.id,
+                          'ERROR',
+                          'ERROR',
+                          dto.documentWebhookUrl ? dto.documentWebhookUrl : '',
+                          404,
+                          'Impossible de télécharger le document',
+                          'Impossible de télécharger le document',
+                        );
+                        return null;
                       }
 
                       // Extraire le nom du fichier depuis les headers ou l'URL
@@ -956,7 +1023,16 @@ export class DocumentsService {
 
                       // Construire le chemin du fichier sur S3
                       if (!process.env.AWS_S3_BUCKET) {
-                        throw new Error('BUCKET_PATH is not defined');
+                        await this.updateStatus(
+                          document.id,
+                          'ERROR',
+                          'ERROR',
+                          dto.documentWebhookUrl ? dto.documentWebhookUrl : '',
+                          500,
+                          'BUCKET_PATH is not defined',
+                          'BUCKET_PATH is not defined',
+                        );
+                        return null;
                       }
 
                       const filePath = `${process.env.AWS_S3_BUCKET}${dto.projectId}/${fileName}`;
@@ -1005,12 +1081,23 @@ export class DocumentsService {
                             `Fichier ${fileName} uploadé avec succès sur S3`,
                           );
                         } else {
-                          throw error;
+                          await this.updateStatus(
+                            document.id,
+                            'ERROR',
+                            'ERROR',
+                            dto.documentWebhookUrl
+                              ? dto.documentWebhookUrl
+                              : '',
+                            500,
+                            "Erreur lors de l'upload du fichier sur S3",
+                            "Erreur lors de l'upload du fichier sur S3",
+                          );
+                          return null;
                         }
                       }
 
-                      // Créer le document dans la base de données
-                      const document = await this.create({
+                      // Mettre à jour le document dans la base de données
+                      const documentUpdated = await this.update(document.id, {
                         filename: fileName,
                         path: filePath,
                         mimetype: this.getMimetype(fileName),
@@ -1020,80 +1107,151 @@ export class DocumentsService {
                       });
 
                       // Télécharger et extraire le texte seulement pour PDF ou DOCX
-                      const fileExt = path.extname(fileName).toLowerCase();
-                      if (
-                        fileExt.toLowerCase() === '.pdf' ||
-                        fileExt.toLowerCase() === '.docx' ||
-                        fileExt.toLowerCase() === '.doc'
-                      ) {
-                        // Télécharger le document depuis S3
-                        const tempDir = `/tmp/document-processing/${document.id}`;
-                        const tempFilePath = await this.downloadDocumentFromS3(
-                          filePath,
-                          tempDir,
+                      try {
+                        const fileExt = path.extname(fileName).toLowerCase();
+                        if (
+                          fileExt.toLowerCase() === '.pdf' ||
+                          fileExt.toLowerCase() === '.docx' ||
+                          fileExt.toLowerCase() === '.doc'
+                        ) {
+                          // Télécharger le document depuis S3
+                          const tempDir = `/tmp/document-processing/${documentUpdated.id}`;
+                          const tempFilePath =
+                            await this.downloadDocumentFromS3(
+                              filePath,
+                              tempDir,
+                            );
+
+                          // Convertir le document si nécessaire
+                          let pdfFilePath: string;
+                          try {
+                            pdfFilePath =
+                              await this.convertToPdfIfNeeded(tempFilePath);
+                          } catch {
+                            await this.updateStatus(
+                              documentUpdated.id,
+                              'ERROR',
+                              'ERROR',
+                              dto.documentWebhookUrl
+                                ? dto.documentWebhookUrl
+                                : '',
+                              500,
+                              'Erreur lors de la conversion du document en PDF',
+                              'Erreur lors de la conversion du document en PDF',
+                            );
+                            return null;
+                          }
+
+                          // Extraire le texte du PDF
+                          let extractedText: Array<{
+                            text: string;
+                            page: number;
+                          }>;
+                          try {
+                            extractedText = await this.extractTextFromPdf(
+                              pdfFilePath,
+                              dto.projectId,
+                              fileName,
+                            );
+                          } catch {
+                            await this.updateStatus(
+                              documentUpdated.id,
+                              'ERROR',
+                              'ERROR',
+                              dto.documentWebhookUrl
+                                ? dto.documentWebhookUrl
+                                : '',
+                              500,
+                              "Erreur lors de l'extraction du texte du document",
+                              "Erreur lors de l'extraction du texte du document",
+                            );
+                            return null;
+                          }
+
+                          // Extraire les métadonnées du PDF
+                          let metadata: {
+                            author: string;
+                            title: string;
+                            subject: string;
+                            keywords: string;
+                            fileSize: number;
+                          };
+                          try {
+                            metadata =
+                              await this.extractPdfMetadata(pdfFilePath);
+                          } catch {
+                            await this.updateStatus(
+                              documentUpdated.id,
+                              'ERROR',
+                              'ERROR',
+                              dto.documentWebhookUrl
+                                ? dto.documentWebhookUrl
+                                : '',
+                              500,
+                              "Erreur lors de l'extraction des métadonnées du document",
+                              "Erreur lors de l'extraction des métadonnées du document",
+                            );
+                            return null;
+                          }
+
+                          const numPages = extractedText.length;
+
+                          await this.documentsRepository.update(
+                            documentUpdated.id,
+                            {
+                              metadata_numPages: numPages,
+                              metadata_author: metadata.author || '',
+                              size: metadata.fileSize,
+                            },
+                          );
+
+                          // Nettoyer les fichiers temporaires après extraction
+                          await this.cleanupTempFiles(tempDir);
+
+                          return {
+                            document,
+                            text: extractedText
+                              .map(
+                                (pt, index) =>
+                                  `-------------- Page Selector ${index + 1} --------------\n\n${pt.text}\n\n`,
+                              )
+                              .join('\n'),
+                            extractedTextPerPage: extractedText,
+                          };
+                        } else {
+                          throw new BadRequestException(
+                            "Le fichier n'est pas géré par Documate",
+                          );
+                        }
+                      } catch (error) {
+                        this.logger.error(
+                          `Erreur lors du traitement du fichier ${downloadUrl}:`,
+                          error,
                         );
-
-                        //Récupérer le mimetype du fichier
-                        const mimetype = this.getMimetype(tempFilePath);
-
-                        // Mettre à jour le document avec le mimetype
-                        await this.documentsRepository.update(document.id, {
-                          mimetype,
-                        });
-
-                        // Convertir le document si nécessaire
-                        const pdfFilePath =
-                          await this.convertToPdfIfNeeded(tempFilePath);
-
-                        // Extraire le texte du PDF
-                        const extractedText = await this.extractTextFromPdf(
-                          pdfFilePath,
-                          dto.projectId,
-                          fileName,
-                        );
-
-                        // Extraire les métadonnées du PDF
-                        const metadata =
-                          await this.extractPdfMetadata(pdfFilePath);
-
-                        const numPages = extractedText.length;
-
-                        await this.documentsRepository.update(document.id, {
-                          metadata_numPages: numPages,
-                          metadata_author: metadata.author || '',
-                          size: metadata.fileSize,
-                        });
-
-                        // Nettoyer les fichiers temporaires après extraction
-                        await this.cleanupTempFiles(tempDir);
-
+                        if (documentUpdated && documentUpdated.id) {
+                          await this.updateStatus(
+                            documentUpdated.id,
+                            'ERROR',
+                            'ERROR',
+                            dto.documentWebhookUrl
+                              ? dto.documentWebhookUrl
+                              : '',
+                            424,
+                            'Extension de fichier non supportée.',
+                            'Extension de fichier non supportée.',
+                          );
+                        }
                         return {
-                          document,
-                          text: extractedText
-                            .map(
-                              (pt, index) =>
-                                `-------------- Page Selector ${index + 1} --------------\n\n${pt.text}\n\n`,
-                            )
-                            .join('\n'),
-                          extractedTextPerPage: extractedText,
+                          document: null,
+                          text: '',
+                          extractedTextPerPage: [],
                         };
                       }
-
-                      return {
-                        document,
-                        text: '',
-                        extractedTextPerPage: [],
-                      };
                     } catch (error) {
                       this.logger.error(
                         `Erreur lors du traitement du fichier ${downloadUrl}:`,
                         error,
                       );
-                      return {
-                        document: null,
-                        text: '',
-                        extractedTextPerPage: [],
-                      };
                     }
                   },
                 );
@@ -1141,10 +1299,6 @@ export class DocumentsService {
                       )
                       .join('');
 
-                    this.logger.log(
-                      `[${indexationId}] Texte du projet: ${text}`,
-                    );
-
                     const payload = JSON.stringify({
                       projectId: dto.projectId,
                       text: text,
@@ -1157,46 +1311,42 @@ export class DocumentsService {
                       this.logger.warn(
                         `[${indexationId}] N8N_WEBHOOK_URL is not defined in environment variables`,
                       );
+                      await this.projectsService.updateStatus(
+                        dto.projectId,
+                        Status.ERROR,
+                        `N8N_WEBHOOK_URL is not defined in environment variables.`,
+                        426,
+                        dto.projectWebhookUrl ? dto.projectWebhookUrl : null,
+                      );
                       return {
                         success: false,
                         reason: 'webhook_url_missing',
                       };
-                    } else {
-                      this.logger.log(
-                        `[${indexationId}] N8N_WEBHOOK_URL: ${n8nWebhookUrl}`,
-                      );
                     }
-
-                    this.logger.log(
-                      `[${indexationId}] Sending project data to n8n webhook...`,
-                    );
-
-                    // Configurer un timeout de 15 minutes (900000 ms)
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(
-                      () => controller.abort(),
-                      900000, // 15 minutes en ms
-                    );
 
                     // Enregistrer le temps de début pour cette requête
                     const webhookStartTime = Date.now();
 
                     const webhookUrl = `${n8nWebhookUrl}/documate`;
 
-                    this.logger.log(`Webhook URL: ${webhookUrl}`);
-
                     try {
                       // Envoyer la requête n8n pour le projet avec fetch (natif)
+
+                      await this.projectsService.updateStatus(
+                        dto.projectId,
+                        Status.PROGRESS,
+                        `Projet envoyé à n8n. Extraction en cours...`,
+                        200,
+                        dto.projectWebhookUrl ? dto.projectWebhookUrl : null,
+                      );
+
                       const res = await fetch(webhookUrl, {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
                         },
                         body: payload,
-                        signal: controller.signal,
                       });
-
-                      clearTimeout(timeoutId);
 
                       // Calculer le temps d'exécution
                       const webhookEndTime = Date.now();
@@ -1210,11 +1360,37 @@ export class DocumentsService {
                         this.logger.log(
                           `[${indexationId}] Project data successfully sent to n8n webhook. Durée: ${webhookDurationSec}s`,
                         );
+
+                        try {
+                          await this.projectsService.updateStatus(
+                            dto.projectId,
+                            Status.COMPLETED,
+                            `Projet géré par n8n. Extraction terminée avec succès en ${webhookDurationSec}s`,
+                            200,
+                            dto.projectWebhookUrl
+                              ? dto.projectWebhookUrl
+                              : null,
+                          );
+                        } catch {
+                          this.logger.error(
+                            `[${indexationId}] Erreur lors de la mise à jour du statut du projet à n8n.`,
+                          );
+                        }
+
                         return { success: true };
                       } else {
                         this.logger.error(
-                          `${res.status} - ${res.statusText} - [${indexationId}] Error sending project data to n8n webhook. Durée: ${webhookDurationSec}s`,
+                          `[${indexationId}] Error sending project data to n8n webhook. Durée: ${webhookDurationSec}s`,
                         );
+
+                        await this.projectsService.updateStatus(
+                          dto.projectId,
+                          Status.ERROR,
+                          `Erreur lors de l'envoi du projet à n8n. Durée: ${webhookDurationSec}s`,
+                          425,
+                          dto.projectWebhookUrl ? dto.projectWebhookUrl : null,
+                        );
+
                         return {
                           success: false,
                           reason: 'webhook_error',
@@ -1234,6 +1410,15 @@ export class DocumentsService {
                       this.logger.error(
                         `${error} - [${indexationId}] Error sending project data to n8n webhook. Durée: ${webhookDurationSec}s`,
                       );
+
+                      await this.projectsService.updateStatus(
+                        dto.projectId,
+                        Status.ERROR,
+                        `Erreur lors de l'envoi du projet à n8n. Durée: ${webhookDurationSec}s`,
+                        425,
+                        dto.projectWebhookUrl ? dto.projectWebhookUrl : null,
+                      );
+
                       return {
                         success: false,
                         reason: 'exception',
@@ -1248,6 +1433,15 @@ export class DocumentsService {
                       `[${indexationId}] Error sending project data to n8n webhook:`,
                       error,
                     );
+
+                    await this.projectsService.updateStatus(
+                      dto.projectId,
+                      Status.ERROR,
+                      `Erreur lors de l'envoi du projet à n8n.`,
+                      426,
+                      dto.projectWebhookUrl ? dto.projectWebhookUrl : null,
+                    );
+
                     return {
                       success: false,
                       reason: 'exception',
@@ -1301,6 +1495,20 @@ export class DocumentsService {
                       const webhookStartTime = Date.now();
 
                       try {
+                        await this.updateStatus(
+                          document.documentId,
+                          Status.PROGRESS,
+                          null,
+                          dto.documentWebhookUrl,
+                          200,
+                          `Extraction n8n en cours...`,
+                          null,
+                        );
+
+                        this.logger.log(
+                          `[${indexationId}] Envoi du document ${document.name} à n8n webhook : [${webhookUrl}]`,
+                        );
+
                         // Envoyer la requête n8n pour ce document avec fetch (natif)
                         const res = await fetch(webhookUrl, {
                           method: 'POST',
@@ -1322,9 +1530,26 @@ export class DocumentsService {
                           webhookDurationMs / 1000
                         ).toFixed(2);
 
-                        if (res.ok) {
+                        this.logger.log(
+                          `[${indexationId}] Document ${document.name} sent to n8n. Durée: ${webhookDurationSec}s`,
+                        );
+
+                        const data = (await res.json()) as { success: boolean };
+
+                        if (data.success) {
                           this.logger.log(
                             `[${indexationId}] Document ${document.name} successfully managed by n8n. Durée: ${webhookDurationSec}s`,
+                          );
+
+                          await this.updateStatus(
+                            document.documentId,
+                            'COMPLETED',
+                            null,
+                            dto.documentWebhookUrl
+                              ? dto.documentWebhookUrl
+                              : '',
+                            202,
+                            'Document géré par n8n.',
                           );
 
                           return { success: true, document: document.name };
@@ -1336,7 +1561,18 @@ export class DocumentsService {
                             `Durée: ${webhookDurationSec}s`,
                           );
 
-                          await this.updateStatus(document.documentId, 'ERROR');
+                          if (document && document.documentId) {
+                            await this.updateStatus(
+                              document.documentId,
+                              'ERROR',
+                              null,
+                              dto.documentWebhookUrl
+                                ? dto.documentWebhookUrl
+                                : '',
+                              425,
+                              "Erreur lors de l'envoi du document à n8n.",
+                            );
+                          }
 
                           return {
                             success: false,
@@ -1358,6 +1594,16 @@ export class DocumentsService {
                         this.logger.error(
                           `[${indexationId}] Error sending document ${document.name} to n8n webhook: ${error}. Durée: ${webhookDurationSec}s`,
                         );
+
+                        await this.updateStatus(
+                          document.documentId,
+                          'ERROR',
+                          null,
+                          dto.documentWebhookUrl ? dto.documentWebhookUrl : '',
+                          425,
+                          `Erreur lors de l'envoi du document à n8n en arrière plan. Durée: ${webhookDurationSec}s`,
+                        );
+
                         return {
                           success: false,
                           reason: 'exception',
@@ -1373,6 +1619,16 @@ export class DocumentsService {
                         `[${indexationId}] Error de catch externe - Webhook non atteint pour ${document.name}:`,
                         error,
                       );
+
+                      await this.updateStatus(
+                        document.documentId,
+                        'ERROR',
+                        null,
+                        dto.documentWebhookUrl ? dto.documentWebhookUrl : '',
+                        425,
+                        `Erreur lors de l'envoi du document à n8n en arrière plan.`,
+                      );
+
                       return {
                         success: false,
                         reason: 'exception_externe',
@@ -1392,7 +1648,10 @@ export class DocumentsService {
                     this.logger.log(
                       `[${indexationId}] Début du processus d'indexation des documents...`,
                     );
-                    await this.processDocumentsInBackground(documentsWithText);
+                    await this.processDocumentsInBackground(
+                      documentsWithText,
+                      dto.documentWebhookUrl ? dto.documentWebhookUrl : null,
+                    );
                     this.logger.log(
                       `[${indexationId}] Indexation des documents terminée avec succès`,
                     );
@@ -1511,7 +1770,7 @@ export class DocumentsService {
             }
           };
 
-          void processIndexation();
+          void downloadAndSaveAndReadDocumentsBeforeIndexation();
         },
       );
 
@@ -1519,17 +1778,17 @@ export class DocumentsService {
       void DocumentsService.indexationQueue.push(indexationTask);
 
       // Indiquer à l'utilisateur que sa demande a été prise en compte
-      const queueStatus = canStartImmediately
+      const queueMessage = canStartImmediately
         ? 'Traitement démarré immédiatement'
         : `En attente, position ${queuePosition} dans la file d'attente`;
 
-      return {
-        status: 'QUEUED',
-        message: queueStatus,
-        position: queuePosition,
-        projectId: dto.projectId,
-        fileCount: dto.downloadUrls.length,
-      };
+      await this.projectsService.updateStatus(
+        dto.projectId,
+        Status.PROGRESS,
+        queueMessage,
+        200,
+        dto.projectWebhookUrl ? dto.projectWebhookUrl : null,
+      );
     } catch (error) {
       // Calculer le temps d'exécution même en cas d'erreur
       const endTime = Date.now();
@@ -1561,6 +1820,7 @@ export class DocumentsService {
       text: string;
       extractedTextPerPage: Array<{ text: string; page: number }>;
     }>,
+    webhookUrl: string | null,
   ): Promise<void> {
     // Traiter chaque document séquentiellement pour éviter de surcharger la base de données
 
@@ -1569,10 +1829,19 @@ export class DocumentsService {
     );
 
     for (const docData of documentsWithTextFiltered) {
+      const { document, extractedTextPerPage } = docData;
       try {
-        const { document, extractedTextPerPage } = docData;
-
         const startTime = Date.now();
+
+        await this.updateStatus(
+          document.id,
+          null,
+          'PROGRESS',
+          webhookUrl ? webhookUrl : '',
+          200,
+          null,
+          'Indexation en cours...',
+        );
 
         if (extractedTextPerPage.length === 0) {
           continue; // Ignorer les documents sans texte extrait
@@ -1598,6 +1867,16 @@ export class DocumentsService {
             indexation_duration_in_seconds: durationInSeconds,
           });
 
+          await this.updateStatus(
+            document.id,
+            null,
+            'COMPLETED',
+            webhookUrl ? webhookUrl : '',
+            200,
+            null,
+            `Indexation terminée pour le document en ${durationInSeconds} secondes`,
+          );
+
           this.logger.log(
             `Indexation terminée pour le document ${document.id} en ${durationInSeconds} secondes`,
           );
@@ -1614,7 +1893,17 @@ export class DocumentsService {
           error,
         );
         // En cas d'erreur, mettre à jour le statut du document à END
-        await this.updateStatus(docData.document.id, 'ERROR');
+        if (docData.document && docData.document.id) {
+          await this.updateStatus(
+            docData.document.id,
+            null,
+            'ERROR',
+            webhookUrl ? webhookUrl : '',
+            500,
+            null,
+            `Erreur lors de l'indexation du document ${document.id} dans la fonction processDocumentsInBackground`,
+          );
+        }
       }
     }
   }

@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import { CreateProjectDto, Status } from '@/projects/dto/create-project.dto';
+import { CreateProjectDto } from '@/projects/dto/create-project.dto';
 import { UpdateProjectDto } from '@/projects/dto/update-project.dto';
 import { UpdateAddressDto } from '@/projects/dto/update-address.dto';
 import { Project } from '@prisma/client';
+import { Status } from '@prisma/client';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class ProjectsRepository {
+  private readonly logger = new Logger(ProjectsRepository.name);
+
   constructor(private prisma: PrismaService) {}
 
   /**
@@ -264,5 +268,70 @@ export class ProjectsRepository {
         },
       }),
     );
+  }
+
+  /**
+   * Update the status of a project
+   */
+  async updateStatus(
+    projectId: string,
+    status: Status,
+    code?: number,
+    message?: string,
+  ): Promise<{
+    projectId: string;
+    status: Status;
+    code?: number;
+    message?: string;
+    updated_at: Date;
+  }> {
+    void code;
+    void message;
+
+    const updateData: {
+      status?: Status;
+      code?: number;
+      message?: string;
+    } = {};
+
+    if (status !== null) {
+      updateData.status = status;
+    }
+    // if (code !== null) {
+    //   updateData.code = code;
+    // }
+    // if (message !== null) {
+    //   updateData.message = message;
+    // }
+
+    try {
+      const project = await this.prisma.executeWithQueue(() =>
+        this.prisma.project.update({
+          where: { id: projectId },
+          data: updateData,
+          select: { id: true, status: true },
+        }),
+      );
+      return {
+        projectId: project.id,
+        status: project.status,
+        code,
+        message,
+        updated_at: new Date(),
+      };
+    } catch (error) {
+      this.logger.error(
+        'Project Repository error : ',
+        JSON.stringify(error, null, 2),
+      );
+      return {
+        projectId: '',
+        status: Status.ERROR,
+        code,
+        message:
+          'Erreur lors de la mise à jour du statut du projet dans le repository updateStatus',
+        updated_at: new Date(),
+      };
+    }
   }
 }

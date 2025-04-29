@@ -163,7 +163,6 @@ export class DocumentsRepository {
 
       // Si le résultat contient ai_metadata avec l'ordre préservé, restaurer l'ordre original
       if (result.ai_metadata) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         result.ai_metadata = restoreFieldOrder(result.ai_metadata) as JsonValue;
       }
 
@@ -180,204 +179,103 @@ export class DocumentsRepository {
     }
   }
 
-  // /**
-  //  * Préserve l'ordre des champs dans un objet JSON en ajoutant des métadonnées
-  //  * @param data Données JSON à traiter
-  //  * @returns Données JSON avec métadonnées d'ordre
-  //  */
-  // preserveFieldOrder(data: any): any {
-  //   if (data === null || typeof data !== 'object') {
-  //     return data;
-  //   }
-
-  //   if (Array.isArray(data)) {
-  //     // Pour les tableaux, vérifier si ce sont des objets similaires
-  //     if (
-  //       data.length > 0 &&
-  //       typeof data[0] === 'object' &&
-  //       !Array.isArray(data[0])
-  //     ) {
-  //       // Vérifier si tous les objets ont les mêmes clés
-  //       const firstItemKeys = Object.keys(data[0]);
-  //       const allSameKeys = data.every(
-  //         (item) =>
-  //           typeof item === 'object' &&
-  //           !Array.isArray(item) &&
-  //           Object.keys(item).length === firstItemKeys.length &&
-  //           firstItemKeys.every((key) => key in item),
-  //       );
-
-  //       if (allSameKeys) {
-  //         // Stocker un seul fieldOrder pour tout le tableau
-  //         const processedItems = data.map((item) => {
-  //           const processedItem: Record<string, any> = {};
-  //           for (const key of firstItemKeys) {
-  //             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-  //             processedItem[key] = preserveFieldOrder(item[key]);
-  //           }
-  //           return processedItem;
-  //         });
-
-  //         // Retourner un objet avec les données et l'ordre des champs
-  //         return {
-  //           __data: processedItems,
-  //           __fieldOrder: firstItemKeys,
-  //           __isArray: true,
-  //         };
-  //       }
-  //     }
-
-  //     // Si ce n'est pas un tableau d'objets similaires, traiter chaque élément individuellement
-  //     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  //     return data.map((item) => preserveFieldOrder(item));
-  //   }
-
-  //   // Pour les objets
-  //   const fieldOrder = Object.keys(data);
-  //   const processedData: Record<string, any> = {};
-
-  //   // Traiter chaque champ
-  //   for (const key of fieldOrder) {
-  //     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-  //     const processedValue = preserveFieldOrder(data[key]);
-  //     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  //     processedData[key] = processedValue;
-  //   }
-
-  //   // Ajouter les métadonnées d'ordre
-  //   return {
-  //     __data: processedData,
-  //     __fieldOrder: fieldOrder,
-  //   };
-  // }
-
-  // /**
-  //  * Restaure l'ordre des champs à partir des métadonnées
-  //  * @param data Données JSON avec métadonnées d'ordre
-  //  * @returns Données JSON avec l'ordre original
-  //  */
-  // restoreFieldOrder(data: any): any {
-  //   if (data === null || typeof data !== 'object') {
-  //     return data;
-  //   }
-
-  //   if (Array.isArray(data)) {
-  //     // Pour les tableaux, traiter chaque élément
-  //     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  //     return data.map((item) => this.restoreFieldOrder(item));
-  //   }
-
-  //   // Vérifier si c'est un tableau d'objets similaires avec un seul fieldOrder
-  //   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  //   if (data.__data && data.__fieldOrder && data.__isArray === true) {
-  //     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-  //     const items = data.__data;
-  //     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-  //     const fieldOrder = data.__fieldOrder;
-
-  //     // Reconstruire chaque élément du tableau avec le même ordre de champs
-  //     if (!Array.isArray(items)) {
-  //       return items;
-  //     }
-
-  //     return items.map((item: any) => {
-  //       const result: Record<string, any> = {};
-  //       for (const key of fieldOrder) {
-  //         if (key in item) {
-  //           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-  //           result[key] = this.restoreFieldOrder(item[key]);
-  //         }
-  //       }
-  //       return result;
-  //     });
-  //   }
-
-  //   // Vérifier si c'est un objet avec métadonnées d'ordre
-  //   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  //   if (data.__data && data.__fieldOrder && Array.isArray(data.__fieldOrder)) {
-  //     const result: Record<string, any> = {};
-  //     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-  //     const orderedData = data.__data;
-  //     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-  //     const fieldOrder = data.__fieldOrder;
-
-  //     // Reconstruire l'objet selon l'ordre des champs
-  //     for (const key of fieldOrder) {
-  //       if (key in orderedData) {
-  //         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-  //         result[key] = this.restoreFieldOrder(orderedData[key]);
-  //       }
-  //     }
-
-  //     return result;
-  //   }
-
-  //   // Pour les objets sans métadonnées d'ordre
-  //   const result: Record<string, any> = {};
-  //   for (const [key, value] of Object.entries(data)) {
-  //     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  //     result[key] = this.restoreFieldOrder(value);
-  //   }
-
-  //   return result;
-  // }
-
-  /**
-   * Supprime un document
-   */
-  async remove(id: string) {
-    try {
-      return await this.prisma.executeWithQueue(() =>
-        this.prisma.document.delete({
-          where: { id },
-        }),
-      );
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2025'
-      ) {
-        throw new NotFoundException('Document non trouvé');
-      }
-      throw error;
-    }
-  }
-
   /**
    * Met à jour le statut d'un document
    */
-  async updateStatus(documentId: string, status: Status): Promise<Document> {
+  async updateStatus(
+    documentId: string,
+    status: Status | null,
+    indexationStatus: Status | null,
+    code?: number,
+    message_status?: string,
+    message_indexation?: string,
+  ): Promise<{
+    projectId: string;
+    documentId: string;
+    status: Status;
+    indexationStatus: Status;
+    message_status?: string;
+    message_indexation?: string;
+    updated_at: Date;
+  }> {
+    void code;
+    void message_status;
+    void message_indexation;
+
     try {
-      const document = await this.prisma.executeWithQueue(() =>
-        this.prisma.document.findUnique({
-          where: { id: documentId },
-        }),
-      );
+      // Build the update data object dynamically
+      const updateData: {
+        status?: Status;
+        indexation_status?: Status;
+        code?: number;
+        message_status?: string;
+        message_indexation?: string;
+      } = {};
 
-      if (!document) {
-        throw new NotFoundException(
-          `Document avec l'ID ${documentId} non trouvé`,
-        );
+      if (status !== null) {
+        updateData.status = status;
       }
+      if (indexationStatus !== null) {
+        updateData.indexation_status = indexationStatus;
+      }
+      // if (code !== null) {
+      //   updateData.code = code;
+      // }
+      // if (message_status !== null) {
+      //   updateData.message_status = message_status;
+      // }
+      // if (message_indexation !== null) {
+      //   updateData.message_indexation = message_indexation;
+      // }
 
-      return await this.prisma.executeWithQueue(() =>
+      // Typing the result to avoid unsafe any access
+      const document: {
+        id: string;
+        status: Status;
+        indexation_status: Status;
+        message_status?: string;
+        message_indexation?: string;
+        project: { id: string };
+      } = await this.prisma.executeWithQueue(() =>
         this.prisma.document.update({
           where: { id: documentId },
-          data: {
-            status: status,
-          },
-          include: {
-            project: true,
+          data: updateData,
+          select: {
+            id: true,
+            status: true,
+            indexation_status: true,
+            project: {
+              select: { id: true },
+            },
           },
         }),
       );
+
+      return {
+        projectId: document.project.id,
+        documentId: document.id,
+        status: document.status,
+        indexationStatus: document.indexation_status,
+        message_status: document.message_status,
+        message_indexation: document.message_indexation,
+        updated_at: new Date(),
+      };
     } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new Error(
-        `Erreur lors de la mise à jour du statut du document: ${(error as Error).message}`,
+      this.logger.error(
+        'Document Repository error : ',
+        JSON.stringify(error, null, 2),
       );
+      return {
+        projectId: '',
+        documentId: '',
+        status: 'ERROR',
+        indexationStatus: 'ERROR',
+        message_status:
+          'Erreur lors de la mise à jour du statut du document dans le repository updateStatus',
+        message_indexation:
+          "Erreur lors de la mise à jour du statut de l'indexation dans le repository updateStatus",
+        updated_at: new Date(),
+      };
     }
   }
 
