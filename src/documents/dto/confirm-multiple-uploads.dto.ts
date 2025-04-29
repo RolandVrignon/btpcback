@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, ArrayMinSize, IsUrl } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  ArrayMinSize,
+  IsUrl,
+  IsOptional,
+} from 'class-validator';
 
 export class ConfirmMultipleUploadsDto {
   @ApiProperty({
@@ -21,4 +27,26 @@ export class ConfirmMultipleUploadsDto {
   @IsUrl({}, { each: true })
   @ArrayMinSize(1)
   downloadUrls: string[];
+
+  @ApiProperty({
+    description:
+      'Webhook URL pour récupérer les informations de mise à jour du document',
+    type: String,
+    example: 'https://www.domain.com/api/update-document',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @IsOptional()
+  documentWebhookUrl?: string;
+
+  @ApiProperty({
+    description:
+      'Webhook URL pour récupérer les informations de mise à jour du projet',
+    type: String,
+    example: 'https://www.domain.com/api/update-project',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @IsOptional()
+  projectWebhookUrl?: string;
 }

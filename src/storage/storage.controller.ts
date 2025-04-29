@@ -77,8 +77,6 @@ export class StorageController {
     @Body() downloadFileDto: DownloadFileDto,
     @Organization() organization: OrganizationEntity,
   ): Promise<DownloadFileResponseDto> {
-    this.logger.log('We want to download a file');
-    this.logger.log('downloadFileDto', downloadFileDto);
     return this.storageService.getDownloadUrl(downloadFileDto, organization.id);
   }
 

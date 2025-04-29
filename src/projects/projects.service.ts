@@ -1,4 +1,4 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { CreateProjectDto } from '@/projects/dto/create-project.dto';
 import { UpdateProjectDto } from '@/projects/dto/update-project.dto';
 import { UpdateAddressDto } from '@/projects/dto/update-address.dto';
@@ -6,9 +6,12 @@ import { ProjectsRepository } from '@/projects/projects.repository';
 import { DeliverablesService } from '@/deliverables/deliverables.service';
 import { DeliverableType } from '@prisma/client';
 import { OrganizationEntity } from '@/types';
+import { Status } from '@prisma/client';
 
 @Injectable()
 export class ProjectsService {
+  private readonly logger = new Logger(ProjectsService.name);
+
   constructor(
     private readonly projectsRepository: ProjectsRepository,
     @Inject(forwardRef(() => DeliverablesService))
@@ -81,5 +84,39 @@ export class ProjectsService {
    */
   async exists(id: string): Promise<boolean> {
     return this.projectsRepository.exists(id);
+  }
+
+  async updateStatus(
+    id: string,
+    status: Status,
+    message?: string,
+    code?: number,
+    webhookUrl?: string,
+  ) {
+    await this.projectsRepository.updateStatus(id, status, code, message);
+
+    const body = {
+      projectId: id,
+      status: status,
+      code: code,
+      message: message,
+      webhookUrl: webhookUrl,
+    };
+
+    if (webhookUrl) {
+      try {
+        this.logger.log(
+          `[${id}] Envoi du webhook [${webhookUrl}] : \n ${JSON.stringify(body, null, 2)}`,
+        );
+        await fetch(webhookUrl, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        });
+      } catch {
+        this.logger.error(
+          `[${id}] Erreur lors de l'envoi du webhook [${webhookUrl}] : \n ${JSON.stringify(body, null, 2)}`,
+        );
+      }
+    }
   }
 }

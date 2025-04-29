@@ -1,4 +1,9 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import {
+  Module,
+  NestModule,
+  MiddlewareConsumer,
+  forwardRef,
+} from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { DocumentsService } from '@/documents/documents.service';
 import { DocumentsController } from '@/documents/documents.controller';
@@ -12,6 +17,7 @@ import { ChunksModule } from '@/chunks/chunks.module';
 import { IndexationQueueModule } from '@/documents/queue/indexation-queue.module';
 import { GuardsModule } from '@/common/guards/guards.module';
 import { StorageModule } from '@/storage/storage.module';
+import { ProjectsModule } from '@/projects/projects.module';
 @Module({
   imports: [
     MulterModule.register({
@@ -25,6 +31,7 @@ import { StorageModule } from '@/storage/storage.module';
     IndexationQueueModule,
     GuardsModule,
     StorageModule,
+    forwardRef(() => ProjectsModule),
   ],
   controllers: [DocumentsController],
   providers: [DocumentsService, DocumentsRepository],
