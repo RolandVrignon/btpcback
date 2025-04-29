@@ -1563,15 +1563,12 @@ export class DocumentsService {
                 })();
 
                 // Attendre que les trois processus soient terminés
-                const [
-                  projectExtractionResult,
-                  n8nExtractionResults,
-                  indexationResult,
-                ] = await Promise.all([
-                  n8nProjectExtraction,
-                  Promise.all(n8nExtractionPromises),
-                  indexationPromise,
-                ]);
+                const [projectExtractionResult, indexationResult] =
+                  await Promise.all([
+                    n8nProjectExtraction,
+                    indexationPromise,
+                    Promise.all(n8nExtractionPromises),
+                  ]);
 
                 // Vérifier les résultats
                 if (!projectExtractionResult.success) {
