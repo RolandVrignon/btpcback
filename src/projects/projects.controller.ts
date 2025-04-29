@@ -12,6 +12,7 @@ import { UpdateProjectDto } from '@/projects/dto/update-project.dto';
 import { UpdateAddressDto } from '@/projects/dto/update-address.dto';
 import { Organization } from '@/decorators/organization.decorator';
 import { OrganizationEntity } from '@/types';
+import { UpdateProjectStatusDto } from './dto/update-project-status.dto';
 
 @ApiTags('projects')
 @ApiHeader({
@@ -129,6 +130,28 @@ export class ProjectsController {
       id,
       updateAddressDto,
       organization,
+    );
+  }
+
+  @Post('update-status')
+  @ApiOperation({ summary: "Mettre à jour le statut d'un projet" })
+  @ApiResponse({
+    status: 200,
+    description: 'Statut du projet mis à jour avec succès.',
+  })
+  @ApiResponse({ status: 404, description: 'Projet non trouvé.' })
+  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès non autorisé à ce document.',
+  })
+  async updateStatus(@Body() updateProjectStatusDto: UpdateProjectStatusDto) {
+    return this.projectsService.updateStatus(
+      updateProjectStatusDto.id,
+      updateProjectStatusDto.status,
+      updateProjectStatusDto.message,
+      updateProjectStatusDto.code,
+      updateProjectStatusDto.webhookUrl,
     );
   }
 }
