@@ -26,7 +26,7 @@ import { extname } from 'path';
 import { Organization } from '@/decorators/organization.decorator';
 import { UpdateDocumentDto } from '@/documents/dto/update-document.dto';
 import { OrganizationEntity } from '@/types';
-import { UpdateStatusDto } from '@/documents/dto/update-document-status.dto';
+import { UpdateDocumentStatusDto } from '@/documents/dto/update-document-status.dto';
 import { MonitorDocumentDto } from '@/documents/dto/monitor-document.dto';
 import { ApiKeyGuard } from '@/common/guards/api-key.guard';
 import { ViewDocumentDto } from '@/documents/dto/view-document.dto';
@@ -192,13 +192,8 @@ export class DocumentsController {
     );
   }
 
-  @Post(':id/status')
+  @Post('update-status')
   @ApiOperation({ summary: "Mettre à jour le statut d'un document" })
-  @ApiParam({
-    name: 'id',
-    description: 'ID du document',
-    example: '01234567890123456789012345678901',
-  })
   @ApiResponse({
     status: 200,
     description: 'Statut du document mis à jour avec succès.',
@@ -209,13 +204,21 @@ export class DocumentsController {
     status: 403,
     description: 'Accès non autorisé à ce document.',
   })
-  async updateStatus(
-    @Param('id') id: string,
-    @Body() updateStatusDto: UpdateStatusDto,
-  ) {
-    // Vérifier que le document appartient à un projet de l'organisation
-    await this.documentsService.findOne(id);
-    return this.documentsService.updateStatus(id, updateStatusDto.status);
+  async updateStatus(@Body() updateDocumentStatusDto: UpdateDocumentStatusDto) {
+    console.log('UpdateDocumentStatusDto:', updateDocumentStatusDto);
+    let code = parseInt(updateDocumentStatusDto.code);
+    if (isNaN(code)) {
+      code = 200;
+    }
+    return this.documentsService.updateStatus(
+      updateDocumentStatusDto.documentId,
+      updateDocumentStatusDto.status,
+      updateDocumentStatusDto.indexationStatus,
+      updateDocumentStatusDto.webhookUrl,
+      code,
+      updateDocumentStatusDto.message_status,
+      updateDocumentStatusDto.message_indexation,
+    );
   }
 
   @Post('monitor')

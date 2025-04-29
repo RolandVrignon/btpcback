@@ -1460,6 +1460,7 @@ export class DocumentsService {
                         documentId: document.documentId,
                         name: document.name,
                         text: document.text,
+                        webhookUrl: dto.documentWebhookUrl,
                       });
 
                       const n8nWebhookUrl =
@@ -1484,136 +1485,28 @@ export class DocumentsService {
 
                       this.logger.log(`Webhook URL: ${webhookUrl}`);
 
-                      // Configurer un timeout de 15 minutes (900000 ms)
-                      const controller = new AbortController();
-                      const timeoutId = setTimeout(
-                        () => controller.abort(),
-                        900000, // 15 minutes en ms
+                      await this.updateStatus(
+                        document.documentId,
+                        Status.PROGRESS,
+                        null,
+                        dto.documentWebhookUrl,
+                        200,
+                        `Extraction n8n en cours...`,
+                        null,
                       );
 
-                      // Enregistrer le temps de début pour cette requête
-                      const webhookStartTime = Date.now();
+                      this.logger.log(
+                        `[${indexationId}] Envoi du document ${document.name} à n8n webhook : [${webhookUrl}]`,
+                      );
 
-                      try {
-                        await this.updateStatus(
-                          document.documentId,
-                          Status.PROGRESS,
-                          null,
-                          dto.documentWebhookUrl,
-                          200,
-                          `Extraction n8n en cours...`,
-                          null,
-                        );
-
-                        this.logger.log(
-                          `[${indexationId}] Envoi du document ${document.name} à n8n webhook : [${webhookUrl}]`,
-                        );
-
-                        // Envoyer la requête n8n pour ce document avec fetch (natif)
-                        const res = await fetch(webhookUrl, {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                          },
-                          body: payload,
-                          signal: controller.signal,
-                        });
-
-                        // Effacer le timeout si la requête se termine avant
-                        clearTimeout(timeoutId);
-
-                        // Calculer le temps d'exécution
-                        const webhookEndTime = Date.now();
-                        const webhookDurationMs =
-                          webhookEndTime - webhookStartTime;
-                        const webhookDurationSec = (
-                          webhookDurationMs / 1000
-                        ).toFixed(2);
-
-                        this.logger.log(
-                          `[${indexationId}] Document ${document.name} sent to n8n. Durée: ${webhookDurationSec}s`,
-                        );
-
-                        const data = (await res.json()) as { success: boolean };
-
-                        if (data.success) {
-                          this.logger.log(
-                            `[${indexationId}] Document ${document.name} successfully managed by n8n. Durée: ${webhookDurationSec}s`,
-                          );
-
-                          await this.updateStatus(
-                            document.documentId,
-                            'COMPLETED',
-                            null,
-                            dto.documentWebhookUrl
-                              ? dto.documentWebhookUrl
-                              : '',
-                            202,
-                            'Document géré par n8n.',
-                          );
-
-                          return { success: true, document: document.name };
-                        } else {
-                          this.logger.error(
-                            `[${indexationId}] Error sending document ${document.name} to n8n webhook:`,
-                            res.status,
-                            res.statusText,
-                            `Durée: ${webhookDurationSec}s`,
-                          );
-
-                          if (document && document.documentId) {
-                            await this.updateStatus(
-                              document.documentId,
-                              'ERROR',
-                              null,
-                              dto.documentWebhookUrl
-                                ? dto.documentWebhookUrl
-                                : '',
-                              425,
-                              "Erreur lors de l'envoi du document à n8n.",
-                            );
-                          }
-
-                          return {
-                            success: false,
-                            reason: 'webhook_error',
-                            status: res.status,
-                            statusText: res.statusText,
-                            document: document.name,
-                          };
-                        }
-                      } catch (error) {
-                        // Calculer le temps d'exécution même en cas d'erreur
-                        const webhookEndTime = Date.now();
-                        const webhookDurationMs =
-                          webhookEndTime - webhookStartTime;
-                        const webhookDurationSec = (
-                          webhookDurationMs / 1000
-                        ).toFixed(2);
-
-                        this.logger.error(
-                          `[${indexationId}] Error sending document ${document.name} to n8n webhook: ${error}. Durée: ${webhookDurationSec}s`,
-                        );
-
-                        await this.updateStatus(
-                          document.documentId,
-                          'ERROR',
-                          null,
-                          dto.documentWebhookUrl ? dto.documentWebhookUrl : '',
-                          425,
-                          `Erreur lors de l'envoi du document à n8n en arrière plan. Durée: ${webhookDurationSec}s`,
-                        );
-
-                        return {
-                          success: false,
-                          reason: 'exception',
-                          error:
-                            error instanceof Error
-                              ? error.message
-                              : String(error),
-                          document: document.name,
-                        };
-                      }
+                      // Envoyer la requête n8n pour ce document avec fetch (natif)
+                      await fetch(webhookUrl, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: payload,
+                      });
                     } catch (error) {
                       this.logger.error(
                         `[${indexationId}] Error de catch externe - Webhook non atteint pour ${document.name}:`,
@@ -1690,25 +1583,6 @@ export class DocumentsService {
                     `[${indexationId}] Requête d'extraction du projet réussie`,
                   );
                 }
-
-                const failedN8nRequests = n8nExtractionResults.filter(
-                  (result) => !result.success,
-                );
-                if (failedN8nRequests.length > 0) {
-                  this.logger.warn(
-                    `[${indexationId}] ${failedN8nRequests.length} requêtes n8n ont échoué`,
-                  );
-                  failedN8nRequests.forEach((result) => {
-                    this.logger.warn(
-                      `[${indexationId}] - Document ${result.document}: ${result.reason || 'raison inconnue'}`,
-                    );
-                  });
-                } else {
-                  this.logger.log(
-                    `[${indexationId}] Toutes les requêtes n8n ont réussi (${n8nExtractionResults.length} documents)`,
-                  );
-                }
-
                 if (!indexationResult.success) {
                   this.logger.error(
                     `[${indexationId}] L'indexation a échoué: ${indexationResult.error || 'erreur inconnue'}`,
