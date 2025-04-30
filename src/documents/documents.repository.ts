@@ -193,16 +193,12 @@ export class DocumentsRepository {
     projectId: string;
     documentId: string;
     status: Status;
-    indexationStatus: Status;
+    indexation_status: Status;
     message_status?: string;
     message_indexation?: string;
     code?: number;
     updated_at: Date;
   }> {
-    void code;
-    void message_status;
-    void message_indexation;
-
     try {
       // Build the update data object dynamically
       const updateData: {
@@ -249,6 +245,9 @@ export class DocumentsRepository {
             project: {
               select: { id: true },
             },
+            message_status: true,
+            message_indexation: true,
+            code: true,
           },
         }),
       );
@@ -257,7 +256,7 @@ export class DocumentsRepository {
         projectId: document.project.id,
         documentId: document.id,
         status: document.status,
-        indexationStatus: document.indexation_status,
+        indexation_status: document.indexation_status,
         message_status: document.message_status,
         message_indexation: document.message_indexation,
         code: document.code,
@@ -272,7 +271,7 @@ export class DocumentsRepository {
         projectId: '',
         documentId: '',
         status: 'ERROR',
-        indexationStatus: 'ERROR',
+        indexation_status: 'ERROR',
         message_status:
           'Erreur lors de la mise à jour du statut du document dans le repository updateStatus',
         message_indexation:

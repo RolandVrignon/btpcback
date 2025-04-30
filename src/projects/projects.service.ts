@@ -105,7 +105,7 @@ export class ProjectsService {
     if (webhookUrl) {
       try {
         this.logger.log(
-          `[${id}] Envoi du webhook [${webhookUrl}] : \n ${JSON.stringify(body, null, 2)}`,
+          `PROJECT [${id}] - Envoi au webhook [${webhookUrl}] : \n ${JSON.stringify(body, null, 2)}`,
         );
         await fetch(webhookUrl, {
           method: 'POST',
@@ -113,7 +113,7 @@ export class ProjectsService {
         });
       } catch {
         this.logger.error(
-          `[${id}] Erreur lors de l'envoi du webhook [${webhookUrl}] : \n ${JSON.stringify(body, null, 2)}`,
+          `PROJECT [${id}] - Erreur lors de l'envoi au webhook [${webhookUrl}] : \n ${JSON.stringify(body, null, 2)}`,
         );
       }
     }

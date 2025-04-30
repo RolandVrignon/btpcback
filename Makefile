@@ -342,3 +342,14 @@ script:
 
 chat:
 	cd chat-iframe-client && pnpm install && pnpm build
+
+.PHONY: pull
+pull:
+	@echo "Mise à jour de toutes les branches locales..."
+	@for branch in $$(git branch | sed 's/[* ]//g'); do \
+	  echo "Mise à jour de la branche $$branch..."; \
+	  git checkout $$branch; \
+	  git pull; \
+	done; \
+	git checkout main; \
+	echo "✅ Toutes les branches locales ont été mises à jour."

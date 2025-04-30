@@ -7,4 +7,5 @@ export interface DeliverableContext {
   projectId: string;
   documentIds: string[];
   user_prompt?: string;
+  webhookUrl?: string;
 }

@@ -13,7 +13,7 @@ import { DeliverableEntity } from '@/deliverables/entities/deliverable.entity';
 import { Organization } from '@/decorators/organization.decorator';
 import { OrganizationEntity } from '@/types';
 import { UpdateDeliverableDto } from '@/deliverables/dto/update-deliverable.dto';
-
+import { UpdateDeliverableStatusDto } from '@/deliverables/dto/update-deliverable-status';
 @ApiTags('deliverables')
 @ApiHeader({
   name: 'x-api-key',
@@ -45,6 +45,8 @@ export class DeliverablesController {
     @Body() createDeliverableDto: CreateDeliverableDto,
     @Organization() organization: OrganizationEntity,
   ) {
+    console.log('createDeliverableDto : ', createDeliverableDto);
+
     return this.deliverablesService.create(createDeliverableDto, organization);
   }
 
@@ -118,6 +120,30 @@ export class DeliverablesController {
     return this.deliverablesService.findOrCreateAndWaitForDeliverable(
       createDeliverableDto,
       organization,
+    );
+  }
+
+  @Post('update-status')
+  @ApiOperation({ summary: "Mettre à jour le statut d'un deliverable" })
+  @ApiResponse({
+    status: 200,
+    description: 'Statut du projet mis à jour avec succès.',
+  })
+  @ApiResponse({ status: 404, description: 'Projet non trouvé.' })
+  @ApiResponse({ status: 401, description: 'Clé API manquante ou invalide.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès non autorisé à ce document.',
+  })
+  async updateStatus(
+    @Body() updateDeliverableStatusDto: UpdateDeliverableStatusDto,
+  ) {
+    return this.deliverablesService.updateStatus(
+      updateDeliverableStatusDto.id,
+      updateDeliverableStatusDto.status,
+      updateDeliverableStatusDto.message,
+      updateDeliverableStatusDto.code,
+      updateDeliverableStatusDto.webhookUrl,
     );
   }
 }

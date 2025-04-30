@@ -55,7 +55,6 @@ export abstract class BaseDeliverableStrategy {
    * Common method to handle errors during generation
    */
   protected handleError(error: Error): DeliverableResult {
-    this.logger.error('Error generating deliverable:', error);
     return {
       success: false,
       data: null,

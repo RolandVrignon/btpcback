@@ -125,7 +125,15 @@ export class DocumentsService {
     message_status?: string,
     message_indexation?: string,
   ) {
-    const body = {
+    const body: {
+      projectId: string;
+      documentId: string;
+      extraction_status: Status | null;
+      indexation_status: Status | null;
+      extraction_message: string | null;
+      indexation_message: string | null;
+      code: number | null;
+    } = {
       projectId: '',
       documentId: documentId,
       extraction_status: status,
@@ -145,16 +153,19 @@ export class DocumentsService {
     );
 
     body.projectId = documentUpdated.projectId;
+    body.documentId = documentUpdated.documentId;
     body.extraction_status = documentUpdated.status;
-    body.indexation_status = documentUpdated.indexationStatus;
+    body.indexation_status = documentUpdated.indexation_status;
     body.extraction_message = documentUpdated.message_status;
     body.indexation_message = documentUpdated.message_indexation;
     body.code = documentUpdated.code;
 
     if (url) {
+      console.log('Body : ', JSON.stringify(body, null, 2));
+
       try {
         this.logger.log(
-          `[${documentUpdated.documentId}] Envoi du webhook [${url}] : \n ${JSON.stringify(body, null, 2)}`,
+          `DOCUMENT [${documentUpdated.documentId}] - Envoi au webhook [${url}] : \n ${JSON.stringify(body, null, 2)}`,
         );
         await fetch(url, {
           method: 'POST',
@@ -162,7 +173,7 @@ export class DocumentsService {
         });
       } catch {
         this.logger.error(
-          `[${documentUpdated.documentId}] Erreur lors de l'envoi du webhook [${url}] : \n ${JSON.stringify(body, null, 2)}`,
+          `DOCUMENT [${documentUpdated.documentId}] - Erreur lors de l'envoi au webhook [${url}] : \n ${JSON.stringify(body, null, 2)}`,
         );
       }
     }
