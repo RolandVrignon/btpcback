@@ -56,6 +56,14 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
     try {
       this.logger.log('Document IDs received:', context.documentIds);
 
+      await this.deliverablesService.updateStatus(
+        context.deliverableId,
+        Status.PROGRESS,
+        'Generating DESCRIPTIF_SOMMAIRE_DES_TRAVAUX',
+        200,
+        context.webhookUrl ? context.webhookUrl : null,
+      );
+
       let documents: Document[];
 
       // If no document IDs are provided, fetch all documents from the project
@@ -94,18 +102,13 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
       await this.generateWorkSummary(documents, context);
     } catch (error: unknown) {
       this.logger.error('Error generating deliverable:', error);
-      // Don't return anything in the error case since the return type is void
-      if (error instanceof Error) {
-        this.handleError(error);
-      } else {
-        await this.deliverablesService.updateStatus(
-          context.id,
-          Status.ERROR,
-          'Une erreur inattendue est survenue',
-          403,
-          context.webhookUrl ? context.webhookUrl : null,
-        );
-      }
+      await this.deliverablesService.updateStatus(
+        context.id,
+        Status.ERROR,
+        'Une erreur inattendue est survenue dans la fonction generate de la stratégie DESCRIPTIF_SOMMAIRE_DES_TRAVAUX',
+        403,
+        context.webhookUrl ? context.webhookUrl : null,
+      );
     }
   }
 
@@ -243,11 +246,32 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
           await this.deliverablesRepository.update(context.deliverableId, {
             process_duration_in_seconds: durationInSeconds,
           });
+          await this.deliverablesService.updateStatus(
+            context.deliverableId,
+            Status.COMPLETED,
+            'DESCRIPTIF_SOMMAIRE_DES_TRAVAUX generated',
+            200,
+            context.webhookUrl ? context.webhookUrl : null,
+          );
         } else {
           this.logger.error('Webhook n8n failed.');
+          await this.deliverablesService.updateStatus(
+            context.deliverableId,
+            Status.ERROR,
+            'Webhook n8n failed in descriptif-sommaire-des-travaux.strategy.ts',
+            500,
+            context.webhookUrl ? context.webhookUrl : null,
+          );
         }
       } catch (error) {
         this.logger.error('Error sending data to n8n webhook:', error);
+        await this.deliverablesService.updateStatus(
+          context.deliverableId,
+          Status.ERROR,
+          'Error sending data to n8n webhook in descriptif-sommaire-des-travaux.strategy.ts',
+          500,
+          context.webhookUrl ? context.webhookUrl : null,
+        );
       }
     })();
 
