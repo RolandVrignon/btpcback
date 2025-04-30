@@ -116,6 +116,8 @@ model Project {
   longitude                 Float?        @default(0)
   altitude                  Float?        @default(0)
   status                    Status        @default(DRAFT)
+  code                      Int?
+  message                   String?
   tags                      ProjectTag[]
   organizationId            String        @db.VarChar(255)
   organization              Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -129,18 +131,22 @@ model Project {
 }
 
 model Document {
-  id                String @id @unique @default(uuid())
-  filename          String
-  path              String
-  mimetype          String
-  size              Int
-  status            Status @default(DRAFT)
-  indexation_status Status @default(PENDING)
+  id       String @id @unique @default(uuid())
+  filename String
+  path     String
+  mimetype String
+  size     Int
 
-  extraction_duration_in_seconds Float? @default(0)
-  indexation_duration_in_seconds Float? @default(0)
+  status                         Status  @default(DRAFT)
+  message_status                 String?
+  extraction_duration_in_seconds Float?  @default(0)
 
-  // Catégorisation du document
+  indexation_status              Status  @default(DRAFT)
+  message_indexation             String?
+  indexation_duration_in_seconds Float?  @default(0)
+
+  code Int?
+
   category DocumentCategory @default(PROJECT)
 
   projectId String

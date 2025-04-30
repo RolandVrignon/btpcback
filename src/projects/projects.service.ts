@@ -100,7 +100,6 @@ export class ProjectsService {
       status: status,
       code: code,
       message: message,
-      webhookUrl: webhookUrl,
     };
 
     if (webhookUrl) {

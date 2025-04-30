@@ -297,12 +297,12 @@ export class ProjectsRepository {
     if (status !== null) {
       updateData.status = status;
     }
-    // if (code !== null) {
-    //   updateData.code = code;
-    // }
-    // if (message !== null) {
-    //   updateData.message = message;
-    // }
+    if (code !== null) {
+      updateData.code = code;
+    }
+    if (message !== null) {
+      updateData.message = message;
+    }
 
     try {
       const project = await this.prisma.executeWithQueue(() =>

@@ -196,6 +196,7 @@ export class DocumentsRepository {
     indexationStatus: Status;
     message_status?: string;
     message_indexation?: string;
+    code?: number;
     updated_at: Date;
   }> {
     void code;
@@ -218,15 +219,15 @@ export class DocumentsRepository {
       if (indexationStatus !== null) {
         updateData.indexation_status = indexationStatus;
       }
-      // if (code !== null) {
-      //   updateData.code = code;
-      // }
-      // if (message_status !== null) {
-      //   updateData.message_status = message_status;
-      // }
-      // if (message_indexation !== null) {
-      //   updateData.message_indexation = message_indexation;
-      // }
+      if (code !== null) {
+        updateData.code = code;
+      }
+      if (message_status !== null) {
+        updateData.message_status = message_status;
+      }
+      if (message_indexation !== null) {
+        updateData.message_indexation = message_indexation;
+      }
 
       // Typing the result to avoid unsafe any access
       const document: {
@@ -235,6 +236,7 @@ export class DocumentsRepository {
         indexation_status: Status;
         message_status?: string;
         message_indexation?: string;
+        code?: number;
         project: { id: string };
       } = await this.prisma.executeWithQueue(() =>
         this.prisma.document.update({
@@ -258,6 +260,7 @@ export class DocumentsRepository {
         indexationStatus: document.indexation_status,
         message_status: document.message_status,
         message_indexation: document.message_indexation,
+        code: document.code,
         updated_at: new Date(),
       };
     } catch (error) {
