@@ -126,13 +126,13 @@ export class DocumentsService {
     message_indexation?: string,
   ) {
     const body = {
-      documentId: documentId,
-      status: status,
-      indexationStatus: indexationStatus,
-      code: code,
-      message_status: message_status,
-      message_indexation: message_indexation,
       projectId: '',
+      documentId: documentId,
+      extraction_status: status,
+      indexation_status: indexationStatus,
+      extraction_message: message_status,
+      indexation_message: message_indexation,
+      code: code,
     };
 
     const documentUpdated = await this.documentsRepository.updateStatus(
@@ -145,8 +145,11 @@ export class DocumentsService {
     );
 
     body.projectId = documentUpdated.projectId;
-    body.status = documentUpdated.status;
-    body.indexationStatus = documentUpdated.indexationStatus;
+    body.extraction_status = documentUpdated.status;
+    body.indexation_status = documentUpdated.indexationStatus;
+    body.extraction_message = documentUpdated.message_status;
+    body.indexation_message = documentUpdated.message_indexation;
+    body.code = documentUpdated.code;
 
     if (url) {
       try {
@@ -1563,15 +1566,12 @@ export class DocumentsService {
                 })();
 
                 // Attendre que les trois processus soient terminés
-                const [
-                  projectExtractionResult,
-                  n8nExtractionResults,
-                  indexationResult,
-                ] = await Promise.all([
-                  n8nProjectExtraction,
-                  Promise.all(n8nExtractionPromises),
-                  indexationPromise,
-                ]);
+                const [projectExtractionResult, indexationResult] =
+                  await Promise.all([
+                    n8nProjectExtraction,
+                    indexationPromise,
+                    Promise.all(n8nExtractionPromises),
+                  ]);
 
                 // Vérifier les résultats
                 if (!projectExtractionResult.success) {
