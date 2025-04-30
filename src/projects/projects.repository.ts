@@ -285,9 +285,6 @@ export class ProjectsRepository {
     message?: string;
     updated_at: Date;
   }> {
-    void code;
-    void message;
-
     const updateData: {
       status?: Status;
       code?: number;

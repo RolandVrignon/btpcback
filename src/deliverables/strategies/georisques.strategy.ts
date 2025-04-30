@@ -9,6 +9,7 @@ import { Status } from '@prisma/client';
 import { PublicDataResponse } from '@/deliverables/interfaces/public-data.interface';
 import { JsonValue } from '@prisma/client/runtime/library';
 import { Logger } from '@nestjs/common';
+import { DeliverablesService } from '@/deliverables/deliverables.service';
 
 export class GeorisquesStrategy implements DeliverableStrategy {
   private readonly logger = new Logger(GeorisquesStrategy.name);
@@ -16,6 +17,7 @@ export class GeorisquesStrategy implements DeliverableStrategy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly deliverablesRepository: DeliverablesRepository,
+    private readonly deliverablesService: DeliverablesService,
     private readonly documentsRepository: DocumentsRepository,
     private readonly projectsRepository: ProjectsRepository,
     private readonly configService: ConfigService,
@@ -25,10 +27,14 @@ export class GeorisquesStrategy implements DeliverableStrategy {
     try {
       const startTime = Date.now();
       // Update deliverable status to PROGRESS
-      await this.deliverablesRepository.updateStatus(
+      await this.deliverablesService.updateStatus(
         context.id,
         Status.PROGRESS,
+        'Generating GEORISQUES',
+        200,
+        context.webhookUrl ? context.webhookUrl : null,
       );
+
       // Get project info to retrieve city and address
       const project = await this.projectsRepository.findById(context.projectId);
 
@@ -36,19 +42,11 @@ export class GeorisquesStrategy implements DeliverableStrategy {
         throw new Error('Project city or address is not defined');
       }
 
-      this.logger.log(
-        'Generating GEORISQUES => Latitude and longitude:',
-        project.latitude,
-        project.longitude,
-      );
-
       // Call the n8n webhook to get georisques data
       const n8nUrl = this.configService.get<string>('N8N_WEBHOOK_URL');
       const latitude = project.latitude;
       const longitude = project.longitude;
       const url = `${n8nUrl}/public-data`;
-
-      this.logger.log('Generating GEORISQUES => Calling n8n webhook:', url);
 
       const payload = {
         latitude,
@@ -80,12 +78,27 @@ export class GeorisquesStrategy implements DeliverableStrategy {
         data as unknown as JsonValue,
       );
 
+      await this.deliverablesService.updateStatus(
+        context.id,
+        Status.COMPLETED,
+        'GEORISQUES generated',
+        200,
+        context.webhookUrl ? context.webhookUrl : null,
+      );
+
       await this.deliverablesRepository.update(context.id, {
         process_duration_in_seconds: durationInSeconds,
       });
     } catch (error) {
       this.logger.error('Error generating GEORISQUES deliverable:', error);
-      await this.deliverablesRepository.updateStatus(context.id, Status.ERROR);
+
+      await this.deliverablesService.updateStatus(
+        context.id,
+        Status.ERROR,
+        'Error generating GEORISQUES deliverable in georisques.strategy.ts',
+        500,
+        context.webhookUrl ? context.webhookUrl : null,
+      );
     }
   }
 }

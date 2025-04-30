@@ -18,6 +18,7 @@ import { OrganizationEntity } from '@/types';
 import { ProjectsRepository } from '@/projects/projects.repository';
 import { DocumentsRepository } from '@/documents/documents.repository';
 import { UpdateDeliverableDto } from '@/deliverables/dto/update-deliverable.dto';
+import { Status } from '@prisma/client';
 
 interface DeliverableProcessEvent {
   deliverableId: string;
@@ -25,6 +26,7 @@ interface DeliverableProcessEvent {
   projectId: string;
   documentIds: string[];
   user_prompt?: string;
+  webhookUrl?: string;
 }
 
 @Injectable()
@@ -60,11 +62,18 @@ export class DeliverablesService {
           documentIds: data.documentIds,
           user_prompt: data.user_prompt,
           deliverableId: data.deliverableId,
+          webhookUrl: data.webhookUrl,
         };
         await strategy.generate(context);
       } catch (error) {
         this.logger.error('Error processing deliverable:', error);
-        // Ici, vous pourriez mettre à jour le statut du livrable en ERROR
+        await this.updateStatus(
+          data.deliverableId,
+          Status.ERROR,
+          'Deliverable failed to generate at processDeliverable in deliverables.service.ts',
+          403,
+          data.webhookUrl,
+        );
       }
     });
   }
@@ -139,6 +148,9 @@ export class DeliverablesService {
       projectId: deliverable.projectId,
       documentIds,
       user_prompt: userPrompt,
+      webhookUrl: createDeliverableDto.webhookUrl
+        ? createDeliverableDto.webhookUrl
+        : null,
     });
 
     return deliverable;
@@ -291,5 +303,46 @@ export class DeliverablesService {
 
     // Commencer la vérification
     return checkDeliverableStatus();
+  }
+
+  async updateStatus(
+    id: string,
+    status: Status,
+    message?: string,
+    code?: number,
+    webhookUrl?: string,
+  ) {
+    const deliverable = await this.deliverablesRepository.updateStatus(
+      id,
+      status,
+      code,
+      message,
+    );
+
+    const body = {
+      id: deliverable.id,
+      type: deliverable.type,
+      status: deliverable.status,
+      code: deliverable.code,
+      message: deliverable.message,
+      projectId: deliverable.projectId,
+      updated_at: deliverable.updated_at,
+    };
+
+    if (webhookUrl) {
+      try {
+        this.logger.log(
+          `DELIVERABLE [${id}] = ${deliverable.type} - Envoi au webhook [${webhookUrl}] : \n ${JSON.stringify(body, null, 2)}`,
+        );
+        await fetch(webhookUrl, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        });
+      } catch {
+        this.logger.error(
+          `DELIVERABLE [${id}] = ${deliverable.type} - Erreur lors de l'envoi au webhook [${webhookUrl}] : \n ${JSON.stringify(body, null, 2)}`,
+        );
+      }
+    }
   }
 }

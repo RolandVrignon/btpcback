@@ -244,7 +244,10 @@ model Deliverable {
   user_prompt String? @default("")
 
   type   DeliverableType
+
   status Status          @default(DRAFT)
+  code   Int?            @default(0)
+  message String?        @default("")
 
   process_duration_in_seconds Float? @default(0)
 

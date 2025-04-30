@@ -54,4 +54,13 @@ export class CreateDeliverableDto {
   @IsOptional()
   @IsBoolean()
   new?: boolean = false;
+
+  @ApiPropertyOptional({
+    description:
+      'URL du webhook à appeler lorsque le status du livrable change',
+    example: 'https://example.com/deliverable/webhook',
+  })
+  @IsOptional()
+  @IsString()
+  webhookUrl?: string;
 }

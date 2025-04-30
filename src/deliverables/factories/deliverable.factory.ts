@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, forwardRef, Injectable } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { DeliverablesRepository } from '@/deliverables/deliverables.repository';
 import { DeliverableType } from '@prisma/client';
@@ -11,7 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { DocumentsPubliquesStrategy } from '@/deliverables/strategies/documents-publiques.strategy';
 import { GeorisquesStrategy } from '@/deliverables/strategies/georisques.strategy';
-
+import { DeliverablesService } from '@/deliverables/deliverables.service';
 @Injectable()
 export class DeliverableFactory {
   constructor(
@@ -22,6 +22,8 @@ export class DeliverableFactory {
     private readonly chunksRepository: ChunksRepository,
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
+    @Inject(forwardRef(() => DeliverablesService))
+    private readonly deliverablesService: DeliverablesService,
   ) {}
 
   createStrategy(type: DeliverableType) {
@@ -30,6 +32,7 @@ export class DeliverableFactory {
         return new DescriptifSommaireDesTravauxStrategy(
           this.prisma,
           this.deliverablesRepository,
+          this.deliverablesService,
           this.documentsRepository,
           this.projectsRepository,
           this.configService,
@@ -38,6 +41,7 @@ export class DeliverableFactory {
         return new TableauDesDocumentsExaminesStrategy(
           this.prisma,
           this.deliverablesRepository,
+          this.deliverablesService,
           this.documentsRepository,
           this.projectsRepository,
           this.configService,
@@ -46,6 +50,7 @@ export class DeliverableFactory {
         return new DocumentsPubliquesStrategy(
           this.prisma,
           this.deliverablesRepository,
+          this.deliverablesService,
           this.documentsRepository,
           this.projectsRepository,
           this.configService,
@@ -54,6 +59,7 @@ export class DeliverableFactory {
         return new GeorisquesStrategy(
           this.prisma,
           this.deliverablesRepository,
+          this.deliverablesService,
           this.documentsRepository,
           this.projectsRepository,
           this.configService,

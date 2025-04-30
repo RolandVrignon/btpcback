@@ -9,6 +9,7 @@ import { Status } from '@prisma/client';
 import { CityDocumentsResponse } from '@/deliverables/interfaces/city-documents.interface';
 import { JsonValue } from '@prisma/client/runtime/library';
 import { Logger } from '@nestjs/common';
+import { DeliverablesService } from '@/deliverables/deliverables.service';
 
 export class DocumentsPubliquesStrategy implements DeliverableStrategy {
   private readonly logger = new Logger(DocumentsPubliquesStrategy.name);
@@ -16,6 +17,7 @@ export class DocumentsPubliquesStrategy implements DeliverableStrategy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly deliverablesRepository: DeliverablesRepository,
+    private readonly deliverablesService: DeliverablesService,
     private readonly documentsRepository: DocumentsRepository,
     private readonly projectsRepository: ProjectsRepository,
     private readonly configService: ConfigService,
@@ -25,9 +27,12 @@ export class DocumentsPubliquesStrategy implements DeliverableStrategy {
     try {
       const startTime = Date.now();
       // Update deliverable status to PROGRESS
-      await this.deliverablesRepository.updateStatus(
+      await this.deliverablesService.updateStatus(
         context.id,
         Status.PROGRESS,
+        'Generating DOCUMENTS_PUBLICS',
+        200,
+        context.webhookUrl ? context.webhookUrl : null,
       );
 
       // Get project info to retrieve city
@@ -66,6 +71,14 @@ export class DocumentsPubliquesStrategy implements DeliverableStrategy {
         data as unknown as JsonValue,
       );
 
+      await this.deliverablesService.updateStatus(
+        context.id,
+        Status.COMPLETED,
+        'DOCUMENTS_PUBLICS generated',
+        200,
+        context.webhookUrl ? context.webhookUrl : null,
+      );
+
       const endTime = Date.now();
       const durationInSeconds = (endTime - startTime) / 1000;
 
@@ -77,7 +90,13 @@ export class DocumentsPubliquesStrategy implements DeliverableStrategy {
         'Error generating DOCUMENTS_PUBLIQUES deliverable:',
         error,
       );
-      await this.deliverablesRepository.updateStatus(context.id, Status.ERROR);
+      await this.deliverablesService.updateStatus(
+        context.id,
+        Status.ERROR,
+        'Error generating DOCUMENTS_PUBLIQUES deliverable in documents-publiques.strategy.ts',
+        500,
+        context.webhookUrl ? context.webhookUrl : null,
+      );
     }
   }
 }

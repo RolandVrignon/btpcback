@@ -9,7 +9,9 @@ import { DocumentsRepository } from '@/documents/documents.repository';
 import { ProjectsRepository } from '@/projects/projects.repository';
 import { JSONValue } from 'ai';
 import { restoreFieldOrder } from '@/utils/fieldOrder';
-
+import { DeliverablesService } from '@/deliverables/deliverables.service';
+import { Status } from '@prisma/client';
+import { WebhookPayload } from '@/deliverables/interfaces/webhook-payload';
 interface WorkSummary {
   title: string;
   sections: {
@@ -18,19 +20,6 @@ interface WorkSummary {
   }[];
   status: string;
   message: string;
-}
-
-interface WebhookPayload {
-  projectId: string;
-  deliverableType: string;
-  deliverableId: string;
-  projectSummary: string | null;
-  documents: {
-    id: string;
-    filename: string;
-    ai_metadata: JSONValue;
-  }[];
-  userPrompt: string;
 }
 
 @Injectable()
@@ -42,6 +31,7 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
   constructor(
     protected readonly prisma: PrismaService,
     protected readonly deliverablesRepository: DeliverablesRepository,
+    protected readonly deliverablesService: DeliverablesService,
     protected readonly documentsRepository: DocumentsRepository,
     protected readonly projectsRepository: ProjectsRepository,
     private readonly configService: ConfigService,
@@ -108,11 +98,13 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
       if (error instanceof Error) {
         this.handleError(error);
       } else {
-        // Update the deliverable with an error status
-        await this.deliverablesRepository.update(context.id, {
-          status: 'ERROR',
-          error: 'Une erreur inattendue est survenue',
-        } as any);
+        await this.deliverablesService.updateStatus(
+          context.id,
+          Status.ERROR,
+          'Une erreur inattendue est survenue',
+          403,
+          context.webhookUrl ? context.webhookUrl : null,
+        );
       }
     }
   }
@@ -139,11 +131,6 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
       status: 'PROGRESS',
       message: 'Traitement en cours via le service externe',
     };
-  }
-
-  private async analyzeDocuments(documents: Document[]): Promise<void> {
-    this.logger.log('Analyzing documents:', documents.length);
-    await Promise.resolve();
   }
 
   private async triggerWebhook(
@@ -182,6 +169,7 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
       projectSummary: project.long_summary,
       documents: documentData,
       userPrompt: context.user_prompt,
+      webhookUrl: context.webhookUrl ? context.webhookUrl : null,
     };
 
     const n8nPromise = (async () => {

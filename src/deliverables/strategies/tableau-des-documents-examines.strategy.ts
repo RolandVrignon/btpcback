@@ -10,6 +10,8 @@ import { ProjectsRepository } from '@/projects/projects.repository';
 import { preserveFieldOrder } from '@/utils/fieldOrder';
 import { FieldOrderObject } from '@/types';
 import { JsonValue } from '@prisma/client/runtime/library';
+import { DeliverablesService } from '@/deliverables/deliverables.service';
+
 interface FilteredDocument {
   [key: string]: any;
 }
@@ -28,6 +30,7 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
   constructor(
     protected readonly prisma: PrismaService,
     protected readonly deliverablesRepository: DeliverablesRepository,
+    protected readonly deliverablesService: DeliverablesService,
     protected readonly documentsRepository: DocumentsRepository,
     protected readonly projectsRepository: ProjectsRepository,
     private readonly configService: ConfigService,
@@ -60,19 +63,15 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
     try {
       this.logger.log('Start generation of Tableau des documents examinés');
 
-      this.logger.log('context:', context);
-
       const startTime = Date.now();
 
-      await this.deliverablesRepository.update(context.id, {
-        status: Status.PROGRESS,
-        projectId: context.projectId,
-        deliverableId: context.id,
-      });
-
-      this.logger.log('context:', context);
-
-      this.logger.log('context.documentIds:', context.documentIds);
+      await this.deliverablesService.updateStatus(
+        context.id,
+        Status.PROGRESS,
+        'Generating TABLEAU_DES_DOCUMENTS_EXAMINES',
+        200,
+        context.webhookUrl ? context.webhookUrl : null,
+      );
 
       // Get all documents for the project
       const documents = await this.getProjectDocumentsWithAiFields(
@@ -84,16 +83,19 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
         JSON.stringify({ result: documents }),
       ) as JsonValue;
 
-      this.logger.log('result:', result);
-
       // Update the deliverable with the generated data
       await this.deliverablesRepository.update(context.id, {
-        status: Status.COMPLETED,
-        projectId: context.projectId,
-        deliverableId: context.id,
         short_result: result,
         long_result: [],
       });
+
+      await this.deliverablesService.updateStatus(
+        context.id,
+        Status.COMPLETED,
+        'TABLEAU_DES_DOCUMENTS_EXAMINES generated',
+        200,
+        context.webhookUrl ? context.webhookUrl : null,
+      );
 
       const endTime = Date.now();
       const durationInSeconds = (endTime - startTime) / 1000;
@@ -108,9 +110,6 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
       );
       // Update deliverable status to error
       await this.deliverablesRepository.update(context.id, {
-        status: Status.ERROR,
-        projectId: context.projectId,
-        deliverableId: context.id,
         short_result: {
           error:
             error instanceof Error
@@ -118,6 +117,14 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
               : 'Unknown error during generation',
         },
       });
+
+      await this.deliverablesService.updateStatus(
+        context.id,
+        Status.ERROR,
+        'Error generating TABLEAU_DES_DOCUMENTS_EXAMINES deliverable in tableau-des-documents-examines.strategy.ts',
+        500,
+        context.webhookUrl ? context.webhookUrl : null,
+      );
     }
   }
 
@@ -187,7 +194,7 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
         return filteredDoc;
       });
 
-      const result = preserveFieldOrder(documents);
+      const result = preserveFieldOrder(documents) as FieldOrderObject;
 
       return result;
     } catch (error) {

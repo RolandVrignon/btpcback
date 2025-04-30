@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import { Deliverable, Prisma, Status } from '@prisma/client';
+import { Deliverable, DeliverableType, Prisma, Status } from '@prisma/client';
 import { UpdateDeliverableDto } from '@/deliverables/dto/update-deliverable.dto';
 import { CreateDeliverableDto } from '@/deliverables/dto/create-deliverable.dto';
 import { JsonValue } from '@prisma/client/runtime/library';
@@ -106,23 +106,76 @@ export class DeliverablesRepository {
    * @param status New status
    * @returns Updated deliverable
    */
-  async updateStatus(id: string, status: Status): Promise<Deliverable> {
-    return this.prisma.executeWithQueue(() =>
-      this.prisma.deliverable.update({
-        where: { id },
-        data: {
-          status,
-          updatedAt: new Date(),
-        },
-        include: {
-          documents: {
-            include: {
-              document: true,
-            },
+  async updateStatus(
+    id: string,
+    status: Status,
+    code?: number,
+    message?: string,
+  ): Promise<{
+    id: string;
+    status: Status;
+    code: number;
+    message: string;
+    type: DeliverableType | null;
+    updated_at: Date;
+    projectId: string;
+  }> {
+    const updateData: {
+      status?: Status;
+      code?: number;
+      message?: string;
+    } = {};
+
+    if (status !== null) {
+      updateData.status = status;
+    }
+    if (code !== null) {
+      updateData.code = code;
+    }
+    if (message !== null) {
+      updateData.message = message;
+    }
+
+    try {
+      const deliverable = await this.prisma.executeWithQueue(() =>
+        this.prisma.deliverable.update({
+          where: { id: id },
+          data: updateData,
+          select: {
+            id: true,
+            status: true,
+            code: true,
+            message: true,
+            type: true,
+            projectId: true,
           },
-        },
-      }),
-    );
+        }),
+      );
+      return {
+        id: deliverable.id,
+        status: deliverable.status,
+        code: deliverable.code,
+        message: deliverable.message,
+        type: deliverable.type,
+        updated_at: new Date(),
+        projectId: deliverable.projectId,
+      };
+    } catch (error) {
+      this.logger.error(
+        'Deliverable Repository error : ',
+        JSON.stringify(error, null, 2),
+      );
+      return {
+        id: '',
+        status: Status.ERROR,
+        code,
+        message:
+          'Erreur lors de la mise à jour du statut du deliverable dans le repository updateStatus',
+        updated_at: new Date(),
+        type: null,
+        projectId: '',
+      };
+    }
   }
 
   /**
