@@ -64,7 +64,9 @@ db-reset:
 
 .PHONY: deploy
 deploy:
-	@# Everything in one shell block for clarity:
+	@# Lancer Prettier avant tout
+	@make prettier
+	@# Tout dans un seul bloc shell pour plus de clarté :
 	@( \
 	  echo "Step 1: check if current branch is 'main'"; \
 	  CURRENT_BRANCH=$$(git rev-parse --abbrev-ref HEAD); \
@@ -74,24 +76,26 @@ deploy:
 	  fi; \
 	  echo "Step 2: verify uncommitted changes"; \
 	  CHANGES=$$(git status --porcelain); \
+	  PROD_COMMIT_MSG=""; \
 	  if [ -n "$$CHANGES" ]; then \
 	    echo "You have local changes. Let's commit them."; \
 	    read -p "Enter production commit message: " MSG; \
 	    git add .; \
 	    git commit -m "$$MSG"; \
 	    git push origin main; \
+	    PROD_COMMIT_MSG="$$MSG"; \
 	  else \
 	    echo "No uncommitted changes found, continuing..."; \
+	    # Récupérer le dernier message de commit pour le merge \
+	    PROD_COMMIT_MSG=$$(git log -1 --pretty=%B); \
 	  fi; \
 	  echo "Step 3: checkout 'prod', merge 'main', push, then come back"; \
 	  git checkout prod; \
-	  git merge main; \
+	  git merge --no-ff --no-edit -m "$$PROD_COMMIT_MSG" main; \
 	  git push origin prod; \
 	  git checkout main; \
 	  echo "✅ Deployment completed!"; \
 	)
-
-
 
 # Commande pour pousser l'image sur Docker Hub
 .PHONY: push-image
