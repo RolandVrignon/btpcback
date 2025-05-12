@@ -205,7 +205,6 @@ export class DocumentsController {
     description: 'Accès non autorisé à ce document.',
   })
   async updateStatus(@Body() updateDocumentStatusDto: UpdateDocumentStatusDto) {
-    console.log('UpdateDocumentStatusDto:', updateDocumentStatusDto);
     let code = parseInt(updateDocumentStatusDto.code);
     if (isNaN(code)) {
       code = 200;

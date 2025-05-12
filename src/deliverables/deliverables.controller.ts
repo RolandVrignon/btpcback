@@ -117,6 +117,7 @@ export class DeliverablesController {
     @Body() createDeliverableDto: CreateDeliverableDto,
     @Organization() organization: OrganizationEntity,
   ) {
+    console.log('createDeliverableDto : ', createDeliverableDto);
     return this.deliverablesService.findOrCreateAndWaitForDeliverable(
       createDeliverableDto,
       organization,
