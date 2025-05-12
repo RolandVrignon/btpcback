@@ -191,12 +191,14 @@ export class DocumentsRepository {
     message_indexation?: string,
   ): Promise<{
     projectId: string;
+    fileName: string;
     documentId: string;
     status: Status;
     indexation_status: Status;
     message_status?: string;
     message_indexation?: string;
     code?: number;
+    tags: string[];
     updated_at: Date;
   }> {
     try {
@@ -207,6 +209,7 @@ export class DocumentsRepository {
         code?: number;
         message_status?: string;
         message_indexation?: string;
+        tags?: string[];
       } = {};
 
       if (status !== null) {
@@ -228,18 +231,21 @@ export class DocumentsRepository {
       // Typing the result to avoid unsafe any access
       const document: {
         id: string;
+        filename: string;
         status: Status;
         indexation_status: Status;
         message_status?: string;
         message_indexation?: string;
         code?: number;
         project: { id: string };
+        ai_Type_document: string[];
       } = await this.prisma.executeWithQueue(() =>
         this.prisma.document.update({
           where: { id: documentId },
           data: updateData,
           select: {
             id: true,
+            filename: true,
             status: true,
             indexation_status: true,
             project: {
@@ -248,18 +254,21 @@ export class DocumentsRepository {
             message_status: true,
             message_indexation: true,
             code: true,
+            ai_Type_document: true,
           },
         }),
       );
 
       return {
         projectId: document.project.id,
+        fileName: document.filename,
         documentId: document.id,
         status: document.status,
         indexation_status: document.indexation_status,
         message_status: document.message_status,
         message_indexation: document.message_indexation,
         code: document.code,
+        tags: document.ai_Type_document,
         updated_at: new Date(),
       };
     } catch (error) {
@@ -269,6 +278,7 @@ export class DocumentsRepository {
       );
       return {
         projectId: '',
+        fileName: '',
         documentId: '',
         status: 'ERROR',
         indexation_status: 'ERROR',
@@ -276,6 +286,7 @@ export class DocumentsRepository {
           'Erreur lors de la mise à jour du statut du document dans le repository updateStatus',
         message_indexation:
           "Erreur lors de la mise à jour du statut de l'indexation dans le repository updateStatus",
+        tags: [],
         updated_at: new Date(),
       };
     }

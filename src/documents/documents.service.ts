@@ -127,20 +127,24 @@ export class DocumentsService {
   ) {
     const body: {
       projectId: string;
+      fileName: string;
       documentId: string;
       extraction_status: Status | null;
       indexation_status: Status | null;
-      extraction_message: string | null;
-      indexation_message: string | null;
+      extraction_message: string;
+      indexation_message: string;
       code: number | null;
+      tags: string[];
     } = {
       projectId: '',
+      fileName: '',
       documentId: documentId,
       extraction_status: status,
       indexation_status: indexationStatus,
       extraction_message: message_status,
       indexation_message: message_indexation,
       code: code,
+      tags: [],
     };
 
     const documentUpdated = await this.documentsRepository.updateStatus(
@@ -153,16 +157,16 @@ export class DocumentsService {
     );
 
     body.projectId = documentUpdated.projectId;
+    body.fileName = documentUpdated.fileName;
     body.documentId = documentUpdated.documentId;
+    body.fileName = documentUpdated.fileName;
     body.extraction_status = documentUpdated.status;
     body.indexation_status = documentUpdated.indexation_status;
-    body.extraction_message = documentUpdated.message_status;
-    body.indexation_message = documentUpdated.message_indexation;
+    body.extraction_message = documentUpdated.message_status || '';
+    body.indexation_message = documentUpdated.message_indexation || '';
     body.code = documentUpdated.code;
-
+    body.tags = documentUpdated.tags;
     if (url) {
-      console.log('Body : ', JSON.stringify(body, null, 2));
-
       try {
         this.logger.log(
           `DOCUMENT [${documentUpdated.documentId}] - Envoi au webhook [${url}] : \n ${JSON.stringify(body, null, 2)}`,
