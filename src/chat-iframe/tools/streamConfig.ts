@@ -139,7 +139,7 @@ export const DEFAULT_STREAM_CONFIG: StreamConfig = {
 };
 
 export function getModelConfig(modelName: AI_MODEL): ModelInterface {
-  console.log('modelName:', modelName);
+  console.log('getModelConfig modelName:', modelName);
   return {
     sdk: wrapLanguageModel({
       model: registry.languageModel(`openrouter:${modelName}`),

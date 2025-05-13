@@ -16,11 +16,8 @@ const AI_MODEL = {
   ANTHROPIC_CLAUDE_3_5_SONNET: 'anthropic/claude-3.5-sonnet',
   OPENAI_GPT_4_1: 'openai/gpt-4.1',
   OPENAI_GPT_4O_MINI: 'openai/gpt-4o-mini',
-  PERPLEXITY_SONAR_DEEP_RESEARCH: 'perplexity/sonar-deep-research',
   GOOGLE_GEMINI_2_5_PRO_PREVIEW: 'google/gemini-2.5-pro-preview',
   GOOGLE_GEMINI_2_5_FLASH_PREVIEW: 'google/gemini-2.5-flash-preview',
-  X_AI_GROK_3_BETA: 'x-ai/grok-3-beta',
-  MISTRAL_MEDIUM_3: 'mistralai/mistral-medium-3',
   QWEN_QWEN3_30B_A3B: 'qwen/qwen3-30b-a3b',
 }
 
@@ -117,7 +114,7 @@ export default function App() {
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [selectedModel, setSelectedModel] = useState(AI_MODEL.OPENAI_GPT_4O);
+  const [selectedModel, setSelectedModel] = useState(AI_MODEL.ANTHROPIC_CLAUDE_3_7_SONNET_THINKING);
 
   useEffect(() => {
     const pathParts = window.location.pathname.split('/');
@@ -125,12 +122,10 @@ export default function App() {
     const urlParams = new URLSearchParams(window.location.search);
     const extractedApiKey = urlParams.get('apiKey');
     const extractedMessage = urlParams.get('message');
-    const extractedModel = urlParams.get('model');
 
     setProjectId(extractedProjectId);
     setApiKey(extractedApiKey);
     setInitialMessage(extractedMessage);
-    setSelectedModel(extractedModel || AI_MODEL.OPENAI_GPT_4O);
     setApiUrl(`/chat/${extractedProjectId}/message?apiKey=${extractedApiKey}`);
   }, []);
 
