@@ -14,6 +14,7 @@ import { Organization } from '@/decorators/organization.decorator';
 import { OrganizationEntity } from '@/types';
 import { UpdateDeliverableDto } from '@/deliverables/dto/update-deliverable.dto';
 import { UpdateDeliverableStatusDto } from '@/deliverables/dto/update-deliverable-status';
+import { Logger } from '@nestjs/common';
 @ApiTags('deliverables')
 @ApiHeader({
   name: 'x-api-key',
@@ -22,6 +23,7 @@ import { UpdateDeliverableStatusDto } from '@/deliverables/dto/update-deliverabl
 })
 @Controller('deliverables')
 export class DeliverablesController {
+  private readonly logger = new Logger(DeliverablesController.name);
   constructor(private readonly deliverablesService: DeliverablesService) {}
 
   @Post()
@@ -45,8 +47,7 @@ export class DeliverablesController {
     @Body() createDeliverableDto: CreateDeliverableDto,
     @Organization() organization: OrganizationEntity,
   ) {
-    console.log('createDeliverableDto : ', createDeliverableDto);
-
+    this.logger.log('createDeliverableDto : ', createDeliverableDto);
     return this.deliverablesService.create(createDeliverableDto, organization);
   }
 
