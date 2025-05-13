@@ -85,8 +85,7 @@ export class TableauDesDocumentsExaminesStrategy extends BaseDeliverableStrategy
 
       // Update the deliverable with the generated data
       await this.deliverablesRepository.update(context.id, {
-        short_result: result,
-        long_result: [],
+        long_result: result,
       });
 
       await this.deliverablesService.updateStatus(
