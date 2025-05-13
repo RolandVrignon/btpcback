@@ -9,6 +9,22 @@ import 'highlight.js/styles/github.css';
 const Markdown = lazy(() => import('./ui/markdown'));
 const ToolInvocation = lazy(() => import('./ui/toolInvocation'));
 
+const AI_MODEL = {
+  DEEPSEEK_R1: 'deepseek/deepseek-r1',
+  DEEPSEEK_R1_DISTILL_LLAMA_70B: 'deepseek/deepseek-r1-distill-llama-70b',
+  ANTHROPIC_CLAUDE_3_7_SONNET_THINKING: 'anthropic/claude-3.7-sonnet:thinking',
+  ANTHROPIC_CLAUDE_3_5_SONNET: 'anthropic/claude-3.5-sonnet',
+  OPENAI_GPT_4_1: 'openai/gpt-4.1',
+  OPENAI_GPT_4O_MINI: 'openai/gpt-4o-mini',
+  PERPLEXITY_SONAR_DEEP_RESEARCH: 'perplexity/sonar-deep-research',
+  GOOGLE_GEMINI_2_5_PRO_PREVIEW: 'google/gemini-2.5-pro-preview',
+  GOOGLE_GEMINI_2_5_FLASH_PREVIEW: 'google/gemini-2.5-flash-preview',
+  X_AI_GROK_3_BETA: 'x-ai/grok-3-beta',
+  MISTRAL_MEDIUM_3: 'mistralai/mistral-medium-3',
+  QWEN_QWEN3_30B_A3B: 'qwen/qwen3-30b-a3b',
+}
+
+
 function formatMessage(message) {
   if (message.role === 'user') {
     return {
@@ -101,6 +117,7 @@ export default function App() {
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [selectedModel, setSelectedModel] = useState(AI_MODEL.OPENAI_GPT_4O);
 
   useEffect(() => {
     const pathParts = window.location.pathname.split('/');
@@ -108,10 +125,12 @@ export default function App() {
     const urlParams = new URLSearchParams(window.location.search);
     const extractedApiKey = urlParams.get('apiKey');
     const extractedMessage = urlParams.get('message');
+    const extractedModel = urlParams.get('model');
 
     setProjectId(extractedProjectId);
     setApiKey(extractedApiKey);
     setInitialMessage(extractedMessage);
+    setSelectedModel(extractedModel || AI_MODEL.OPENAI_GPT_4O);
     setApiUrl(`/chat/${extractedProjectId}/message?apiKey=${extractedApiKey}`);
   }, []);
 
@@ -196,6 +215,9 @@ export default function App() {
   } = useChat({
     api: apiUrl,
     initialMessages: savedMessages,
+    body: {
+      model: selectedModel,
+    },
   });
 
   // Surcharger la fonction append pour nettoyer les messages avant de les ajouter
@@ -461,16 +483,30 @@ export default function App() {
         <div className="pb-2 flex justify-center space-x-2 w-full fixed bottom-0 left-0 right-0 shadow-md">
           <div className="w-full px-2 flex relative pt-2">
             <div className="flex w-full items-center bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden relative pr-[3px] pl-[3px]">
-              {/* Bouton de suppression */}
-              {messages.length > 0 && (
-                <button
-                  onClick={clearConversation}
-                  className="absolute left-[7px] bottom-[7px] bg-white border border-red-500 hover:bg-red-600 text-red-500 hover:text-white rounded-2xl px-2 py-1 text-sm flex items-center justify-center z-10 cursor-pointer"
-                  title="Effacer la conversation"
+              {/* Conteneur pour dropdown et bouton suppression alignés en absolute en bas à gauche */}
+              <div className="flex flex-row items-center gap-2 absolute left-2 bottom-2 z-20">
+                {/* Dropdown pour sélectionner le modèle */}
+                <select
+                  className="rounded-2xl border border-gray-200 px-2 py-1 text-sm bg-gray-100 text-gray-700 text-sm max-w-[150px] cursor-pointer"
+                  value={selectedModel}
+                  onChange={e => setSelectedModel(e.target.value)}
+                  title="Sélectionner le modèle d'IA"
                 >
-                  Effacer la conversation
-                </button>
-              )}
+                  {Object.entries(AI_MODEL).map(([key, value]) => (
+                    <option key={key} value={value}>{value}</option>
+                  ))}
+                </select>
+                {/* Bouton de suppression */}
+                {messages.length > 0 && (
+                  <button
+                    onClick={clearConversation}
+                    className="bg-white border border-red-500 hover:bg-red-600 text-red-500 hover:text-white rounded-2xl px-2 py-1 text-sm flex items-center justify-center z-10 cursor-pointer"
+                    title="Effacer la conversation"
+                  >
+                    Effacer la conversation
+                  </button>
+                )}
+              </div>
 
               <textarea
                 className={`w-full pl-[7px] pr-14 py-3 focus:outline-none resize-none min-h-[84px] max-h-[200px] overflow-y-auto text-sm border-0 ${messages.length > 0 ? 'pb-[35px]' : ''}`}

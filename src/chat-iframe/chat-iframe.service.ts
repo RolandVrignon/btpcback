@@ -14,8 +14,12 @@ import { DocumentsService } from '@/documents/documents.service';
 import { ProjectsService } from '@/projects/projects.service';
 import { DeliverablesService } from '@/deliverables/deliverables.service';
 import { createChatTools } from '@/chat-iframe/tools';
-import { DEFAULT_STREAM_CONFIG, model } from '@/chat-iframe/tools/streamConfig';
+import {
+  DEFAULT_STREAM_CONFIG,
+  AI_MODEL,
+} from '@/chat-iframe/tools/streamConfig';
 import { UsageType, AI_Provider } from '@prisma/client';
+import { getModelConfig } from '@/chat-iframe/tools/streamConfig';
 
 interface Usage {
   promptTokens: number;
@@ -169,6 +173,7 @@ export class ChatIframeService {
     apiKey: string,
     message: string,
     conversationHistory: ChatMessage[],
+    model: AI_MODEL,
     res: Response,
   ): Promise<void> {
     // Valider l'accès et récupérer le projet et l'organisation
@@ -219,12 +224,17 @@ export class ChatIframeService {
     ];
 
     try {
+      const modelConfig = getModelConfig(model);
+
       const result = streamText({
-        model: model.sdk,
+        model: modelConfig.sdk,
         messages: messages as Message[],
         providerOptions: {
           openai: { reasoningEffort: 'low' },
           anthropic: {
+            thinking: { type: 'enabled', budgetTokens: 12000 },
+          },
+          openrouter: {
             thinking: { type: 'enabled', budgetTokens: 12000 },
           },
         },
@@ -237,9 +247,9 @@ export class ChatIframeService {
           this.logger.debug('reasoning:', reasoning);
           await this.logUsage(
             projectId,
-            model.model,
-            model.provider,
-            model.type,
+            modelConfig.model,
+            modelConfig.provider,
+            modelConfig.type,
             usage,
           );
         },
@@ -251,6 +261,7 @@ export class ChatIframeService {
       // Utiliser directement le textStream
       result.pipeDataStreamToResponse(res, {
         sendReasoning: true,
+        sendSources: true,
       });
     } catch (error) {
       await this.handleStreamError(error, res);

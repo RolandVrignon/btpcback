@@ -14,6 +14,7 @@ import { ChatIframeService } from '@/chat-iframe/chat-iframe.service';
 import { Response } from 'express';
 import { join } from 'path';
 import { ChatRequestDto } from '@/chat-iframe/dto/chatRequest.dto';
+import { AI_MODEL } from '@/chat-iframe/tools/streamConfig';
 
 @Controller('chat')
 export class ChatIframeController {
@@ -56,6 +57,7 @@ export class ChatIframeController {
         apiKey,
         userMessage,
         conversationHistory,
+        body.model as AI_MODEL,
         res,
       );
     } catch (error: unknown) {

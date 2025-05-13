@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsEnum,
   IsIn,
   IsNumber,
   IsObject,
@@ -8,6 +9,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
+import { AI_MODEL } from '../tools/streamConfig';
 
 export class ChatRequestDto {
   @IsString()
@@ -17,6 +19,11 @@ export class ChatRequestDto {
   @ValidateNested({ each: true })
   @Type(() => ChatMessageDto)
   messages: ChatMessageDto[];
+
+  @IsString()
+  @IsOptional()
+  @IsEnum(AI_MODEL)
+  model?: string;
 }
 
 export class ChatMessageDto {
