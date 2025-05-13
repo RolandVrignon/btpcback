@@ -52,6 +52,7 @@ export enum AI_MODEL {
   X_AI_GROK_3_BETA = 'x-ai/grok-3-beta',
   MISTRAL_MEDIUM_3 = 'mistralai/mistral-medium-3',
   QWEN_QWEN3_30B_A3B = 'qwen/qwen3-30b-a3b',
+  QWEN_QWEN3_32B = 'qwen/qwen3-32b',
 }
 
 /**

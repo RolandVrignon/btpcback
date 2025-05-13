@@ -19,8 +19,8 @@ const AI_MODEL = {
   GOOGLE_GEMINI_2_5_PRO_PREVIEW: 'google/gemini-2.5-pro-preview',
   GOOGLE_GEMINI_2_5_FLASH_PREVIEW: 'google/gemini-2.5-flash-preview',
   QWEN_QWEN3_30B_A3B: 'qwen/qwen3-30b-a3b',
+  QWEN_QWEN3_32B: 'qwen/qwen3-32b',
 }
-
 
 function formatMessage(message) {
   if (message.role === 'user') {
