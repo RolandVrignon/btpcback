@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "AI_Provider" ADD VALUE 'OPENROUTER';

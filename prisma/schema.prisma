@@ -62,6 +62,7 @@ enum AI_Provider {
   MISTRAL
   FIREWORKS
   DEEPSEEK
+  OPENROUTER
 }
 
 enum DeliverableType {

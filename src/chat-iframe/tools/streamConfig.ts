@@ -1,6 +1,8 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+
 import {
   experimental_createProviderRegistry as createProviderRegistry,
   LanguageModelV1,
@@ -19,6 +21,14 @@ export const registry = createProviderRegistry({
   anthropic: createAnthropic({
     apiKey: process.env.ANTHROPIC_API_KEY,
   }),
+  openrouter: {
+    ...createOpenRouter({
+      apiKey: process.env.OPEN_ROUTER_API_KEY,
+    }),
+    textEmbeddingModel: () => {
+      throw new Error('OpenRouter does not support embeddings');
+    },
+  },
 });
 
 export interface ModelInterface {
@@ -28,8 +38,47 @@ export interface ModelInterface {
   type: UsageType;
 }
 
+// List of available OpenRouter models
+export enum AI_MODEL {
+  DEEPSEEK_R1 = 'deepseek/deepseek-r1',
+  DEEPSEEK_R1_DISTILL_LLAMA_70B = 'deepseek/deepseek-r1-distill-llama-70b',
+  ANTHROPIC_CLAUDE_3_7_SONNET_THINKING = 'anthropic/claude-3.7-sonnet:thinking',
+  ANTHROPIC_CLAUDE_3_5_SONNET = 'anthropic/claude-3.5-sonnet',
+  OPENAI_GPT_4_1 = 'openai/gpt-4.1',
+  OPENAI_GPT_4O_MINI = 'openai/gpt-4o-mini',
+  PERPLEXITY_SONAR_DEEP_RESEARCH = 'perplexity/sonar-deep-research',
+  GOOGLE_GEMINI_2_5_PRO_PREVIEW = 'google/gemini-2.5-pro-preview',
+  GOOGLE_GEMINI_2_5_FLASH_PREVIEW = 'google/gemini-2.5-flash-preview',
+  X_AI_GROK_3_BETA = 'x-ai/grok-3-beta',
+  MISTRAL_MEDIUM_3 = 'mistralai/mistral-medium-3',
+  QWEN_QWEN3_30B_A3B = 'qwen/qwen3-30b-a3b',
+}
+
+/**
+ * Generate model configurations for OpenRouter
+ */
+export function getOpenRouterModels() {
+  if (!process.env.OPEN_ROUTER_API_KEY) return [];
+  return Object.values(AI_MODEL).map((modelName) => ({
+    sdk: wrapLanguageModel({
+      model: registry.languageModel(`openrouter:${modelName}`),
+      middleware: [],
+    }),
+    provider: AI_Provider.OPENROUTER,
+    model: modelName,
+    type: UsageType.TEXT_TO_TEXT,
+  }));
+}
+
 export const model: ModelInterface = (() => {
-  if (process.env.ANTHROPIC_API_KEY) {
+  if (process.env.OPEN_ROUTER_API_KEY) {
+    // Default to the first OpenRouter model
+    const openRouterModels = getOpenRouterModels();
+    if (openRouterModels.length > 0) {
+      return openRouterModels[0];
+    }
+    throw new Error('No OpenRouter models available');
+  } else if (process.env.ANTHROPIC_API_KEY) {
     return {
       sdk: wrapLanguageModel({
         model: registry.languageModel('anthropic:claude-3-7-sonnet-20250219'),
@@ -88,3 +137,16 @@ export const DEFAULT_STREAM_CONFIG: StreamConfig = {
   delayInMs: 10,
   chunking: 'word',
 };
+
+export function getModelConfig(modelName: AI_MODEL): ModelInterface {
+  console.log('modelName:', modelName);
+  return {
+    sdk: wrapLanguageModel({
+      model: registry.languageModel(`openrouter:${modelName}`),
+      middleware: [],
+    }),
+    provider: AI_Provider.OPENROUTER,
+    model: modelName,
+    type: UsageType.TEXT_TO_TEXT,
+  };
+}
