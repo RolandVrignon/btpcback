@@ -45,6 +45,8 @@ export class ChatIframeController {
   ) {
     try {
       const allMessages = body.messages;
+      console.log('body', body);
+      console.log('body.model', body.model);
       const userMessage = allMessages.at(-1)?.content || '';
       const conversationHistory = allMessages.slice(0, -1);
 
