@@ -287,6 +287,8 @@ model DocumentDeliverable {
 model ReferenceDocument {
   id                        String                       @id @default(uuid())
   title                     String                       @db.VarChar(255) // Official title of the reference document
+  secondary_title           String?                      @db.VarChar(255) // Secondary title of the reference document
+  key_s3_title              String                       @db.VarChar(255) // Key of the reference document in S3
   application_domain        String? // ex: "maçonnerie", "ossature bois", etc.
   application_domain_vector Unsupported("vector(1536)")? // Embedding for semantic search on domain
   category                  String? // ex: "NF DTU", "Eurocode", "RE2020"

@@ -15,7 +15,8 @@ const REGION = process.env.AWS_REGION || 'eu-north-1';
 console.log('REGION:', REGION);
 const ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID || 'VOTRE_ACCESS_KEY_ID';
 console.log('ACCESS_KEY_ID:', ACCESS_KEY_ID);
-const SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY || 'VOTRE_SECRET_ACCESS_KEY';
+const SECRET_ACCESS_KEY =
+  process.env.AWS_SECRET_ACCESS_KEY || 'VOTRE_SECRET_ACCESS_KEY';
 console.log('SECRET_ACCESS_KEY:', SECRET_ACCESS_KEY);
 const BUCKET_NAME = 'batipedia-files';
 
@@ -40,7 +41,8 @@ async function main() {
     const files = listResponse.Contents || [];
 
     // Apply the limit if set
-    const filesToProcess = FILES_LIMIT === null ? files : files.slice(0, FILES_LIMIT);
+    const filesToProcess =
+      FILES_LIMIT === null ? files : files.slice(0, FILES_LIMIT);
 
     for (const fileObj of filesToProcess) {
       if (!fileObj.Key) continue;
