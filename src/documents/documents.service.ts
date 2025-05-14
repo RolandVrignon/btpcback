@@ -284,11 +284,7 @@ export class DocumentsService {
         throw new Error("La clé API OpenAI n'est pas configurée");
       }
 
-      await this.updateIndexationStatus(documentId, 'PROGRESS' as Status);
-
-      // Configurer le client OpenAI avec la clé API
       process.env.OPENAI_API_KEY = apiKey;
-
       const modelName = 'text-embedding-3-small';
 
       // Récupérer la taille du lot depuis les variables d'environnement, par défaut 5
@@ -391,8 +387,6 @@ export class DocumentsService {
           }),
         );
       }
-
-      await this.updateIndexationStatus(documentId, 'COMPLETED' as Status);
     } catch (error) {
       this.logger.error(
         `Erreur lors de la création des chunks et embeddings: ${
@@ -1502,16 +1496,6 @@ export class DocumentsService {
                       const webhookUrl = `${n8nWebhookUrl}/index-process`;
 
                       this.logger.log(`Webhook URL: ${webhookUrl}`);
-
-                      await this.updateStatus(
-                        document.documentId,
-                        Status.PROGRESS,
-                        null,
-                        dto.documentWebhookUrl,
-                        200,
-                        `Extraction n8n en cours...`,
-                        null,
-                      );
 
                       this.logger.log(
                         `[${indexationId}] Envoi du document ${document.name} à n8n webhook : [${webhookUrl}]`,
