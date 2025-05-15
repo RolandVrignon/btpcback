@@ -6,9 +6,18 @@ import { EmbeddingsModule } from '@/embeddings/embeddings.module';
 import { ProjectsModule } from '@/projects/projects.module';
 import { ChunksModule } from '@/chunks/chunks.module';
 import { SearchRepository } from '@/search/search.repository';
+import { ReferenceDocumentsModule } from '@/reference-documents/reference-documents.module';
+import { ReferenceEmbeddingsModule } from '@/reference-embeddings/reference-embeddings.module';
 
 @Module({
-  imports: [PrismaModule, EmbeddingsModule, ProjectsModule, ChunksModule],
+  imports: [
+    PrismaModule,
+    EmbeddingsModule,
+    ProjectsModule,
+    ChunksModule,
+    ReferenceDocumentsModule,
+    ReferenceEmbeddingsModule,
+  ],
   controllers: [SearchController],
   providers: [SearchService, SearchRepository],
   exports: [SearchService],

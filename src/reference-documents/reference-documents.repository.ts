@@ -87,4 +87,21 @@ export class ReferenceDocumentsRepository {
       throw error;
     }
   }
+
+  /**
+   * Recherche vectorielle sur ReferenceDocument
+   */
+  async searchSimilar(vector: number[], limit: number = 5) {
+    // Requête SQL brute sur application_domain_vector
+    const results = await this.prisma.$queryRawUnsafe(`
+      SELECT id, title, application_domain,
+        (application_domain_vector <=> '[${vector.join(',')}]') AS distance
+      FROM "ReferenceDocument"
+      WHERE application_domain_vector IS NOT NULL
+      ORDER BY distance ASC
+      LIMIT ${limit}
+    `);
+
+    return results;
+  }
 }

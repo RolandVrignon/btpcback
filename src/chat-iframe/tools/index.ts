@@ -1,5 +1,6 @@
 // Re-export de tous les outils pour faciliter l'import par les consommateurs
 import { createSearchDocumentsTool } from '@/chat-iframe/tools/toolList/searchDocumentsTool';
+import { createSearchInDocumentationTool } from '@/chat-iframe/tools/toolList/searchInDocumentationTool';
 import { createListDocumentsTool } from '@/chat-iframe/tools/toolList/listDocumentsTool';
 import { createReadDocumentTool } from '@/chat-iframe/tools/toolList/readDocumentTool';
 import { createGetProjectSummaryTool } from '@/chat-iframe/tools/toolList/getProjectSummaryTool';
@@ -54,6 +55,12 @@ export const createChatTools = (
     organization.id,
   );
 
+  const searchInDocumentationTool = createSearchInDocumentationTool(
+    searchService,
+    projectId,
+    organization.id,
+  );
+
   const listTools = createListDocumentsTool(documentsService, projectId);
 
   const readTools = createReadDocumentTool(
@@ -94,6 +101,7 @@ export const createChatTools = (
   // Combiner tous les outils dans un seul objet
   return {
     ...searchTools,
+    ...searchInDocumentationTool,
     ...listTools,
     ...readTools,
     ...getProjectSummaryTool,
