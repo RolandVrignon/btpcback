@@ -11,7 +11,6 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ReferenceDocumentsService } from './reference-documents.service';
 import { CreateReferenceDocumentDto } from '@/reference-documents/dto/create-reference-document.dto';
 import { UpdateReferenceDocumentDto } from '@/reference-documents/dto/update-reference-document.dto';
-import { CreateReferenceDocumentFromUrlDto } from '@/reference-documents/dto/create-reference-document-from-url.dto';
 
 @ApiTags('Reference Documents')
 @Controller('reference-documents')
@@ -23,16 +22,6 @@ export class ReferenceDocumentsController {
   @Post()
   async create(@Body() dto: CreateReferenceDocumentDto) {
     return this.service.create(dto);
-  }
-
-  @ApiOperation({ summary: 'Create a reference document from a remote URL' })
-  @ApiResponse({
-    status: 201,
-    description: 'Reference document created from URL',
-  })
-  @Post('from-url')
-  async createFromUrl(@Body() dto: CreateReferenceDocumentFromUrlDto) {
-    return this.service.createFromUrl(dto);
   }
 
   @ApiOperation({ summary: 'Get all reference documents' })

@@ -4,7 +4,8 @@ import { PrismaClient } from '@prisma/client';
 
 // Google Sheets and Prisma initialization
 const SHEET_ID = process.env.GSHEET_ID || 'VOTRE_ID_SHEET';
-const SHEET_RANGE = 'Autres';
+console.log('SHEET_ID:', SHEET_ID);
+const SHEET_RANGE = 'Autres!A:Z';
 const prisma = new PrismaClient();
 
 // Function to get rows from Google Sheets
@@ -22,10 +23,12 @@ async function getSheetRows() {
 
 async function main() {
   const rows = await getSheetRows();
+
   if (rows.length < 2) {
     console.log('No data found.');
     return;
   }
+
   // Get column indexes
   const header = rows[0];
   const idxTitle = header.indexOf('title-part-1');
@@ -33,14 +36,33 @@ async function main() {
   const idxS3 = header.indexOf('TITRE S3');
   const idxType = header.indexOf('TYPE');
 
-  for (let i = 1; i < rows.length; i++) {
-    const row = rows[i];
-    const title = row[idxTitle];
-    const secondary_title = row[idxSecondaryTitle];
-    const key_s3_title = row[idxS3];
-    const category = row[idxType];
-    if (!title || !key_s3_title || !category) continue;
+  // Filter rows where TYPE === 'DTU'
+  const filteredRows = rows.slice(1).filter((row) => row[idxType] === 'DTU');
+  console.log('filteredRows:', filteredRows.length);
+
+  // Display the first 6 filtered rows
+  for (let i = 0; i < filteredRows.length; i++) {
+    const row = filteredRows[i];
+    const title = String(row[idxTitle] ?? '');
+    const secondary_title = String(row[idxSecondaryTitle] ?? '');
+    const key_s3_title = row[idxS3] ? `${row[idxS3]}.pdf` : '';
+    const category = String(row[idxType] ?? '');
+
     try {
+      // Check if a document with the same title already exists
+      const existing = await prisma.referenceDocument.findFirst({
+        where: {
+          title,
+          key_s3_title,
+          category,
+          secondary_title,
+        },
+      });
+
+      if (existing) {
+        continue;
+      }
+
       // Create ReferenceDocument in DB
       await prisma.referenceDocument.create({
         data: {
@@ -49,13 +71,19 @@ async function main() {
           key_s3_title,
           category,
           mimetype: 'application/pdf',
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       });
       console.log(`Inserted: ${title}`);
-    } catch (err) {
-      console.error(`Error inserting ${title}:`, err);
+    } catch {
+      console.error(`Error inserting ${title}:`);
     }
   }
+
+  console.log('filteredRows.length:', filteredRows.length);
+
+  return;
 }
 
 main()

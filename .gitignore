@@ -2,7 +2,7 @@
 /dist
 *node_modules
 /build
-log.txt
+*log*
 
 # Logs
 logs
@@ -64,3 +64,5 @@ src/scripts/
 .env.docker
 
 .cursor/mcp.json
+
+secrets

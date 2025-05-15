@@ -6,6 +6,15 @@ export class CreateReferenceDocumentDto {
   @IsString()
   title: string;
 
+  @ApiProperty({ description: 'Secondary title of the reference document' })
+  @IsOptional()
+  @IsString()
+  secondary_title?: string;
+
+  @ApiProperty({ description: 'Key of the reference document in S3' })
+  @IsString()
+  key_s3_title: string;
+
   @ApiProperty({
     description:
       'Application domain of the reference document (e.g. "maçonnerie", "ossature bois")',

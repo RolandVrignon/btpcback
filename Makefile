@@ -195,6 +195,7 @@ prettier:
 	@echo "Formatage du code avec Prettier..."
 	@pnpm prettier --write "src/**/*.ts"
 	@pnpm prettier --write "scripts/*.ts"
+	@pnpm prettier --write "scripts/**/*.ts"
 	@echo "Formatage terminé"
 
 # Commandes combinées
