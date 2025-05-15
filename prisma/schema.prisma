@@ -327,15 +327,15 @@ model ReferenceChunk {
 }
 
 model ReferenceEmbedding {
-  id               String                       @id @default(uuid())
-  vector           Unsupported("vector(1536)")?
+  id               String   @unique @id @default(uuid())
+  vector           Unsupported("vector(1536)")
   modelName        String
   modelVersion     String
   dimensions       Int
   referenceChunkId String
-  referenceChunk   ReferenceChunk               @relation(fields: [referenceChunkId], references: [id], onDelete: Cascade)
-  createdAt        DateTime                     @default(now())
-  updatedAt        DateTime                     @updatedAt
+  referenceChunk   ReferenceChunk @relation(fields: [referenceChunkId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@unique([referenceChunkId, modelName, modelVersion], name: "unique_reference_chunk_model")
   @@index([referenceChunkId])

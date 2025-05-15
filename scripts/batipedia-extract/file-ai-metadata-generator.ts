@@ -6,12 +6,13 @@ import * as dotenv from 'dotenv';
 import {
   OCRPageObject,
   OCRResponse,
+  OCRUsageInfo,
 } from '@mistralai/mistralai/models/components';
 import { generateText } from 'ai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { embed } from 'ai';
 import { openai } from '@ai-sdk/openai';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 dotenv.config();
 
@@ -30,6 +31,32 @@ const client = new Mistral({
 });
 
 const prisma = new PrismaClient();
+
+// Nouvelle structure : tableau d'usages par document
+type LLMUsage = {
+  provider: string;
+  model: string;
+  function: string;
+  prompt: number;
+  completion: number;
+  total: number;
+  cost: number;
+};
+
+const llmUsageByDoc: Record<string, LLMUsage[]> = {};
+
+// Fonction utilitaire pour calculer le coût (à adapter selon tes prix)
+function computeCost(
+  model: string,
+  promptTokens: number,
+  completionTokens: number,
+): number {
+  if (model === 'openai/gpt-4o-mini') {
+    // $0.15 / 1M input, $0.60 / 1M output
+    return promptTokens * 0.00000015 + completionTokens * 0.0000006;
+  }
+  return 0;
+}
 
 function anonymizeText(text: string) {
   // Remove the full block (paragraph) if present
@@ -52,7 +79,10 @@ function anonymizeText(text: string) {
   return anonymizedText;
 }
 
-async function getApplicationDomain(text: string): Promise<string | null> {
+async function getApplicationDomain(
+  text: string,
+  docId: string,
+): Promise<string | null> {
   // Prompt to extract the application domain from the DTU document
   const prompt = `
 Tu es un assistant expert en normalisation du bâtiment.
@@ -67,13 +97,33 @@ ${text}
     apiKey: process.env.OPEN_ROUTER_API_KEY,
   });
 
+  const provider = 'openrouter';
+  const modelName = 'openai/gpt-4o-mini';
+
   try {
-    const { text: result } = await generateText({
-      model: openrouter('openai/gpt-4o-mini'),
+    const { text: result, usage } = await generateText({
+      model: openrouter(modelName),
       prompt,
     });
 
-    // Clean and return the result
+    if (usage) {
+      const promptTokens = usage.promptTokens || 0;
+      const completionTokens = usage.completionTokens || 0;
+      const totalTokens = usage.totalTokens || 0;
+      const cost = computeCost(modelName, promptTokens, completionTokens);
+
+      if (!llmUsageByDoc[docId]) llmUsageByDoc[docId] = [];
+      llmUsageByDoc[docId].push({
+        provider,
+        model: modelName,
+        prompt: promptTokens,
+        completion: completionTokens,
+        total: totalTokens,
+        cost,
+        function: 'getApplicationDomain',
+      });
+    }
+
     return result.trim();
   } catch (err) {
     // Log the error and return null if something goes wrong
@@ -88,6 +138,7 @@ ${text}
 async function contextualizeChunkWithLLM(
   fullMarkdown: string,
   chunk: string,
+  docId: string,
 ): Promise<string> {
   const openrouter = createOpenRouter({
     apiKey: process.env.OPEN_ROUTER_API_KEY,
@@ -111,10 +162,32 @@ Reformate cet extrait pour qu'il soit bien contextualisé :
 - Retourne uniquement le texte markdown final
 `;
 
-  const { text: result } = await generateText({
-    model: openrouter('openai/gpt-4o-mini'),
+  const provider = 'openrouter';
+  const modelName = 'openai/gpt-4o-mini';
+
+  const { text: result, usage } = await generateText({
+    model: openrouter(modelName),
     prompt,
   });
+
+  // Récupère l'usage réel si disponible
+  if (usage) {
+    const promptTokens = usage.promptTokens || 0;
+    const completionTokens = usage.completionTokens || 0;
+    const totalTokens = usage.totalTokens || 0;
+    const cost = computeCost(modelName, promptTokens, completionTokens);
+
+    if (!llmUsageByDoc[docId]) llmUsageByDoc[docId] = [];
+    llmUsageByDoc[docId].push({
+      provider,
+      model: modelName,
+      prompt: promptTokens,
+      completion: completionTokens,
+      total: totalTokens,
+      cost,
+      function: 'contextualizeChunkWithLLM',
+    });
+  }
 
   return result.trim();
 }
@@ -193,11 +266,25 @@ function chunkArray<T>(array: T[], size: number): T[][] {
   return result;
 }
 
-async function embedChunk(text: string): Promise<number[]> {
-  const { embedding } = await embed({
+async function embedChunk(docId: string, text: string): Promise<number[]> {
+  const { embedding, usage } = await embed({
     model: openai.embedding('text-embedding-ada-002'),
     value: text,
   });
+
+  if (usage) {
+    const totalTokens = usage.tokens || 0;
+
+    llmUsageByDoc[docId].push({
+      provider: 'OpenAI',
+      model: 'text-embedding-ada-002',
+      function: 'embedChunk',
+      prompt: 0,
+      completion: 0,
+      total: totalTokens,
+      cost: 0,
+    });
+  }
   return embedding;
 }
 
@@ -206,7 +293,7 @@ async function main() {
     where: { application_domain: null },
   });
 
-  for (let i = 0; i < 1; i++) {
+  for (let i = 0; i < 7; i++) {
     const doc = docs[i];
     const key = doc.key_s3_title;
     if (!key) continue;
@@ -229,18 +316,47 @@ async function main() {
         includeImageBase64: true,
       });
 
+      const usage: OCRUsageInfo = ocrResponse.usageInfo;
+      const ocrCost = usage.pagesProcessed / 1000;
+
+      if (!llmUsageByDoc[docId]) llmUsageByDoc[docId] = [];
+      llmUsageByDoc[docId].push({
+        provider: 'MistralAI',
+        model: 'mistral-ocr-latest',
+        function: 'ocr',
+        prompt: 0,
+        completion: 0,
+        total: usage.pagesProcessed,
+        cost: ocrCost,
+      });
+
       const compactText = ocrResponse.pages
         .map((page: OCRPageObject) => page.markdown)
         .join('\n');
 
       const anonymizedText = anonymizeText(compactText);
 
-      const applicationDomain = await getApplicationDomain(anonymizedText);
+      const applicationDomain = await getApplicationDomain(
+        anonymizedText,
+        docId,
+      );
 
-      await prisma.referenceDocument.update({
-        where: { id: docId },
-        data: { application_domain: applicationDomain },
-      });
+      const applicationDomainVector = await embedChunk(
+        docId,
+        applicationDomain,
+      );
+
+      await prisma.$executeRawUnsafe(
+        `
+        UPDATE "ReferenceDocument"
+        SET application_domain = $1,
+            application_domain_vector = $2::vector
+        WHERE id = $3
+        `,
+        applicationDomain,
+        JSON.stringify(applicationDomainVector),
+        docId,
+      );
 
       const chunks = chunkMarkdownToStringChunks(
         doc.title,
@@ -258,46 +374,73 @@ async function main() {
         // Lancer les requêtes en parallèle pour chaque batch
         const results = await Promise.all(
           batch.map((chunk) =>
-            contextualizeChunkWithLLM(anonymizedText, chunk),
+            contextualizeChunkWithLLM(anonymizedText, chunk, docId),
           ),
         );
         contextualizedChunks.push(...results);
       }
 
+      console.log('Number of chunks :', contextualizedChunks.length);
+
       for (const [order, chunk] of contextualizedChunks.entries()) {
-        // Générer l'embedding pour le chunk
-        const vector = await embedChunk(chunk);
+        try {
+          console.log(
+            `Chunk ${order} of ${contextualizedChunks.length} - Start embedding and db insertion`,
+          );
+          const vector = await embedChunk(docId, chunk);
 
-        // Créer le chunk dans la table ReferenceChunk
-        const createdChunk = await prisma.referenceChunk.create({
-          data: {
-            text: chunk,
-            order,
-            referenceDocument: {
-              connect: { id: docId },
+          console.log(
+            `Chunk ${order} of ${contextualizedChunks.length} - Vector length : ${vector.length}`,
+          );
+
+          if (order === 1) {
+            console.log(vector);
+          }
+
+          // Créer le chunk dans la table ReferenceChunk
+          const createdChunk = await prisma.referenceChunk.create({
+            data: {
+              text: chunk,
+              order,
+              referenceDocument: {
+                connect: { id: docId },
+              },
             },
-          },
-        });
+          });
 
-        // Générer un UUID pour l'embedding
-        const embeddingId = crypto.randomUUID();
+          console.log(
+            `Chunk ${order} of ${contextualizedChunks.length} - End embedding and db chunk insertion`,
+          );
 
-        // Insérer l'embedding dans ReferenceEmbedding via SQL brut
-        await prisma.$executeRawUnsafe(`
-          INSERT INTO "ReferenceEmbedding"
-            ("id", "vector", "modelName", "modelVersion", "dimensions", "referenceChunkId", "createdAt", "updatedAt")
-          VALUES
-            (
-              '${embeddingId}',
-              '${JSON.stringify(vector)}'::vector,
-              'text-embedding-ada-002',
-              'v2',
-              ${vector.length},
-              '${createdChunk.id}',
-              NOW(),
-              NOW()
-            )
-        `);
+          // Générer un UUID pour l'embedding
+          const uuid = crypto.randomUUID();
+
+          // Insérer l'embedding dans ReferenceEmbedding via SQL brut
+          await prisma.$executeRawUnsafe(`
+            INSERT INTO "ReferenceEmbedding"
+              ("id", "vector", "modelName", "modelVersion", "dimensions", "referenceChunkId", "createdAt", "updatedAt")
+            VALUES
+              (
+                '${uuid}',
+                '${JSON.stringify(vector)}'::vector,
+                'text-embedding-ada-002',
+                'v2',
+                ${vector.length},
+                '${createdChunk.id}',
+                NOW(),
+                NOW()
+              )
+          `);
+
+          console.log(
+            `Chunk ${order} of ${contextualizedChunks.length} - End with embedding db insertion`,
+          );
+        } catch (error) {
+          console.error(
+            `Chunk ${order} of ${contextualizedChunks.length} - Error with embedding db insertion`,
+            error,
+          );
+        }
       }
     } catch (err) {
       console.error(`Error processing ${key}:`, err);
@@ -305,4 +448,39 @@ async function main() {
   }
 }
 
-main().catch(console.error);
+main()
+  .catch(console.error)
+  .finally(() => {
+    console.log('LLM usage by document (cost per function):');
+    for (const [docId, usages] of Object.entries(llmUsageByDoc)) {
+      // Regroupe les coûts, providers et modèles par fonction
+      const functionStats: Record<
+        string,
+        { cost: number; provider: string; model: string }
+      > = {};
+      usages.forEach((usage) => {
+        if (!functionStats[usage.function]) {
+          functionStats[usage.function] = {
+            cost: 0,
+            provider: usage.provider,
+            model: usage.model,
+          };
+        }
+        functionStats[usage.function].cost += usage.cost;
+      });
+
+      // Affiche le résumé pour ce document
+      console.log(`Document ${docId}:`);
+      for (const [func, stats] of Object.entries(functionStats)) {
+        console.log(
+          `  - ${func}: $${stats.cost.toFixed(4)} (provider: ${stats.provider}, model: ${stats.model})`,
+        );
+      }
+      // Optionnel : coût total pour le document
+      const total = Object.values(functionStats).reduce(
+        (a, b) => a + b.cost,
+        0,
+      );
+      console.log(`  => Total: $${total.toFixed(4)}`);
+    }
+  });
