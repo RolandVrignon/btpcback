@@ -10,6 +10,8 @@ import { ProjectsRepository } from '@/projects/projects.repository';
 import { SearchRepository } from '@/search/search.repository';
 import { ChunksRepository } from '@/chunks/chunks.repository';
 import { Logger } from '@nestjs/common';
+import { ReferenceDocumentsRepository } from '@/reference-documents/reference-documents.repository';
+import { ReferenceEmbeddingsService } from '@/reference-embeddings/reference-embeddings.service';
 
 // Interface pour les résultats de recherche vectorielle
 interface VectorSearchResult {
@@ -48,6 +50,8 @@ export class SearchService {
     private readonly projectsRepository: ProjectsRepository,
     private readonly searchRepository: SearchRepository,
     private readonly chunksRepository: ChunksRepository,
+    private readonly referenceDocumentsRepository: ReferenceDocumentsRepository,
+    private readonly referenceEmbeddingsService: ReferenceEmbeddingsService,
   ) {}
 
   /**
@@ -362,5 +366,34 @@ export class SearchService {
         `Impossible de récupérer les chunks du document ${documentId}: ${err instanceof Error ? err.message : 'Erreur inconnue'}`,
       );
     }
+  }
+
+  /**
+   * Recherche vectorielle sur ReferenceDocument (application_domain_vector)
+   */
+  async vectorSearchInReferenceDocuments(
+    params: SearchRequestDto,
+    organizationId: string,
+  ): Promise<SearchResponseDto> {
+    if (params.projectId) {
+      await this.checkProjectAccess(params.projectId, organizationId);
+    }
+
+    const vector = await this.embeddingsService.createFromQuery({
+      query: params.query,
+      projectId: params.projectId,
+    });
+
+    // Recherche via ReferenceEmbeddingsService
+    const results = await this.referenceEmbeddingsService.searchSimilar(
+      vector,
+      params.limit || 5,
+    );
+
+    return {
+      results: results as SearchResultDto[],
+      executionTimeMs: 0,
+      searchType: 'vector',
+    };
   }
 }

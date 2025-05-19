@@ -99,4 +99,26 @@ export class SearchController {
   ): Promise<SearchResponseDto> {
     return this.searchService.hybridSearch(searchRequestDto, organization.id);
   }
+
+  @Post('search-in-reference-documents')
+  @UseGuards(ApiKeyGuard)
+  @ApiOperation({
+    summary: 'Recherche vectorielle dans ReferenceDocument',
+    description:
+      'Recherche vectorielle sur le champ application_domain_vector de ReferenceDocument',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Résultats de la recherche vectorielle sur ReferenceDocument',
+    type: SearchResponseDto,
+  })
+  async searchInReferenceDocuments(
+    @Body() searchRequestDto: SearchRequestDto,
+    @Organization() organization: OrganizationEntity,
+  ): Promise<SearchResponseDto> {
+    return this.searchService.vectorSearchInReferenceDocuments(
+      searchRequestDto,
+      organization.id,
+    );
+  }
 }

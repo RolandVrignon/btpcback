@@ -35,7 +35,7 @@ export class CreateEmbeddingDto {
 
   @ApiProperty({
     description: "Nom du modèle utilisé pour générer l'embedding",
-    example: 'openai/text-embedding-ada-002',
+    example: 'openai/text-embedding-3-large',
   })
   @IsString()
   @IsNotEmpty()
