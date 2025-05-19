@@ -4,6 +4,7 @@ import { DEFAULT_STREAM_CONFIG } from '@/chat-iframe/tools/streamConfig';
 import { ToolResult } from '@/chat-iframe/tools/index';
 import { SearchService } from '@/search/search.service';
 import { ReferenceDocumentsService } from '@/reference-documents/reference-documents.service';
+import { ShortUrlService } from '@/short-url/short-url.service';
 const logger = new Logger('SearchInDocumentationTool');
 
 /**
@@ -17,10 +18,12 @@ export const createSearchInDocumentationTool = (
   referenceDocumentsService: ReferenceDocumentsService,
   projectId: string,
   organizationId: string,
+  shortUrlService: ShortUrlService,
+  baseRedirectUrl: string,
 ) => ({
   searchInDocumentation: {
     description:
-      'Recherche des informations dans la documentation technique de référence (DTU, normes, etc.) via la recherche vectorielle. Utile pour répondre à des questions spécifiques sur les normes, les DTU, etc en citant les numéros de pages et extraits de texte des documents. Fournit les résultats avec les URL des pages des documents. Pour chaque extrait, cite systématiquement l’URL de la source (Accès direct à la source : …).',
+      "Recherche des informations dans la documentation technique de référence (DTU, normes, etc.) via la recherche vectorielle. Utile pour répondre à des questions spécifiques sur les normes, les DTU, etc en citant les numéros de pages et extraits de texte des documents. Fournit les résultats avec les URL des pages des documents. Pour chaque extrait, cite systématiquement l'URL de la source (Accès direct à la source : …).",
     parameters: z.object({
       query: z.string().describe('La requête de recherche'),
       limit: z.number().min(1).max(20).default(5).optional(),
@@ -47,7 +50,7 @@ export const createSearchInDocumentationTool = (
             organizationId,
           );
 
-        // Formater les résultats pour le LLM
+        // searchResults.results est de type SearchResultDto[]
         const formattedResults = searchResults.results.map((r) => ({
           text: r.text,
           documentId: r.documentId,
@@ -67,12 +70,23 @@ export const createSearchInDocumentationTool = (
             await referenceDocumentsService.getPresignedUrl(docId);
         }
 
-        const resultsWithUrls = formattedResults.map((r) => ({
-          ...r,
-          presignedUrl: presignedUrls[r.documentId]
-            ? `${presignedUrls[r.documentId]}#page=${r.page}`
-            : null,
-        }));
+        // Génération des liens courts
+        const resultsWithUrls = await Promise.all(
+          formattedResults.map(async (r) => {
+            const longUrl = presignedUrls[r.documentId]
+              ? `${presignedUrls[r.documentId]}#page=${r.page}`
+              : null;
+            let shortUrl: string | null = null;
+            if (longUrl) {
+              const id = await shortUrlService.createShortUrl(longUrl);
+              shortUrl = `${baseRedirectUrl}/${id}`;
+            }
+            return {
+              ...r,
+              presignedUrl: shortUrl,
+            };
+          }),
+        );
 
         console.log(
           `Results with urls: ${JSON.stringify(resultsWithUrls, null, 2)}`,
