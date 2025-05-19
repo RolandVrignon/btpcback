@@ -135,62 +135,62 @@ ${text}
   }
 }
 
-async function contextualizeChunkWithLLM(
-  fullMarkdown: string,
-  chunk: string,
-  docId: string,
-): Promise<string> {
-  const openrouter = createOpenRouter({
-    apiKey: process.env.OPEN_ROUTER_API_KEY,
-  });
+// async function contextualizeChunkWithLLM(
+//   fullMarkdown: string,
+//   chunk: string,
+//   docId: string,
+// ): Promise<string> {
+//   const openrouter = createOpenRouter({
+//     apiKey: process.env.OPEN_ROUTER_API_KEY,
+//   });
 
-  const prompt = `
-Voici le texte complet d'un document technique (markdown) :
-\`\`\`
-${fullMarkdown}
-\`\`\`
+//   const prompt = `
+// Voici le texte complet d'un document technique (markdown) :
+// \`\`\`
+// ${fullMarkdown}
+// \`\`\`
 
-Voici un extrait (chunk) à contextualiser :
-\`\`\`
-${chunk}
-\`\`\`
+// Voici un extrait (chunk) à contextualiser :
+// \`\`\`
+// ${chunk}
+// \`\`\`
 
-Reformate cet extrait pour qu'il soit bien contextualisé :
-- Ajoute les titres et sous-titres pertinents (avec leur hiérarchie, ex : #, ##, etc.)
-- Corrige la hiérarchie si besoin
-- Le chunk doit être autonome et compréhensible sans le reste du document
-- Retourne uniquement le texte markdown final
-`;
+// Reformate cet extrait pour qu'il soit bien contextualisé :
+// - Ajoute les titres et sous-titres pertinents (avec leur hiérarchie, ex : #, ##, etc.)
+// - Corrige la hiérarchie si besoin
+// - Le chunk doit être autonome et compréhensible sans le reste du document
+// - Retourne uniquement le texte markdown final
+// `;
 
-  const provider = 'openrouter';
-  const modelName = 'openai/gpt-4o-mini';
+//   const provider = 'openrouter';
+//   const modelName = 'openai/gpt-4o-mini';
 
-  const { text: result, usage } = await generateText({
-    model: openrouter(modelName),
-    prompt,
-  });
+//   const { text: result, usage } = await generateText({
+//     model: openrouter(modelName),
+//     prompt,
+//   });
 
-  // Récupère l'usage réel si disponible
-  if (usage) {
-    const promptTokens = usage.promptTokens || 0;
-    const completionTokens = usage.completionTokens || 0;
-    const totalTokens = usage.totalTokens || 0;
-    const cost = computeCost(modelName, promptTokens, completionTokens);
+//   // Récupère l'usage réel si disponible
+//   if (usage) {
+//     const promptTokens = usage.promptTokens || 0;
+//     const completionTokens = usage.completionTokens || 0;
+//     const totalTokens = usage.totalTokens || 0;
+//     const cost = computeCost(modelName, promptTokens, completionTokens);
 
-    if (!llmUsageByDoc[docId]) llmUsageByDoc[docId] = [];
-    llmUsageByDoc[docId].push({
-      provider,
-      model: modelName,
-      prompt: promptTokens,
-      completion: completionTokens,
-      total: totalTokens,
-      cost,
-      function: 'contextualizeChunkWithLLM',
-    });
-  }
+//     if (!llmUsageByDoc[docId]) llmUsageByDoc[docId] = [];
+//     llmUsageByDoc[docId].push({
+//       provider,
+//       model: modelName,
+//       prompt: promptTokens,
+//       completion: completionTokens,
+//       total: totalTokens,
+//       cost,
+//       function: 'contextualizeChunkWithLLM',
+//     });
+//   }
 
-  return result.trim();
-}
+//   return result.trim();
+// }
 
 function chunkMarkdownToStringChunks(
   title: string,
@@ -208,8 +208,9 @@ function chunkMarkdownToStringChunks(
   function getChunkString() {
     return [
       `${title} ${secondaryTitle}`.trim(),
-      applicationDomain,
+      `Domaine d'application : ${applicationDomain}`,
       ...contextRawTitles,
+      'Extrait :',
       currentParagraph.join('\n').trim(),
     ]
       .filter(Boolean)
@@ -267,22 +268,34 @@ function chunkArray<T>(array: T[], size: number): T[][] {
 }
 
 async function embedChunk(docId: string, text: string): Promise<number[]> {
+  const modelName: string = 'text-embedding-3-large';
+
   const { embedding, usage } = await embed({
-    model: openai.embedding('text-embedding-ada-002'),
+    model: openai.embedding(modelName),
     value: text,
   });
 
   if (usage) {
     const totalTokens = usage.tokens || 0;
 
+    let cost = 0;
+
+    if (modelName === 'text-embedding-ada-002') {
+      cost = (totalTokens / 1_000_000) * 0.1;
+    } else if (modelName === 'text-embedding-3-small') {
+      cost = (totalTokens / 1_000_000) * 0.02;
+    } else if (modelName === 'text-embedding-3-large') {
+      cost = (totalTokens / 1_000_000) * 0.13;
+    }
+
     llmUsageByDoc[docId].push({
       provider: 'OpenAI',
-      model: 'text-embedding-ada-002',
+      model: modelName,
       function: 'embedChunk',
       prompt: 0,
       completion: 0,
       total: totalTokens,
-      cost: 0,
+      cost: cost,
     });
   }
   return embedding;
@@ -293,7 +306,7 @@ async function main() {
     where: { application_domain: null },
   });
 
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 1; i++) {
     const doc = docs[i];
     const key = doc.key_s3_title;
     if (!key) continue;
@@ -306,6 +319,8 @@ async function main() {
         new GetObjectCommand({ Bucket: 'batipedia-files', Key: key }),
         { expiresIn: 3600 }, // 1 heure
       );
+
+      console.log('presignedUrl:', presignedUrl);
 
       const ocrResponse: OCRResponse = await client.ocr.process({
         model: 'mistral-ocr-latest',
@@ -365,81 +380,81 @@ async function main() {
         anonymizedText,
       );
 
-      // Découper les chunks en batchs de 20
-      const batchSize = 40;
-      const chunkBatches = chunkArray(chunks, batchSize);
-
-      const contextualizedChunks: string[] = [];
-      for (const batch of chunkBatches) {
-        // Lancer les requêtes en parallèle pour chaque batch
-        const results = await Promise.all(
-          batch.map((chunk) =>
-            contextualizeChunkWithLLM(anonymizedText, chunk, docId),
-          ),
-        );
-        contextualizedChunks.push(...results);
-      }
+      const contextualizedChunks = chunks;
 
       console.log('Number of chunks :', contextualizedChunks.length);
 
-      for (const [order, chunk] of contextualizedChunks.entries()) {
-        try {
-          console.log(
-            `Chunk ${order} of ${contextualizedChunks.length} - Start embedding and db insertion`,
-          );
-          const vector = await embedChunk(docId, chunk);
+      console.log(contextualizedChunks);
 
-          console.log(
-            `Chunk ${order} of ${contextualizedChunks.length} - Vector length : ${vector.length}`,
-          );
+      // // Découper les chunks en batchs de 20
+      const batchSize = 20;
+      const chunkBatches = chunkArray(contextualizedChunks, batchSize);
 
-          if (order === 1) {
-            console.log(vector);
-          }
+      for (const [batchIndex, batch] of chunkBatches.entries()) {
+        console.log(
+          `Processing batch ${batchIndex + 1} of ${chunkBatches.length}`,
+        );
+        for (const [orderInBatch, chunk] of batch.entries()) {
+          // Calculer l'ordre global du chunk
+          const order = batchIndex * batchSize + orderInBatch;
+          try {
+            console.log(
+              `Chunk ${order} of ${contextualizedChunks.length} - Start embedding and db insertion`,
+            );
+            const vector = await embedChunk(docId, chunk);
 
-          // Créer le chunk dans la table ReferenceChunk
-          const createdChunk = await prisma.referenceChunk.create({
-            data: {
-              text: chunk,
-              order,
-              referenceDocument: {
-                connect: { id: docId },
+            console.log(
+              `Chunk ${order} of ${contextualizedChunks.length} - Vector length : ${vector.length}`,
+            );
+
+            if (order === 1) {
+              console.log(vector);
+            }
+
+            // Create the chunk in the ReferenceChunk table
+            const createdChunk = await prisma.referenceChunk.create({
+              data: {
+                text: chunk,
+                order,
+                referenceDocument: {
+                  connect: { id: docId },
+                },
               },
-            },
-          });
+            });
 
-          console.log(
-            `Chunk ${order} of ${contextualizedChunks.length} - End embedding and db chunk insertion`,
-          );
+            console.log(
+              `Chunk ${order} of ${contextualizedChunks.length} - End embedding and db chunk insertion`,
+            );
 
-          // Générer un UUID pour l'embedding
-          const uuid = crypto.randomUUID();
+            // Generate a UUID for the embedding
+            const uuid = crypto.randomUUID();
 
-          // Insérer l'embedding dans ReferenceEmbedding via SQL brut
-          await prisma.$executeRawUnsafe(`
-            INSERT INTO "ReferenceEmbedding"
-              ("id", "vector", "modelName", "modelVersion", "dimensions", "referenceChunkId", "createdAt", "updatedAt")
-            VALUES
-              (
-                '${uuid}',
-                '${JSON.stringify(vector)}'::vector,
-                'text-embedding-ada-002',
-                'v2',
-                ${vector.length},
-                '${createdChunk.id}',
-                NOW(),
-                NOW()
-              )
-          `);
+            // Insert the embedding into ReferenceEmbedding via raw SQL
+            await prisma.$executeRawUnsafe(`
+              INSERT INTO "ReferenceEmbedding"
+                ("id", "vector", "modelName", "modelVersion", "dimensions", "referenceChunkId", "createdAt", "updatedAt")
+              VALUES
+                (
+                  '${uuid}',
+                  '${JSON.stringify(vector)}'::vector,
+                  'text-embedding-ada-002',
+                  'v2',
+                  ${vector.length},
+                  '${createdChunk.id}',
+                  NOW(),
+                  NOW()
+                )
+            `);
 
-          console.log(
-            `Chunk ${order} of ${contextualizedChunks.length} - End with embedding db insertion`,
-          );
-        } catch (error) {
-          console.error(
-            `Chunk ${order} of ${contextualizedChunks.length} - Error with embedding db insertion`,
-            error,
-          );
+            console.log(
+              `Chunk ${order} of ${contextualizedChunks.length} - End with embedding db insertion`,
+            );
+          } catch (error) {
+            console.error(
+              `Chunk ${order} of ${contextualizedChunks.length} - Error with embedding db insertion`,
+              error,
+            );
+          }
         }
       }
     } catch (err) {

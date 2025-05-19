@@ -40,7 +40,7 @@ export class EmbeddingsService {
   async createFromQuery(
     createFromQueryDto: CreateFromQueryDto,
   ): Promise<number[]> {
-    const modelName = 'text-embedding-ada-002';
+    const modelName = 'text-embedding-3-large';
 
     const cleanedQuery = this.cleanTextForEmbedding(createFromQueryDto.query);
 
