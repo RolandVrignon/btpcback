@@ -323,7 +323,6 @@ model ReferenceChunk {
   updatedAt DateTime @updatedAt
 
   @@index([referenceDocumentId])
-  @@index([text])
 }
 
 model ReferenceEmbedding {

@@ -43,6 +43,14 @@ type LLMUsage = {
 
 const llmUsageByDoc: Record<string, LLMUsage[]> = {};
 
+// Ajoute le type pour doc (adapter si besoin)
+type ReferenceDocument = {
+  id: string;
+  key_s3_title: string;
+  title: string;
+  secondary_title: string;
+};
+
 // Fonction utilitaire pour calculer le coût (à adapter selon tes prix)
 function computeCost(
   model: string,
@@ -266,137 +274,104 @@ async function embedChunk(docId: string, text: string): Promise<number[]> {
   return embedding;
 }
 
-async function main() {
-  const docs = await prisma.referenceDocument.findMany({
-    where: { application_domain: null },
-  });
+// Déplace tout le traitement d'un document dans une fonction dédiée
+async function processDocument(
+  doc: ReferenceDocument,
+  docIndex: number,
+  limit: number,
+) {
+  if (!doc || !doc.key_s3_title) return;
+  const key = doc.key_s3_title;
+  const docId = doc.id;
 
-  for (let i = 0; i < 1; i++) {
-    const doc = docs[i];
-    const key = doc.key_s3_title;
-    if (!key) continue;
-    const docId = doc.id;
+  try {
+    console.log(`Processing document ${docIndex + 1} / ${limit}`);
+    // Génère une URL présignée pour le PDF
+    const presignedUrl = await getSignedUrl(
+      s3,
+      new GetObjectCommand({ Bucket: 'batipedia-files', Key: key }),
+      { expiresIn: 3600 },
+    );
 
-    try {
-      // Generate a presigned URL for the PDF file
-      const presignedUrl = await getSignedUrl(
-        s3,
-        new GetObjectCommand({ Bucket: 'batipedia-files', Key: key }),
-        { expiresIn: 3600 }, // 1 heure
-      );
+    const ocrResponse: OCRResponse = await client.ocr.process({
+      model: 'mistral-ocr-latest',
+      document: {
+        type: 'document_url',
+        documentUrl: presignedUrl,
+      },
+      includeImageBase64: true,
+    });
 
-      console.log('presignedUrl:', presignedUrl);
+    const usage: OCRUsageInfo = ocrResponse.usageInfo;
+    const ocrCost = usage.pagesProcessed / 1000;
 
-      const ocrResponse: OCRResponse = await client.ocr.process({
-        model: 'mistral-ocr-latest',
-        document: {
-          type: 'document_url',
-          documentUrl: presignedUrl,
-        },
-        includeImageBase64: true,
-      });
+    if (!llmUsageByDoc[docId]) llmUsageByDoc[docId] = [];
+    llmUsageByDoc[docId].push({
+      provider: 'MistralAI',
+      model: 'mistral-ocr-latest',
+      function: 'ocr',
+      prompt: 0,
+      completion: 0,
+      total: usage.pagesProcessed,
+      cost: ocrCost,
+    });
 
-      const usage: OCRUsageInfo = ocrResponse.usageInfo;
-      const ocrCost = usage.pagesProcessed / 1000;
+    const anonymizedPages = ocrResponse.pages.map((page: OCRPageObject) => ({
+      ...page,
+      markdown: anonymizeText(page.markdown),
+    }));
 
-      if (!llmUsageByDoc[docId]) llmUsageByDoc[docId] = [];
-      llmUsageByDoc[docId].push({
-        provider: 'MistralAI',
-        model: 'mistral-ocr-latest',
-        function: 'ocr',
-        prompt: 0,
-        completion: 0,
-        total: usage.pagesProcessed,
-        cost: ocrCost,
-      });
+    const applicationDomain = await getApplicationDomain(
+      anonymizedPages.map((page) => page.markdown).join('\n'),
+      docId,
+    );
 
-      const anonymizedPages = ocrResponse.pages.map((page: OCRPageObject) => ({
-        ...page,
-        markdown: anonymizeText(page.markdown),
-      }));
+    const applicationDomainVector = await embedChunk(docId, applicationDomain);
 
-      const applicationDomain = await getApplicationDomain(
-        anonymizedPages.map((page) => page.markdown).join('\n'),
-        docId,
-      );
-
-      const applicationDomainVector = await embedChunk(
-        docId,
-        applicationDomain,
-      );
-
-      await prisma.$executeRawUnsafe(
-        `
+    await prisma.$executeRawUnsafe(
+      `
         UPDATE "ReferenceDocument"
         SET application_domain = $1,
             application_domain_vector = $2::vector
         WHERE id = $3
         `,
-        applicationDomain,
-        JSON.stringify(applicationDomainVector),
-        docId,
+      applicationDomain,
+      JSON.stringify(applicationDomainVector),
+      docId,
+    );
+
+    const chunksWithPage = chunkMarkdownToStringChunksWithPage(
+      doc.title,
+      doc.secondary_title,
+      applicationDomain,
+      anonymizedPages,
+    );
+
+    const contextualizedChunks = chunksWithPage;
+    const batchSize = 20;
+    const chunkBatches = chunkArray(contextualizedChunks, batchSize);
+
+    for (const [batchIndex, batch] of chunkBatches.entries()) {
+      console.log(
+        `Processing batch ${batchIndex + 1} of ${chunkBatches.length}`,
       );
-
-      const chunksWithPage = chunkMarkdownToStringChunksWithPage(
-        doc.title,
-        doc.secondary_title,
-        applicationDomain,
-        anonymizedPages,
-      );
-
-      const contextualizedChunks = chunksWithPage;
-
-      console.log('Number of chunks :', contextualizedChunks.length);
-
-      console.log(contextualizedChunks);
-
-      // // Découper les chunks en batchs de 20
-      const batchSize = 20;
-      const chunkBatches = chunkArray(contextualizedChunks, batchSize);
-
-      for (const [batchIndex, batch] of chunkBatches.entries()) {
-        console.log(
-          `Processing batch ${batchIndex + 1} of ${chunkBatches.length}`,
-        );
-        for (const [orderInBatch, chunkObj] of batch.entries()) {
-          const { text: chunk, page } = chunkObj;
-          // Calculer l'ordre global du chunk
-          const order = batchIndex * batchSize + orderInBatch;
-          try {
-            console.log(
-              `Chunk ${order} of ${contextualizedChunks.length} - Start embedding and db insertion`,
-            );
-            const vector = await embedChunk(docId, chunk);
-
-            console.log(
-              `Chunk ${order} of ${contextualizedChunks.length} - Vector length : ${vector.length}`,
-            );
-
-            if (order === 1) {
-              console.log(vector);
-            }
-
-            // Create the chunk in the ReferenceChunk table
-            const createdChunk = await prisma.referenceChunk.create({
-              data: {
-                text: chunk,
-                order,
-                page,
-                referenceDocument: {
-                  connect: { id: docId },
-                },
+      for (const [orderInBatch, chunkObj] of batch.entries()) {
+        const { text: chunk, page } = chunkObj;
+        const order = batchIndex * batchSize + orderInBatch;
+        try {
+          const vector = await embedChunk(docId, chunk);
+          const createdChunk = await prisma.referenceChunk.create({
+            data: {
+              text: chunk,
+              order,
+              page,
+              referenceDocument: {
+                connect: { id: docId },
               },
-            });
-
-            console.log(
-              `Chunk ${order} of ${contextualizedChunks.length} - End embedding and db chunk insertion`,
-            );
-
-            // Generate a UUID for the embedding
-            const uuid = crypto.randomUUID();
-
-            // Insert the embedding into ReferenceEmbedding via raw SQL
-            await prisma.$executeRawUnsafe(`
+            },
+          });
+          const uuid = crypto.randomUUID();
+          await prisma.$executeRawUnsafe(`
               INSERT INTO "ReferenceEmbedding"
                 ("id", "vector", "modelName", "modelVersion", "dimensions", "referenceChunkId", "createdAt", "updatedAt")
               VALUES
@@ -411,57 +386,112 @@ async function main() {
                   NOW()
                 )
             `);
-
-            console.log(
-              `Chunk ${order} of ${contextualizedChunks.length} - End with embedding db insertion`,
-            );
-          } catch (error) {
-            console.error(
-              `Chunk ${order} of ${contextualizedChunks.length} - Error with embedding db insertion`,
-              error,
-            );
-          }
+          console.log(
+            `Chunk ${order} of ${contextualizedChunks.length} - End with embedding db insertion`,
+          );
+        } catch (error) {
+          console.error(
+            `Chunk ${order} of ${contextualizedChunks.length} - Error with embedding db insertion`,
+            error,
+          );
         }
       }
-    } catch (err) {
-      console.error(`Error processing ${key}:`, err);
     }
+  } catch (err) {
+    console.error(`Error processing ${key}:`, err);
   }
+}
+
+async function main() {
+  console.time('Total processing time');
+  const docs = await prisma.referenceDocument.findMany({
+    where: { application_domain: null },
+  });
+
+  const limit = docs.length;
+  console.log(`Processing ${limit} documents`);
+  const concurrency = 10;
+  let currentIndex = 0;
+  let running = 0;
+
+  return new Promise<void>((resolve) => {
+    function launchNext() {
+      if (currentIndex >= limit && running === 0) {
+        console.timeEnd('Total processing time');
+        resolve();
+        return;
+      }
+      while (running < concurrency && currentIndex < limit) {
+        const doc = docs[currentIndex];
+        running++;
+        processDocument(doc, currentIndex, limit)
+          .catch((err) => console.error('Error in processDocument:', err))
+          .finally(() => {
+            running--;
+            launchNext();
+          });
+        currentIndex++;
+      }
+    }
+    launchNext();
+  });
+}
+
+function closeConnectionsAndLogUsage() {
+  void prisma.$disconnect();
+  console.log('LLM usage by document (cost per function):');
+  for (const [docId, usages] of Object.entries(llmUsageByDoc)) {
+    // Regroupe les coûts, providers et modèles par fonction
+    const functionStats: Record<
+      string,
+      { cost: number; provider: string; model: string }
+    > = {};
+    usages.forEach((usage) => {
+      if (!functionStats[usage.function]) {
+        functionStats[usage.function] = {
+          cost: 0,
+          provider: usage.provider,
+          model: usage.model,
+        };
+      }
+      functionStats[usage.function].cost += usage.cost;
+    });
+
+    // Affiche le résumé pour ce document
+    console.log(`Document ${docId}:`);
+    for (const [func, stats] of Object.entries(functionStats)) {
+      console.log(
+        `  - ${func}: $${stats.cost.toFixed(4)} (provider: ${stats.provider}, model: ${stats.model})`,
+      );
+    }
+    // Optionnel : coût total pour le document
+    const total = Object.values(functionStats).reduce((a, b) => a + b.cost, 0);
+    console.log(`  => Total: $${total.toFixed(4)}`);
+  }
+  // Ajout du coût total global
+  const globalTotal = Object.values(llmUsageByDoc).reduce((acc, usages) => {
+    const functionStats: Record<string, { cost: number }> = {};
+    usages.forEach((usage) => {
+      if (!functionStats[usage.function]) {
+        functionStats[usage.function] = { cost: 0 };
+      }
+      functionStats[usage.function].cost += usage.cost;
+    });
+    const total = Object.values(functionStats).reduce((a, b) => a + b.cost, 0);
+    return acc + total;
+  }, 0);
+  console.log(`\n====> Global total cost: $${globalTotal.toFixed(4)}`);
 }
 
 main()
   .catch(console.error)
   .finally(() => {
-    console.log('LLM usage by document (cost per function):');
-    for (const [docId, usages] of Object.entries(llmUsageByDoc)) {
-      // Regroupe les coûts, providers et modèles par fonction
-      const functionStats: Record<
-        string,
-        { cost: number; provider: string; model: string }
-      > = {};
-      usages.forEach((usage) => {
-        if (!functionStats[usage.function]) {
-          functionStats[usage.function] = {
-            cost: 0,
-            provider: usage.provider,
-            model: usage.model,
-          };
-        }
-        functionStats[usage.function].cost += usage.cost;
-      });
-
-      // Affiche le résumé pour ce document
-      console.log(`Document ${docId}:`);
-      for (const [func, stats] of Object.entries(functionStats)) {
-        console.log(
-          `  - ${func}: $${stats.cost.toFixed(4)} (provider: ${stats.provider}, model: ${stats.model})`,
-        );
-      }
-      // Optionnel : coût total pour le document
-      const total = Object.values(functionStats).reduce(
-        (a, b) => a + b.cost,
-        0,
-      );
-      console.log(`  => Total: $${total.toFixed(4)}`);
-    }
+    console.log('Closing connections and logging usage...');
+    closeConnectionsAndLogUsage();
   });
+
+process.on('SIGINT', () => {
+  console.log('\nInterruption reçue (Ctrl+C), fermeture de Prisma...');
+  closeConnectionsAndLogUsage();
+  process.exit(0);
+});
