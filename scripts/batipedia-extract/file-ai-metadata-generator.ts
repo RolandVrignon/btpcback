@@ -2,17 +2,15 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { PrismaClient } from '@prisma/client';
 import { Mistral } from '@mistralai/mistralai';
+import { generateText } from 'ai';
 import * as dotenv from 'dotenv';
 import {
   OCRPageObject,
   OCRResponse,
   OCRUsageInfo,
 } from '@mistralai/mistralai/models/components';
-import { generateText } from 'ai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { embed } from 'ai';
-import { openai } from '@ai-sdk/openai';
-import * as crypto from 'crypto';
+import OpenAI from 'openai';
 
 dotenv.config();
 
@@ -135,102 +133,62 @@ ${text}
   }
 }
 
-// async function contextualizeChunkWithLLM(
-//   fullMarkdown: string,
-//   chunk: string,
-//   docId: string,
-// ): Promise<string> {
-//   const openrouter = createOpenRouter({
-//     apiKey: process.env.OPEN_ROUTER_API_KEY,
-//   });
-
-//   const prompt = `
-// Voici le texte complet d'un document technique (markdown) :
-// \`\`\`
-// ${fullMarkdown}
-// \`\`\`
-
-// Voici un extrait (chunk) à contextualiser :
-// \`\`\`
-// ${chunk}
-// \`\`\`
-
-// Reformate cet extrait pour qu'il soit bien contextualisé :
-// - Ajoute les titres et sous-titres pertinents (avec leur hiérarchie, ex : #, ##, etc.)
-// - Corrige la hiérarchie si besoin
-// - Le chunk doit être autonome et compréhensible sans le reste du document
-// - Retourne uniquement le texte markdown final
-// `;
-
-//   const provider = 'openrouter';
-//   const modelName = 'openai/gpt-4o-mini';
-
-//   const { text: result, usage } = await generateText({
-//     model: openrouter(modelName),
-//     prompt,
-//   });
-
-//   // Récupère l'usage réel si disponible
-//   if (usage) {
-//     const promptTokens = usage.promptTokens || 0;
-//     const completionTokens = usage.completionTokens || 0;
-//     const totalTokens = usage.totalTokens || 0;
-//     const cost = computeCost(modelName, promptTokens, completionTokens);
-
-//     if (!llmUsageByDoc[docId]) llmUsageByDoc[docId] = [];
-//     llmUsageByDoc[docId].push({
-//       provider,
-//       model: modelName,
-//       prompt: promptTokens,
-//       completion: completionTokens,
-//       total: totalTokens,
-//       cost,
-//       function: 'contextualizeChunkWithLLM',
-//     });
-//   }
-
-//   return result.trim();
-// }
-
-function chunkMarkdownToStringChunks(
+function chunkMarkdownToStringChunksWithPage(
   title: string,
   secondaryTitle: string,
   applicationDomain: string,
-  markdown: string,
-): string[] {
-  const lines = markdown.split('\n');
+  ocrPages: { markdown: string }[],
+): { text: string; page: number }[] {
+  // On garde la correspondance ligne -> page
+  const linesWithPage: { line: string; page: number }[] = [];
+  ocrPages.forEach((pageObj, idx) => {
+    const page = idx + 1;
+    pageObj.markdown.split('\n').forEach((line) => {
+      linesWithPage.push({ line, page });
+    });
+  });
+
   const contextStack: string[] = [title, secondaryTitle];
   const contextRawTitles: string[] = [];
-  const chunks: string[] = [];
-  let currentParagraph: string[] = [];
+  const chunks: { text: string; page: number }[] = [];
+  let currentParagraph: { line: string; page: number }[] = [];
   let afterSummary = false;
 
-  function getChunkString() {
-    return [
-      `${title} ${secondaryTitle}`.trim(),
-      `Domaine d'application : ${applicationDomain}`,
-      ...contextRawTitles,
-      'Extrait :',
-      currentParagraph.join('\n').trim(),
-    ]
-      .filter(Boolean)
-      .join('\n');
+  function getChunkString(): { text: string; page: number } {
+    // Première page d'apparition du chunk
+    const firstPage =
+      currentParagraph.length > 0 ? currentParagraph[0].page : 1;
+
+    return {
+      text: [
+        `${title} ${secondaryTitle}`.trim(),
+        `Domaine d'application : ${applicationDomain}`,
+        ...contextRawTitles,
+        `Extrait page ${firstPage} :`,
+        currentParagraph
+          .map((l) => l.line)
+          .join('\n')
+          .trim(),
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      page: firstPage,
+    };
   }
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
+  for (let i = 0; i < linesWithPage.length; i++) {
+    const { line, page } = linesWithPage[i];
+    const trimmedLine = line.trim();
 
-    if (!afterSummary && /^#\s*Sommaire/i.test(line)) {
+    if (!afterSummary && /^#\s*Sommaire/i.test(trimmedLine)) {
       afterSummary = true;
       continue;
     }
-
     if (!afterSummary) {
       continue;
     }
-
     // Detect markdown titles
-    const titleMatch = line.match(/^(#+)\s+(.*)$/);
+    const titleMatch = trimmedLine.match(/^(#+)\s+(.*)$/);
     if (titleMatch) {
       if (currentParagraph.length > 0) {
         chunks.push(getChunkString());
@@ -240,23 +198,20 @@ function chunkMarkdownToStringChunks(
       contextStack.length = level + 1;
       contextStack[level] = titleMatch[2];
       contextRawTitles.length = level - 1;
-      contextRawTitles.push(line);
+      contextRawTitles.push(trimmedLine);
       continue;
     }
-
-    if (line !== '') {
-      currentParagraph.push(line);
+    if (trimmedLine !== '') {
+      currentParagraph.push({ line: trimmedLine, page });
     } else if (currentParagraph.length > 0) {
       chunks.push(getChunkString());
       currentParagraph = [];
     }
   }
-
   if (currentParagraph.length > 0) {
     chunks.push(getChunkString());
   }
-
-  return chunks.filter((chunk) => chunk.trim().length > 0);
+  return chunks.filter((chunk) => chunk.text.trim().length > 0);
 }
 
 function chunkArray<T>(array: T[], size: number): T[][] {
@@ -267,27 +222,37 @@ function chunkArray<T>(array: T[], size: number): T[][] {
   return result;
 }
 
+/**
+ * Generate an embedding for a given text using OpenAI and log usage/cost.
+ * @param docId Document identifier for usage tracking
+ * @param text Text to embed
+ * @returns Embedding vector (number[])
+ */
 async function embedChunk(docId: string, text: string): Promise<number[]> {
-  const modelName: string = 'text-embedding-3-large';
-
-  const { embedding, usage } = await embed({
-    model: openai.embedding(modelName),
-    value: text,
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
   });
 
+  const modelName: string = 'text-embedding-3-large';
+  const dimensions = 1536;
+
+  // Request embedding from OpenAI
+  const response = await openai.embeddings.create({
+    model: modelName,
+    input: text,
+    dimensions,
+  });
+
+  // Extract embedding vector
+  const embedding = response.data[0].embedding;
+
+  // Extract usage info
+  const usage = response.usage;
   if (usage) {
-    const totalTokens = usage.tokens || 0;
-
-    let cost = 0;
-
-    if (modelName === 'text-embedding-ada-002') {
-      cost = (totalTokens / 1_000_000) * 0.1;
-    } else if (modelName === 'text-embedding-3-small') {
-      cost = (totalTokens / 1_000_000) * 0.02;
-    } else if (modelName === 'text-embedding-3-large') {
-      cost = (totalTokens / 1_000_000) * 0.13;
-    }
-
+    const totalTokens = usage.total_tokens || 0;
+    // For text-embedding-3-large, cost is $0.13 per 1M tokens
+    const cost = (totalTokens / 1_000_000) * 0.13;
+    if (!llmUsageByDoc[docId]) llmUsageByDoc[docId] = [];
     llmUsageByDoc[docId].push({
       provider: 'OpenAI',
       model: modelName,
@@ -295,7 +260,7 @@ async function embedChunk(docId: string, text: string): Promise<number[]> {
       prompt: 0,
       completion: 0,
       total: totalTokens,
-      cost: cost,
+      cost,
     });
   }
   return embedding;
@@ -345,14 +310,13 @@ async function main() {
         cost: ocrCost,
       });
 
-      const compactText = ocrResponse.pages
-        .map((page: OCRPageObject) => page.markdown)
-        .join('\n');
-
-      const anonymizedText = anonymizeText(compactText);
+      const anonymizedPages = ocrResponse.pages.map((page: OCRPageObject) => ({
+        ...page,
+        markdown: anonymizeText(page.markdown),
+      }));
 
       const applicationDomain = await getApplicationDomain(
-        anonymizedText,
+        anonymizedPages.map((page) => page.markdown).join('\n'),
         docId,
       );
 
@@ -373,14 +337,14 @@ async function main() {
         docId,
       );
 
-      const chunks = chunkMarkdownToStringChunks(
+      const chunksWithPage = chunkMarkdownToStringChunksWithPage(
         doc.title,
         doc.secondary_title,
         applicationDomain,
-        anonymizedText,
+        anonymizedPages,
       );
 
-      const contextualizedChunks = chunks;
+      const contextualizedChunks = chunksWithPage;
 
       console.log('Number of chunks :', contextualizedChunks.length);
 
@@ -394,7 +358,8 @@ async function main() {
         console.log(
           `Processing batch ${batchIndex + 1} of ${chunkBatches.length}`,
         );
-        for (const [orderInBatch, chunk] of batch.entries()) {
+        for (const [orderInBatch, chunkObj] of batch.entries()) {
+          const { text: chunk, page } = chunkObj;
           // Calculer l'ordre global du chunk
           const order = batchIndex * batchSize + orderInBatch;
           try {
@@ -416,6 +381,7 @@ async function main() {
               data: {
                 text: chunk,
                 order,
+                page,
                 referenceDocument: {
                   connect: { id: docId },
                 },
@@ -437,8 +403,8 @@ async function main() {
                 (
                   '${uuid}',
                   '${JSON.stringify(vector)}'::vector,
-                  'text-embedding-ada-002',
-                  'v2',
+                  'text-embedding-3-large',
+                  'v3',
                   ${vector.length},
                   '${createdChunk.id}',
                   NOW(),

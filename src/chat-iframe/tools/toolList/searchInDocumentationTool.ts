@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { DEFAULT_STREAM_CONFIG } from '@/chat-iframe/tools/streamConfig';
 import { ToolResult } from '@/chat-iframe/tools/index';
 import { SearchService } from '@/search/search.service';
-
+import { ReferenceDocumentsService } from '@/reference-documents/reference-documents.service';
 const logger = new Logger('SearchInDocumentationTool');
 
 /**
@@ -14,12 +14,13 @@ const logger = new Logger('SearchInDocumentationTool');
  */
 export const createSearchInDocumentationTool = (
   searchService: SearchService,
+  referenceDocumentsService: ReferenceDocumentsService,
   projectId: string,
   organizationId: string,
 ) => ({
   searchInDocumentation: {
     description:
-      'Recherche des informations dans la documentation technique de référence (DTU, normes, etc.) via la recherche vectorielle.',
+      'Recherche des informations dans la documentation technique de référence (DTU, normes, etc.) via la recherche vectorielle. Utile pour répondre à des questions spécifiques sur les normes, les DTU, etc en citant les numéros de pages et extraits de texte des documents. Fournit les résultats avec les URL des pages des documents. Pour chaque extrait, cite systématiquement l’URL de la source (Accès direct à la source : …).',
     parameters: z.object({
       query: z.string().describe('La requête de recherche'),
       limit: z.number().min(1).max(20).default(5).optional(),
@@ -35,6 +36,7 @@ export const createSearchInDocumentationTool = (
         logger.debug(
           `Recherche vectorielle dans la documentation de référence: ${query}`,
         );
+
         const searchResults =
           await searchService.vectorSearchInReferenceDocuments(
             {
@@ -49,16 +51,42 @@ export const createSearchInDocumentationTool = (
         const formattedResults = searchResults.results.map((r) => ({
           text: r.text,
           documentId: r.documentId,
+          documentTitle: r.documentTitle,
           score: r.score,
           page: r.page,
+          presignedUrl: null,
         }));
 
-        const context = formattedResults
+        const documentIds = Array.from(
+          new Set(formattedResults.map((r) => r.documentId)),
+        );
+        const presignedUrls: Record<string, string> = {};
+
+        for (const docId of documentIds) {
+          presignedUrls[docId] =
+            await referenceDocumentsService.getPresignedUrl(docId);
+        }
+
+        const resultsWithUrls = formattedResults.map((r) => ({
+          ...r,
+          presignedUrl: presignedUrls[r.documentId]
+            ? `${presignedUrls[r.documentId]}#page=${r.page}`
+            : null,
+        }));
+
+        console.log(
+          `Results with urls: ${JSON.stringify(resultsWithUrls, null, 2)}`,
+        );
+
+        // Utiliser resultsWithUrls pour construire le context avec l'URL de visualisation
+        const context = resultsWithUrls
           .map(
             (r) =>
-              `Extrait du document ${r.documentId} (page ${r.page}):\n${r.text}`,
+              `Extrait du document ${r.documentId} - ${r.documentTitle} (page ${r.page}):\n${r.text}\n${r.presignedUrl ? `Accès direct au document : ${r.presignedUrl}` : ''}`,
           )
           .join('\n\n');
+
+        logger.debug(`Context: ${context}`);
 
         const responseText =
           context.length > 0

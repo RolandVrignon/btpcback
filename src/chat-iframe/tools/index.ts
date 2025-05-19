@@ -16,6 +16,7 @@ import { OrganizationEntity } from '@/types';
 import { createListDeliverableTool } from '@/chat-iframe/tools/toolList/listDeliverableTool';
 import { StreamConfig } from '@/chat-iframe/tools/streamConfig';
 import { createWebSearchTool } from '@/chat-iframe/tools/toolList/websearch';
+import { ReferenceDocumentsService } from '@/reference-documents/reference-documents.service';
 
 /**
  * Crée tous les outils nécessaires pour le chat
@@ -45,6 +46,7 @@ export const createChatTools = (
   documentsService: DocumentsService,
   projectsService: ProjectsService,
   deliverablesService: DeliverablesService,
+  referenceDocumentsService: ReferenceDocumentsService,
   projectId: string,
   organization: OrganizationEntity,
 ) => {
@@ -57,6 +59,7 @@ export const createChatTools = (
 
   const searchInDocumentationTool = createSearchInDocumentationTool(
     searchService,
+    referenceDocumentsService,
     projectId,
     organization.id,
   );

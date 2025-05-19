@@ -21,8 +21,7 @@ import {
 } from '@/embeddings/embeddings.repository';
 import { UsageService } from '@/usage/usage.service';
 import { AI_Provider } from '@prisma/client';
-import { openai } from '@ai-sdk/openai';
-import { embed } from 'ai';
+import OpenAI from 'openai';
 
 @Injectable()
 export class EmbeddingsService {
@@ -40,19 +39,29 @@ export class EmbeddingsService {
   async createFromQuery(
     createFromQueryDto: CreateFromQueryDto,
   ): Promise<number[]> {
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
     const modelName = 'text-embedding-3-large';
+    const dimensions = 1536;
 
     const cleanedQuery = this.cleanTextForEmbedding(createFromQueryDto.query);
 
-    const { embedding, usage } = await embed({
-      model: openai.embedding(modelName),
-      value: cleanedQuery,
+    // Appel à l'API OpenAI pour générer l'embedding
+    const response = await openai.embeddings.create({
+      model: modelName,
+      input: cleanedQuery,
+      dimensions,
     });
+
+    const embedding = response.data[0].embedding;
+    const usage = response.usage;
 
     await this.usageService.create({
       provider: AI_Provider.OPENAI,
       modelName: modelName,
-      totalTokens: usage.tokens,
+      totalTokens: usage?.total_tokens ?? 0,
       type: 'EMBEDDING',
       projectId: createFromQueryDto.projectId,
     });

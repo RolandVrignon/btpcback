@@ -14,6 +14,12 @@ export class SearchResultDto {
   documentId: string;
 
   @ApiProperty({
+    description: 'Titre du document contenant le chunk',
+    example: 'DTU 65.11',
+  })
+  documentTitle: string;
+
+  @ApiProperty({
     description: 'Texte du chunk',
     example:
       'Les bâtiments écologiques utilisent des matériaux durables et des systèmes énergétiques efficaces pour réduire leur impact environnemental.',
