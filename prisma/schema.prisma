@@ -355,3 +355,11 @@ model DocumentReferenceLink {
 
   @@unique([documentId, referenceDocumentId])
 }
+
+model ShortUrl {
+  id        String   @id @default(uuid())
+  shortId   String   @unique
+  longUrl   String
+  createdAt DateTime @default(now())
+  expiresAt DateTime @default(dbgenerated("(now() + interval '1 hour')"))
+}

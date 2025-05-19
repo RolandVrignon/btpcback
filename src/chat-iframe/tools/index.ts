@@ -17,6 +17,9 @@ import { createListDeliverableTool } from '@/chat-iframe/tools/toolList/listDeli
 import { StreamConfig } from '@/chat-iframe/tools/streamConfig';
 import { createWebSearchTool } from '@/chat-iframe/tools/toolList/websearch';
 import { ReferenceDocumentsService } from '@/reference-documents/reference-documents.service';
+import { ShortUrlRepository } from '@/short-url/short-url.repository';
+import { PrismaService } from '@/prisma/prisma.service';
+import { ShortUrlService } from '@/short-url/short-url.service';
 
 /**
  * Crée tous les outils nécessaires pour le chat
@@ -50,6 +53,12 @@ export const createChatTools = (
   projectId: string,
   organization: OrganizationEntity,
 ) => {
+  // Instanciation du service et repository short url
+  const prismaService = new PrismaService();
+  const shortUrlRepository = new ShortUrlRepository(prismaService);
+  const shortUrlService = new ShortUrlService(shortUrlRepository);
+  const baseRedirectUrl = process.env.REDIRECT_BASE_URL;
+
   // Créer chaque outil individuellement
   const searchTools = createSearchDocumentsTool(
     searchService,
@@ -62,6 +71,8 @@ export const createChatTools = (
     referenceDocumentsService,
     projectId,
     organization.id,
+    shortUrlService,
+    baseRedirectUrl,
   );
 
   const listTools = createListDocumentsTool(documentsService, projectId);
