@@ -12,7 +12,7 @@ import { ChunksRepository } from '@/chunks/chunks.repository';
 import { Logger } from '@nestjs/common';
 import { ReferenceDocumentsRepository } from '@/reference-documents/reference-documents.repository';
 import { ReferenceEmbeddingsService } from '@/reference-embeddings/reference-embeddings.service';
-
+import { SearchSimilarResult } from '@/reference-embeddings/interface/SearchSimilarResult';
 // Interface pour les résultats de recherche vectorielle
 interface VectorSearchResult {
   id: string;
@@ -385,13 +385,25 @@ export class SearchService {
     });
 
     // Recherche via ReferenceEmbeddingsService
-    const results = await this.referenceEmbeddingsService.searchSimilar(
-      vector,
-      params.limit || 5,
-    );
+    const results: SearchSimilarResult[] =
+      await this.referenceEmbeddingsService.searchSimilar(
+        vector,
+        params.limit || 5,
+      );
+
+    const resultsDto: SearchResultDto[] = results.map((result) => ({
+      id: result.id,
+      documentId: result.referenceDocumentId,
+      documentTitle: result.referenceDocumentTitle,
+      text: result.text,
+      score: result.score,
+      page: result.page,
+    }));
+
+    console.log('results:', JSON.stringify(resultsDto, null, 2));
 
     return {
-      results: results as SearchResultDto[],
+      results: resultsDto,
       executionTimeMs: 0,
       searchType: 'vector',
     };

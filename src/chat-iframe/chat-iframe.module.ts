@@ -8,7 +8,7 @@ import { SearchModule } from '@/search/search.module';
 import { DocumentsModule } from '@/documents/documents.module';
 import { ProjectsModule } from '@/projects/projects.module';
 import { DeliverablesModule } from '@/deliverables/deliverables.module';
-
+import { ReferenceDocumentsModule } from '@/reference-documents/reference-documents.module';
 @Module({
   imports: [
     PrismaModule,
@@ -16,6 +16,7 @@ import { DeliverablesModule } from '@/deliverables/deliverables.module';
     DocumentsModule,
     ProjectsModule,
     DeliverablesModule,
+    ReferenceDocumentsModule,
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'public', 'chat'),
       serveRoot: '/chat',
