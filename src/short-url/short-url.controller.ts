@@ -10,8 +10,19 @@ export class ShortUrlController {
   async redirect(@Param('id') id: string, @Res() res: Response) {
     try {
       const longUrl = await this.shortUrlService.getLongUrl(id);
-      return res.redirect(longUrl);
-    } catch (e) {
+      const result: {
+        stream: NodeJS.ReadableStream;
+        contentType?: string;
+        contentLength?: string;
+        contentDisposition?: string;
+      } = await this.shortUrlService.getFileStreamFromUrl(longUrl);
+      if (result.contentType) res.setHeader('Content-Type', result.contentType);
+      if (result.contentLength)
+        res.setHeader('Content-Length', result.contentLength);
+      if (result.contentDisposition)
+        res.setHeader('Content-Disposition', result.contentDisposition);
+      result.stream.pipe(res);
+    } catch {
       return res.status(404).json({
         message: 'URL not found',
         error: 'Not Found',
