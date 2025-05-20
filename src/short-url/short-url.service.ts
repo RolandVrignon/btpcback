@@ -1,6 +1,8 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ShortUrlRepository } from '@/short-url/short-url.repository';
 import { ShortUrl } from '@prisma/client';
+import axios from 'axios';
+import { Readable } from 'stream';
 
 @Injectable()
 export class ShortUrlService {
@@ -31,5 +33,20 @@ export class ShortUrlService {
       throw new NotFoundException('URL not found');
     }
     return record.longUrl;
+  }
+
+  async getFileStreamFromUrl(url: string) {
+    // Download file as stream from the given URL
+    const response = await axios.get(url, {
+      responseType: 'stream',
+    });
+    return {
+      stream: response.data as Readable,
+      contentType: response.headers['content-type'] as string | undefined,
+      contentLength: response.headers['content-length'] as string | undefined,
+      contentDisposition: response.headers['content-disposition'] as
+        | string
+        | undefined,
+    };
   }
 }
