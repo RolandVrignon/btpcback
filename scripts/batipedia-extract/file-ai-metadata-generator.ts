@@ -316,10 +316,12 @@ async function processDocument(
       cost: ocrCost,
     });
 
-    const anonymizedPages = ocrResponse.pages.map((page: OCRPageObject) => ({
-      ...page,
-      markdown: anonymizeText(page.markdown),
-    }));
+    const anonymizedPages: OCRPageObject[] = ocrResponse.pages.map(
+      (page: OCRPageObject) => ({
+        ...page,
+        markdown: anonymizeText(page.markdown),
+      }),
+    );
 
     const applicationDomain = await getApplicationDomain(
       anonymizedPages.map((page) => page.markdown).join('\n'),
@@ -332,12 +334,14 @@ async function processDocument(
       `
         UPDATE "ReferenceDocument"
         SET application_domain = $1,
-            application_domain_vector = $2::vector
+            application_domain_vector = $2::vector,
+            mistral_ocr_result = $4::jsonb
         WHERE id = $3
-        `,
+      `,
       applicationDomain,
       JSON.stringify(applicationDomainVector),
       docId,
+      JSON.stringify(anonymizedPages),
     );
 
     const chunksWithPage = chunkMarkdownToStringChunksWithPage(
