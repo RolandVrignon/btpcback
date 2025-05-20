@@ -141,7 +141,7 @@ export const createSearchInDocumentationTool = (
             let shortUrl: string | null = null;
             if (longUrl) {
               const id = await shortUrlService.createShortUrl(longUrl);
-              shortUrl = `${baseRedirectUrl}/${id}`;
+              shortUrl = `${baseRedirectUrl}/${id}#page=${r.page}`;
             }
             return {
               ...r,
