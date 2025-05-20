@@ -104,4 +104,27 @@ export class ReferenceDocumentsRepository {
 
     return results;
   }
+
+  /**
+   * Recherche le document de référence dont le titre est le plus proche (recherche full text ou LIKE)
+   */
+  async findByTitleSimilarity(title: string) {
+    // Recherche simple avec ILIKE pour trouver le titre le plus proche
+    const results = await this.prisma.executeWithQueue(() =>
+      this.prisma.referenceDocument.findMany({
+        where: {
+          title: {
+            contains: title,
+            mode: 'insensitive',
+          },
+        },
+        orderBy: {
+          title: 'asc',
+        },
+        take: 5,
+      }),
+    );
+    // Retourner le plus proche (premier résultat)
+    return results[0] || null;
+  }
 }

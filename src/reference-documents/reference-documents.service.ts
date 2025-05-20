@@ -58,4 +58,23 @@ export class ReferenceDocumentsService {
 
     return getSignedUrl(this.s3, command, { expiresIn: 3600 });
   }
+
+  /**
+   * Recherche un document de référence par similarité de titre et affiche son id
+   */
+  async readReferenceDocument(title: string): Promise<void> {
+    const doc = await this.repository.findByTitleSimilarity(title);
+    if (doc) {
+      console.log('ReferenceDocument ID:', doc.id);
+    } else {
+      console.log('Aucun document trouvé pour ce titre.');
+    }
+  }
+
+  /**
+   * Find a reference document by title similarity (public method for tools)
+   */
+  async findByTitleSimilarity(title: string) {
+    return this.repository.findByTitleSimilarity(title);
+  }
 }

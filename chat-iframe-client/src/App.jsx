@@ -343,6 +343,20 @@ export default function App() {
   const inputDisabled =
     isLoading || !projectId || !apiKey || !inputValue.trim();
 
+  // Fonction pour ajuster dynamiquement la hauteur du textarea
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto'; // Reset height
+      textarea.style.height = Math.min(textarea.scrollHeight, 400) + 'px'; // 200px = max-h
+    }
+  };
+
+  // Appeler l'ajustement à chaque changement de texte
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [inputValue]);
+
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-stone-100">
       {showClearConfirm && (
@@ -394,7 +408,7 @@ export default function App() {
                       <div
                         className={`text-sm ${
                           m.role === 'user'
-                            ? 'message-bubble p-2 pl-4 inline-block max-w-[60%] break-words shadow-sm text-sm mb-1.5 user-message bg-blue-600 ml-auto text-white text-left'
+                            ? 'message-bubble p-2 inline-block max-w-[60%] break-words shadow-sm text-sm mb-1.5 user-message bg-blue-600 ml-auto text-white text-left'
                             : 'bg-transparent w-full'
                         }`}
                       >
@@ -503,7 +517,7 @@ export default function App() {
               </div>
 
               <textarea
-                className={`w-full pl-[7px] pr-14 py-3 focus:outline-none resize-none min-h-[84px] max-h-[200px] overflow-y-auto text-sm border-0 ${messages.length > 0 ? 'pb-[35px]' : ''}`}
+                className={`w-full pl-[7px] pr-14 py-3 focus:outline-none min-h-[84px] max-h-[400px] overflow-y-auto text-sm border-0 pb-[55px]`}
                 value={inputValue}
                 onChange={handleInputChange}
                 onKeyDown={(e) => {
@@ -516,6 +530,7 @@ export default function App() {
                 disabled={isLoading || !projectId || !apiKey}
                 rows={3}
                 ref={textareaRef}
+                style={{overflowY: 'auto'}}
               />
 
               <button
