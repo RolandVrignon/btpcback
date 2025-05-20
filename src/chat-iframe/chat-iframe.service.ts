@@ -243,7 +243,7 @@ export class ChatIframeService {
         },
         tools,
         toolCallStreaming: true,
-        maxSteps: 25,
+        maxSteps: 15,
         experimental_transform: smoothStream(DEFAULT_STREAM_CONFIG),
         onFinish: async ({ usage, reasoning }) => {
           this.logger.debug('usage:', usage);

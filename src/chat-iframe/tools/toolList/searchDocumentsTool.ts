@@ -20,7 +20,8 @@ export const createSearchDocumentsTool = (
   organizationId: string,
 ) => ({
   searchDocuments: {
-    description: 'Recherche des informations dans les documents du projet',
+    description:
+      'Recherche des informations parmis tous les documents du projet',
     parameters: z.object({
       query: z.string().describe('La requête de recherche'),
     }),

@@ -292,6 +292,7 @@ model ReferenceDocument {
   application_domain        String? // ex: "maçonnerie", "ossature bois", etc.
   application_domain_vector Unsupported("vector(3072)")? // Embedding for semantic search on domain
   category                  String? // ex: "NF DTU", "Eurocode", "RE2020"
+  mistral_ocr_result        Json?                        @default("{}") @db.JsonB
   official_version          String? // ex: "NF DTU 24.1 P1-1 2020"
   organization              String? // ex: "AFNOR"
   published_at              DateTime?
@@ -323,19 +324,18 @@ model ReferenceChunk {
   updatedAt DateTime @updatedAt
 
   @@index([referenceDocumentId])
-  @@index([text])
 }
 
 model ReferenceEmbedding {
-  id               String   @unique @id @default(uuid())
+  id               String                      @id @unique @default(uuid())
   vector           Unsupported("vector(3072)")
   modelName        String
   modelVersion     String
   dimensions       Int
   referenceChunkId String
-  referenceChunk   ReferenceChunk @relation(fields: [referenceChunkId], references: [id], onDelete: Cascade)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  referenceChunk   ReferenceChunk              @relation(fields: [referenceChunkId], references: [id], onDelete: Cascade)
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
 
   @@unique([referenceChunkId, modelName, modelVersion], name: "unique_reference_chunk_model")
   @@index([referenceChunkId])

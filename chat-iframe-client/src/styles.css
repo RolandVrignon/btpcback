@@ -11,8 +11,8 @@ body {
   }
 
 .message-bubble {
-  border-top-left-radius: 50px;
-  border-top-right-radius: 50px;
-  border-bottom-left-radius: 50px;
-  border-bottom-right-radius: 10px;
+  border-top-left-radius: 20px;
+border-top-right-radius: 20px;
+  border-bottom-left-radius: 20px;
+  border-bottom-right-radius: 3px;
 }

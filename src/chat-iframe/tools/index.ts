@@ -20,6 +20,9 @@ import { ReferenceDocumentsService } from '@/reference-documents/reference-docum
 import { ShortUrlRepository } from '@/short-url/short-url.repository';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ShortUrlService } from '@/short-url/short-url.service';
+import { UsageService } from '@/usage/usage.service';
+import { UsageRepository } from '@/usage/usage.repository';
+import { createReadReferenceDocumentTool } from '@/chat-iframe/tools/toolList/readReferenceDocumentTool';
 
 /**
  * Crée tous les outils nécessaires pour le chat
@@ -57,6 +60,8 @@ export const createChatTools = (
   const prismaService = new PrismaService();
   const shortUrlRepository = new ShortUrlRepository(prismaService);
   const shortUrlService = new ShortUrlService(shortUrlRepository);
+  const usageRepository = new UsageRepository(prismaService);
+  const usageService = new UsageService(usageRepository);
   const baseRedirectUrl = process.env.REDIRECT_BASE_URL;
 
   // Créer chaque outil individuellement
@@ -73,6 +78,8 @@ export const createChatTools = (
     organization.id,
     shortUrlService,
     baseRedirectUrl,
+    projectsService,
+    usageService,
   );
 
   const listTools = createListDocumentsTool(documentsService, projectId);
@@ -112,6 +119,12 @@ export const createChatTools = (
 
   const webSearchTool = createWebSearchTool();
 
+  const readReferenceDocumentTool = createReadReferenceDocumentTool(
+    referenceDocumentsService,
+    shortUrlService,
+    baseRedirectUrl,
+  );
+
   // Combiner tous les outils dans un seul objet
   return {
     ...searchTools,
@@ -125,6 +138,7 @@ export const createChatTools = (
     ...getDocumentMetadataTool,
     ...getDocumentViewUrlTool,
     ...webSearchTool,
+    ...readReferenceDocumentTool,
   };
 };
 
@@ -138,4 +152,5 @@ export {
   createJsonToMarkdownTool,
   createGetDocumentMetadataTool,
   createGetDocumentViewUrlTool,
+  createReadReferenceDocumentTool,
 };

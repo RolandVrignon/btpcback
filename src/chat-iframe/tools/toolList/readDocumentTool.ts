@@ -21,8 +21,7 @@ export const createReadDocumentTool = (
   projectId: string,
 ) => ({
   readDocument: {
-    description:
-      "Permet de récupérer tout le contenu textuel d'un document spécifique du projet",
+    description: 'Permet de lire tout un document spécifique au projet',
     parameters: z.object({
       documentId: z.string().describe('ID du document à lire'),
     }),

@@ -40,12 +40,12 @@ export interface ModelInterface {
 
 // List of available OpenRouter models
 export enum AI_MODEL {
+  OPENAI_GPT_4O_MINI = 'openai/gpt-4o-mini',
+  ANTHROPIC_CLAUDE_3_5_SONNET = 'anthropic/claude-3.5-sonnet',
+  ANTHROPIC_CLAUDE_3_7_SONNET_THINKING = 'anthropic/claude-3.7-sonnet:thinking',
   DEEPSEEK_R1 = 'deepseek/deepseek-r1',
   DEEPSEEK_R1_DISTILL_LLAMA_70B = 'deepseek/deepseek-r1-distill-llama-70b',
-  ANTHROPIC_CLAUDE_3_7_SONNET_THINKING = 'anthropic/claude-3.7-sonnet:thinking',
-  ANTHROPIC_CLAUDE_3_5_SONNET = 'anthropic/claude-3.5-sonnet',
   OPENAI_GPT_4_1 = 'openai/gpt-4.1',
-  OPENAI_GPT_4O_MINI = 'openai/gpt-4o-mini',
   PERPLEXITY_SONAR_DEEP_RESEARCH = 'perplexity/sonar-deep-research',
   GOOGLE_GEMINI_2_5_PRO_PREVIEW = 'google/gemini-2.5-pro-preview',
   GOOGLE_GEMINI_2_5_FLASH_PREVIEW = 'google/gemini-2.5-flash-preview',
