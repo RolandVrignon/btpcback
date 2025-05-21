@@ -34,13 +34,22 @@ export const createSearchInDocumentationTool = (
     parameters: z.object({
       query: z.string().describe('La requête de recherche.'),
       limit: z.number().min(1).max(10).default(5).optional(),
+      enrich: z
+        .boolean()
+        .default(false)
+        .optional()
+        .describe(
+          "Si true, enrichit la requête avec le contexte du projet. Si tu n'es pas sur, demande à l'utilisateur.",
+        ),
     }),
     execute: async ({
       query,
       limit = 5,
+      enrich = false,
     }: {
       query: string;
       limit?: number;
+      enrich?: boolean;
     }): Promise<ToolResult> => {
       try {
         logger.debug(
@@ -50,57 +59,57 @@ export const createSearchInDocumentationTool = (
         let project: Project | null = null;
         let enhancedQuery: string | null = query;
 
-        try {
-          project = await projectsService.findOne(projectId);
-        } catch {
-          logger.error(`SearchInDocumentationTool: Projet non trouvé.`);
-        }
-
-        if (project) {
-          // Extract relevant fields
-          const name = project.name || '';
-          const summary = project.long_summary || '';
-          const address = project.closest_formatted_address || '';
-          const altitude =
-            project.altitude !== undefined && project.altitude !== null
-              ? `Altitude: ${project.altitude}m`
-              : '';
-
-          // Build the application domain string
-          const parts = [name, address, altitude, summary].filter(Boolean);
-          const domain = parts.length > 0 ? parts.join(' | ') : '';
-
-          // Prompt for the LLM
-          const systemPrompt = `Tu es un assistant expert en ingénierie et réglementation technique du bâtiment. Ta tâche est de rédiger un paragraphe synthétique qui reformule la requête utilisateur en l'enrichissant avec le contexte technique du projet fourni. Le résultat doit être une requête de recherche incluant le domaine d'application, c'est-à-dire le contexte technique du projet : type de bâtiment (individuel, collectif, tertiaire…), nature des travaux (neuf ou rénovation), localisation géographique (région, altitude, zone climatique), et contraintes spécifiques (exposition au vent, sismicité, etc.). Je ne veux pas de titre ou de phrase d'introduction, juste la requête enrichie. Ce texte va servir de contexte pour la recherche vectorielle.`;
-          const humanPrompt = `Requête utilisateur : ${query}\nContexte du projet : ${domain}`;
-
-          // Call the LLM
-          const result = await generateText({
-            model: model.sdk,
-            system: systemPrompt,
-            prompt: humanPrompt,
-          });
-
-          console.log('result', JSON.stringify(result, null, 2));
-
-          // Log usage statistics
-          logger.debug('LLM usage:', JSON.stringify(result.usage));
-
-          // Save usage in the database
-          if (result.usage) {
-            const usage = await usageService.logTextToTextUsage(
-              model.provider,
-              model.model,
-              result.usage,
-              projectId,
-            );
-            logger.debug('Usage saved:', JSON.stringify(usage));
+        if (enrich) {
+          try {
+            project = await projectsService.findOne(projectId);
+          } catch {
+            logger.error(`SearchInDocumentationTool: Projet non trouvé.`);
           }
 
-          enhancedQuery = result.text;
-        }
+          if (project) {
+            // Extract relevant fields
+            const name = project.name || '';
+            const summary = project.long_summary || '';
+            const address = project.closest_formatted_address || '';
+            const altitude =
+              project.altitude !== undefined && project.altitude !== null
+                ? `Altitude: ${project.altitude}m`
+                : '';
 
-        console.log('enhancedQuery', enhancedQuery);
+            // Build the application domain string
+            const parts = [name, address, altitude, summary].filter(Boolean);
+            const domain = parts.length > 0 ? parts.join(' | ') : '';
+
+            // Prompt for the LLM
+            const systemPrompt = `Tu es un assistant expert en ingénierie et réglementation technique du bâtiment. Ta tâche est de rédiger un paragraphe synthétique qui reformule la requête utilisateur en l'enrichissant avec le contexte technique du projet fourni. Le résultat doit être une requête de recherche incluant le domaine d'application, c'est-à-dire le contexte technique du projet : type de bâtiment (individuel, collectif, tertiaire…), nature des travaux (neuf ou rénovation), localisation géographique (région, altitude, zone climatique), et contraintes spécifiques (exposition au vent, sismicité, etc.). Je ne veux pas de titre ou de phrase d'introduction, juste la requête enrichie. Ce texte va servir de contexte pour la recherche vectorielle.`;
+            const humanPrompt = `Requête utilisateur : ${query}\nContexte du projet : ${domain}`;
+
+            // Call the LLM
+            const result = await generateText({
+              model: model.sdk,
+              system: systemPrompt,
+              prompt: humanPrompt,
+            });
+
+            console.log('result', JSON.stringify(result, null, 2));
+
+            // Log usage statistics
+            logger.debug('LLM usage:', JSON.stringify(result.usage));
+
+            // Save usage in the database
+            if (result.usage) {
+              const usage = await usageService.logTextToTextUsage(
+                model.provider,
+                model.model,
+                result.usage,
+                projectId,
+              );
+              logger.debug('Usage saved:', JSON.stringify(usage));
+            }
+
+            enhancedQuery = result.text;
+          }
+        }
 
         const searchResults =
           await searchService.vectorSearchInReferenceDocuments(
@@ -150,10 +159,6 @@ export const createSearchInDocumentationTool = (
           }),
         );
 
-        console.log(
-          `Results with urls: ${JSON.stringify(resultsWithUrls, null, 2)}`,
-        );
-
         // Utiliser resultsWithUrls pour construire le context avec l'URL de visualisation
         const context = resultsWithUrls
           .map(
@@ -161,8 +166,6 @@ export const createSearchInDocumentationTool = (
               `Extrait du document ${r.documentId} - ${r.documentTitle} (page ${r.page}):\n${r.text}\n${r.presignedUrl ? `Accès direct au document : ${r.presignedUrl}` : ''}`,
           )
           .join('\n\n');
-
-        logger.debug(`Context: ${context}`);
 
         const responseText =
           context.length > 0

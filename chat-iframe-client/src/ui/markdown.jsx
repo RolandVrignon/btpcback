@@ -133,10 +133,28 @@ const MemoizedHr = memo(({ ...props }) => (
   <hr className="my-3 border-t border-gray-300" {...props} />
 ));
 
-// Composant Markdown principal mémorisé
-const Markdown = memo(({ children }) => {
+const MemoizedImg = memo(({ src, alt, ...props }) => {
+  let realSrc = src;
+  const match = src && src.match(/([a-z0-9]{25})\.jpeg$/i);
+  if (match) {
+    realSrc = `${window.location.origin}/reference-image/${match[1]}`;
+  }
   return (
-    <div className="prose prose-blue max-w-none prose-xs prose-headings:font-bold prose-p:my-1.5 prose-li:my-0.5 prose-headings:mt-3 prose-headings:mb-1.5 prose-table:my-1.5 text-slate-800">
+    <img
+      src={realSrc}
+      alt={alt}
+      className="rounded-md border border-gray-200 my-2 max-w-full"
+      {...props}
+    />
+  );
+});
+
+// Composant Markdown principal mémorisé
+const Markdown = memo(({ children, className = '' }) => {
+  console.log('window.location.origin', window.location.origin);
+
+  return (
+    <div className={`prose prose-blue max-w-none prose-xs prose-headings:font-bold prose-p:my-1.5 prose-li:my-0.5 prose-headings:mt-3 prose-headings:mb-1.5 prose-table:my-1.5 ${className}`}>
       <ReactMarkdown
         remarkPlugins={[
           remarkGfm,
@@ -180,6 +198,7 @@ const Markdown = memo(({ children }) => {
           pre: MemoizedPre,
           a: MemoizedA,
           hr: MemoizedHr,
+          img: MemoizedImg,
         }}
       >
         {children}
@@ -188,7 +207,7 @@ const Markdown = memo(({ children }) => {
   );
 }, (prevProps, nextProps) => {
   // Fonction de comparaison personnalisée pour la mémorisation
-  return prevProps.children === nextProps.children;
+  return prevProps.children === nextProps.children && prevProps.className === nextProps.className;
 });
 
 // Ajouter un displayName pour le débogage

@@ -17,6 +17,7 @@ import { DeliverablesModule } from './deliverables/deliverables.module';
 import { SharedModule } from './shared/shared.module';
 import { ChatIframeModule } from './chat-iframe/chat-iframe.module';
 import { ShortUrlModule } from './short-url/short-url.module';
+import { ReferenceImageModule } from './reference-image/reference-image.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { ShortUrlModule } from './short-url/short-url.module';
     DeliverablesModule,
     ChatIframeModule,
     ShortUrlModule,
+    ReferenceImageModule,
   ],
   controllers: [AppController],
   providers: [AppService],

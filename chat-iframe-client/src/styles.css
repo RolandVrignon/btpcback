@@ -12,7 +12,24 @@ body {
 
 .message-bubble {
   border-top-left-radius: 20px;
-border-top-right-radius: 20px;
+  border-top-right-radius: 20px;
   border-bottom-left-radius: 20px;
   border-bottom-right-radius: 3px;
+}
+
+.prose.text-white,
+.prose.text-white p,
+.prose.text-white ul,
+.prose.text-white ol,
+.prose.text-white li,
+.prose.text-white strong,
+.prose.text-white em,
+.prose.text-white code,
+.prose.text-white h1,
+.prose.text-white h2,
+.prose.text-white h3,
+.prose.text-white h4,
+.prose.text-white h5,
+.prose.text-white h6 {
+  color: #fff !important;
 }

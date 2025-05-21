@@ -4,6 +4,18 @@ import { ScrollArea } from './ui/scroll-area';
 import './styles.css'; // S'assurer que le fichier de styles est importé
 // import 'katex/dist/katex.min.css';
 import 'highlight.js/styles/github.css';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import remarkBreaks from 'remark-breaks';
+import remarkEmoji from 'remark-emoji';
+import rehypeKatex from 'rehype-katex';
+import rehypeHighlight from 'rehype-highlight';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
+import rehypeSlug from 'rehype-slug';
+import rehypeExternalLinks from 'rehype-external-links';
+import remarkToc from 'remark-toc';
 
 // Import dynamique des composants lourds
 const Markdown = lazy(() => import('./ui/markdown'));
@@ -452,15 +464,39 @@ export default function App() {
                         ) : (
                           <div
                             className={
-                              m.role === 'assistant' ? 'max-w-none' : ''
+                              m.role === 'assistant' ? 'max-w-none' : 'user-message prose text-white'
                             }
                           >
                             {m.role === 'assistant' ? (
                               <Suspense fallback={<Loading />}>
-                                <Markdown>{text}</Markdown>
+                                <Markdown className="text-red-500">{text}</Markdown>
                               </Suspense>
                             ) : (
-                              text
+                              <ReactMarkdown
+                                remarkPlugins={[
+                                    remarkGfm,
+                                remarkMath,
+                                remarkEmoji,
+                                remarkBreaks,
+                                [remarkToc, { tight: true, ordered: true }],
+                              ]}
+                              rehypePlugins={[
+                                rehypeRaw,
+                                rehypeSlug,
+                                rehypeSanitize,
+                                rehypeKatex,
+                                rehypeHighlight,
+                                [
+                                  rehypeExternalLinks,
+                                  {
+                                    target: '_blank',
+                                    rel: ['nofollow', 'noopener', 'noreferrer'],
+                                  },
+                                ],
+                              ]}
+                              >
+                              {text}
+                            </ReactMarkdown>
                             )}
                           </div>
                         )}
