@@ -307,6 +307,7 @@ model ReferenceDocument {
   chunks ReferenceChunk[] // Text chunks for AI analysis
 
   documentReferenceLinks DocumentReferenceLink[] // Links from user documents
+  ReferenceImage         ReferenceImage[]
 
   @@index([category])
 }
@@ -340,6 +341,21 @@ model ReferenceEmbedding {
   @@unique([referenceChunkId, modelName, modelVersion], name: "unique_reference_chunk_model")
   @@index([referenceChunkId])
   @@index([vector], map: "reference_embedding_vector_idx")
+}
+
+model ReferenceImage {
+  id                  String   @id @unique @default(cuid())
+  referenceDocumentId String // lien vers ReferenceDocument
+  pageIndex           Int // index de la page OCR
+  topLeftX            Int?
+  topLeftY            Int?
+  bottomRightX        Int?
+  bottomRightY        Int?
+  imageData           Bytes? // ou String si tu stockes un chemin/URL
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  referenceDocument ReferenceDocument @relation(fields: [referenceDocumentId], references: [id], onDelete: Cascade)
 }
 
 model DocumentReferenceLink {
