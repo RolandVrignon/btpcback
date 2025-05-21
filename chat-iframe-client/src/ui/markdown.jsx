@@ -143,7 +143,7 @@ const MemoizedImg = memo(({ src, alt, ...props }) => {
     <img
       src={realSrc}
       alt={alt}
-      className="rounded-md border border-gray-200 my-2 max-w-full"
+      className="rounded-2xl border border-2 border-gray-200 my-6 w-3/5 mx-auto block"
       {...props}
     />
   );
