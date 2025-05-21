@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -134,18 +134,46 @@ const MemoizedHr = memo(({ ...props }) => (
 ));
 
 const MemoizedImg = memo(({ src, alt, ...props }) => {
+  const [open, setOpen] = useState(false);
   let realSrc = src;
   const match = src && src.match(/([a-z0-9]{25})\.jpeg$/i);
   if (match) {
     realSrc = `${window.location.origin}/reference-image/${match[1]}`;
   }
   return (
-    <img
-      src={realSrc}
-      alt={alt}
-      className="rounded-2xl border border-2 border-gray-200 my-6 w-3/5 mx-auto block"
-      {...props}
-    />
+    <>
+      <img
+        src={realSrc}
+        alt={alt}
+        className="rounded-2xl border border-2 border-gray-200 my-6 w-3/5 mx-auto block cursor-pointer transition-transform hover:scale-101"
+        onClick={() => setOpen(true)}
+        {...props}
+      />
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-white/5 backdrop-blur-md"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="relative"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              className="absolute top-2 right-2 text-white text-3xl font-bold z-10"
+              onClick={() => setOpen(false)}
+              aria-label="Fermer"
+            >
+              ×
+            </button>
+            <img
+              src={realSrc}
+              alt={alt}
+              className="max-h-[90vh] max-w-[90vw] rounded-2xl border border-2 border-white shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
+    </>
   );
 });
 
