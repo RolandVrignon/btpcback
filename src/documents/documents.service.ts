@@ -1502,23 +1502,12 @@ export class DocumentsService {
                 })();
 
                 // Attendre que les trois processus soient terminés
-                const [projectExtractionResult, indexationResult] =
-                  await Promise.all([
-                    n8nProjectExtraction,
-                    indexationPromise,
-                    Promise.all(n8nExtractionPromises),
-                  ]);
+                const [indexationResult] = await Promise.all([
+                  indexationPromise,
+                  n8nProjectExtraction,
+                  Promise.all(n8nExtractionPromises),
+                ]);
 
-                // Vérifier les résultats
-                if (!projectExtractionResult.success) {
-                  this.logger.warn(
-                    `[${indexationId}] La requête d'extraction du projet a échoué: ${projectExtractionResult.reason || 'raison inconnue'}`,
-                  );
-                } else {
-                  this.logger.log(
-                    `[${indexationId}] Requête d'extraction du projet réussie`,
-                  );
-                }
                 if (!indexationResult.success) {
                   this.logger.error(
                     `[${indexationId}] L'indexation a échoué: ${indexationResult.error || 'erreur inconnue'}`,
