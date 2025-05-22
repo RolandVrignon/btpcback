@@ -115,7 +115,7 @@ ID: ${document.id}
           text: responseText,
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
-          save: false,
+          save: true,
         } as ToolResult;
       } catch (error) {
         logger.error(

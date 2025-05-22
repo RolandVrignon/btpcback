@@ -1314,6 +1314,7 @@ export class DocumentsService {
                     const payload = JSON.stringify({
                       projectId: dto.projectId,
                       text: text,
+                      webhookUrl: dto.projectWebhookUrl,
                     });
 
                     const n8nWebhookUrl =
@@ -1336,14 +1337,9 @@ export class DocumentsService {
                       };
                     }
 
-                    // Enregistrer le temps de début pour cette requête
-                    const webhookStartTime = Date.now();
-
                     const webhookUrl = `${n8nWebhookUrl}/documate`;
 
                     try {
-                      // Envoyer la requête n8n pour le projet avec fetch (natif)
-
                       await this.projectsService.updateStatus(
                         dto.projectId,
                         Status.PROGRESS,
@@ -1352,81 +1348,22 @@ export class DocumentsService {
                         dto.projectWebhookUrl ? dto.projectWebhookUrl : null,
                       );
 
-                      const res = await fetch(webhookUrl, {
+                      await fetch(webhookUrl, {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
                         },
                         body: payload,
                       });
-
-                      // Calculer le temps d'exécution
-                      const webhookEndTime = Date.now();
-                      const webhookDurationMs =
-                        webhookEndTime - webhookStartTime;
-                      const webhookDurationSec = (
-                        webhookDurationMs / 1000
-                      ).toFixed(2);
-
-                      if (res.ok) {
-                        this.logger.log(
-                          `[${indexationId}] Project data successfully sent to n8n webhook. Durée: ${webhookDurationSec}s`,
-                        );
-
-                        try {
-                          await this.projectsService.updateStatus(
-                            dto.projectId,
-                            Status.COMPLETED,
-                            `Projet géré par n8n. Extraction terminée avec succès en ${webhookDurationSec}s`,
-                            200,
-                            dto.projectWebhookUrl
-                              ? dto.projectWebhookUrl
-                              : null,
-                          );
-                        } catch {
-                          this.logger.error(
-                            `[${indexationId}] Erreur lors de la mise à jour du statut du projet à n8n.`,
-                          );
-                        }
-
-                        return { success: true };
-                      } else {
-                        this.logger.error(
-                          `[${indexationId}] Error sending project data to n8n webhook. Durée: ${webhookDurationSec}s`,
-                        );
-
-                        await this.projectsService.updateStatus(
-                          dto.projectId,
-                          Status.ERROR,
-                          `Erreur lors de l'envoi du projet à n8n. Durée: ${webhookDurationSec}s`,
-                          425,
-                          dto.projectWebhookUrl ? dto.projectWebhookUrl : null,
-                        );
-
-                        return {
-                          success: false,
-                          reason: 'webhook_error',
-                          status: res.status,
-                          statusText: res.statusText,
-                        };
-                      }
                     } catch (error) {
-                      // Calculer le temps d'exécution même en cas d'erreur
-                      const webhookEndTime = Date.now();
-                      const webhookDurationMs =
-                        webhookEndTime - webhookStartTime;
-                      const webhookDurationSec = (
-                        webhookDurationMs / 1000
-                      ).toFixed(2);
-
                       this.logger.error(
-                        `${error} - [${indexationId}] Error sending project data to n8n webhook. Durée: ${webhookDurationSec}s`,
+                        `${error} - [${indexationId}] Error sending project data to n8n webhook.`,
                       );
 
                       await this.projectsService.updateStatus(
                         dto.projectId,
                         Status.ERROR,
-                        `Erreur lors de l'envoi du projet à n8n. Durée: ${webhookDurationSec}s`,
+                        `Erreur lors de l'envoi du projet à n8n.`,
                         425,
                         dto.projectWebhookUrl ? dto.projectWebhookUrl : null,
                       );

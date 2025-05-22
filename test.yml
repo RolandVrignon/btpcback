@@ -1,0 +1,215 @@
+services:
+  traefik:
+    image: traefik:latest
+    restart: unless-stopped
+    command:
+      - '--api.dashboard=true'
+      - '--api.insecure=true'
+      - '--providers.docker=true'
+      - '--entryPoints.web.address=:80'
+      - '--entryPoints.websecure.address=:443'
+      - '--certificatesResolvers.myresolver.acme.httpChallenge.entryPoint=web'
+      - '--certificatesResolvers.myresolver.acme.email=roland.vrignon@btp-consultants.fr'
+      - '--certificatesResolvers.myresolver.acme.storage=/letsencrypt/acme.json'
+      - '--entryPoints.web.transport.respondingTimeouts.readTimeout=1200s'
+      - '--entryPoints.web.transport.respondingTimeouts.idleTimeout=1200s'
+      - '--entryPoints.websecure.transport.respondingTimeouts.readTimeout=1200s'
+      - '--entryPoints.websecure.transport.respondingTimeouts.idleTimeout=1200s'
+    volumes:
+      - ./letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - n8n-net
+
+  redis:
+    image: redis:6-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - n8n-net
+
+  n8n-main:
+    image: n8nio/n8n:1.93.0
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: start --tunnel
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`n8n.ynor.tech`)"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls.certresolver=myresolver"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+    networks:
+      - n8n-net
+    depends_on:
+      - redis
+      - n8n-worker-1
+      - n8n-worker-2
+      - n8n-worker-3
+      - n8n-worker-4
+      - n8n-worker-5
+      - n8n-worker-6
+      - n8n-worker-7
+      - n8n-worker-8
+      - n8n-worker-9
+      - n8n-worker-10
+      - n8n-worker-11
+      - n8n-worker-12
+
+  n8n-worker-1:
+    build:
+      context: .
+      dockerfile: Dockerfile.n8n-worker
+    restart: unless-stopped
+    env_file:
+      - .env-worker
+    networks:
+      - n8n-net
+    depends_on:
+      - redis
+
+  n8n-worker-2:
+    build:
+      context: .
+      dockerfile: Dockerfile.n8n-worker
+    restart: unless-stopped
+    env_file:
+      - .env-worker
+    networks:
+      - n8n-net
+    depends_on:
+      - redis
+
+  n8n-worker-3:
+    build:
+      context: .
+      dockerfile: Dockerfile.n8n-worker
+    restart: unless-stopped
+    env_file:
+      - .env-worker
+    networks:
+      - n8n-net
+    depends_on:
+      - redis
+
+  n8n-worker-4:
+    build:
+      context: .
+      dockerfile: Dockerfile.n8n-worker
+    restart: unless-stopped
+    env_file:
+      - .env-worker
+    networks:
+      - n8n-net
+    depends_on:
+      - redis
+
+  n8n-worker-5:
+    build:
+      context: .
+      dockerfile: Dockerfile.n8n-worker
+    restart: unless-stopped
+    env_file:
+      - .env-worker
+    networks:
+      - n8n-net
+    depends_on:
+      - redis
+
+  n8n-worker-6:
+    build:
+      context: .
+      dockerfile: Dockerfile.n8n-worker
+    restart: unless-stopped
+    env_file:
+      - .env-worker
+    networks:
+      - n8n-net
+    depends_on:
+      - redis
+
+  n8n-worker-7:
+    build:
+      context: .
+      dockerfile: Dockerfile.n8n-worker
+    restart: unless-stopped
+    env_file:
+      - .env-worker
+    networks:
+      - n8n-net
+    depends_on:
+      - redis
+
+  n8n-worker-8:
+    build:
+      context: .
+      dockerfile: Dockerfile.n8n-worker
+    restart: unless-stopped
+    env_file:
+      - .env-worker
+    networks:
+      - n8n-net
+    depends_on:
+      - redis
+
+  n8n-worker-9:
+    build:
+      context: .
+      dockerfile: Dockerfile.n8n-worker
+    restart: unless-stopped
+    env_file:
+      - .env-worker
+    networks:
+      - n8n-net
+    depends_on:
+      - redis
+
+  n8n-worker-10:
+    build:
+      context: .
+      dockerfile: Dockerfile.n8n-worker
+    restart: unless-stopped
+    env_file:
+      - .env-worker
+    networks:
+      - n8n-net
+    depends_on:
+      - redis
+
+  n8n-worker-11:
+    build:
+      context: .
+      dockerfile: Dockerfile.n8n-worker
+    restart: unless-stopped
+    env_file:
+      - .env-worker
+    networks:
+      - n8n-net
+    depends_on:
+      - redis
+
+  n8n-worker-12:
+    build:
+      context: .
+      dockerfile: Dockerfile.n8n-worker
+    restart: unless-stopped
+    env_file:
+      - .env-worker
+    networks:
+      - n8n-net
+    depends_on:
+      - redis
+
+
+networks:
+  n8n-net:
+    driver: bridge
+
+volumes:
+  redis_data:
