@@ -176,7 +176,7 @@ export const createSearchInDocumentationTool = (
           text: responseText,
           stream: true,
           config: DEFAULT_STREAM_CONFIG,
-          save: false,
+          save: true,
           label: 'Recherche dans la documentation de référence',
         } as ToolResult;
       } catch (error) {
