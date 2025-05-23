@@ -1328,7 +1328,7 @@ export class DocumentsService {
                         dto.projectId,
                         Status.ERROR,
                         `N8N_WEBHOOK_URL is not defined in environment variables.`,
-                        426,
+                        '426',
                         dto.projectWebhookUrl ? dto.projectWebhookUrl : null,
                       );
                       return {
@@ -1344,7 +1344,7 @@ export class DocumentsService {
                         dto.projectId,
                         Status.PROGRESS,
                         `Projet envoyé à n8n. Extraction en cours...`,
-                        200,
+                        '200',
                         dto.projectWebhookUrl ? dto.projectWebhookUrl : null,
                       );
 
@@ -1364,7 +1364,7 @@ export class DocumentsService {
                         dto.projectId,
                         Status.ERROR,
                         `Erreur lors de l'envoi du projet à n8n.`,
-                        425,
+                        '425',
                         dto.projectWebhookUrl ? dto.projectWebhookUrl : null,
                       );
 
@@ -1387,7 +1387,7 @@ export class DocumentsService {
                       dto.projectId,
                       Status.ERROR,
                       `Erreur lors de l'envoi du projet à n8n.`,
-                      426,
+                      '426',
                       dto.projectWebhookUrl ? dto.projectWebhookUrl : null,
                     );
 
@@ -1585,7 +1585,7 @@ export class DocumentsService {
         dto.projectId,
         Status.PROGRESS,
         queueMessage,
-        200,
+        '200',
         dto.projectWebhookUrl ? dto.projectWebhookUrl : null,
       );
     } catch (error) {
