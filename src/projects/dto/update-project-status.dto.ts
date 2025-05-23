@@ -5,7 +5,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsNumber,
 } from 'class-validator';
 import { Status } from '@prisma/client';
 
@@ -38,14 +37,10 @@ export class UpdateProjectStatusDto {
   @IsOptional()
   message?: string;
 
-  @ApiProperty({
-    description: 'Response code',
-    example: 200,
-    required: false,
-  })
-  @IsNumber()
+  @ApiProperty({ description: 'Response code', example: 200, required: false })
+  @IsString()
   @IsOptional()
-  code?: number;
+  code?: string;
 
   @ApiProperty({
     description: 'Webhook URL',

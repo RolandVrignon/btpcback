@@ -90,15 +90,20 @@ export class ProjectsService {
     id: string,
     status: Status,
     message?: string,
-    code?: number,
+    code?: string,
     webhookUrl?: string,
   ) {
-    await this.projectsRepository.updateStatus(id, status, code, message);
+    await this.projectsRepository.updateStatus(
+      id,
+      status,
+      code ? Number(code) : 0,
+      message,
+    );
 
     const body = {
       projectId: id,
       status: status,
-      code: code,
+      code: code ? Number(code) : 0,
       message: message,
     };
 
