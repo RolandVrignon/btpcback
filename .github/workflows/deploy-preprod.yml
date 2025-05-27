@@ -1,4 +1,4 @@
-name: Deploy Core API
+name: Deploy Core API Preprod
 
 on:
   push:
