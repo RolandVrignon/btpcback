@@ -12,4 +12,5 @@ export interface WebhookPayload {
   }[];
   userPrompt: string;
   webhookUrl: string | null;
+  environment: 'staging' | 'preprod' | 'prod';
 }

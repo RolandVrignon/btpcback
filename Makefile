@@ -62,8 +62,8 @@ db-reset:
 	@npx prisma migrate reset --force
 	@echo "\033[1;32mBase de données réinitialisée avec succès\033[0m"
 
-.PHONY: deploy
-deploy:
+.PHONY: prod
+prod:
 	@# Lancer Prettier avant tout
 	@make prettier
 	@# Tout dans un seul bloc shell pour plus de clarté :
@@ -95,6 +95,40 @@ deploy:
 	  git push origin prod; \
 	  git checkout main; \
 	  echo "✅ Deployment completed!"; \
+	)
+
+.PHONY: preprod
+preprod:
+	@# Lancer Prettier avant tout
+	@make prettier
+	@# Tout dans un seul bloc shell pour plus de clarté :
+	@( \
+	  echo "Step 1: check if current branch is 'main'"; \
+	  CURRENT_BRANCH=$$(git rev-parse --abbrev-ref HEAD); \
+	  if [ "$$CURRENT_BRANCH" != "main" ]; then \
+	    echo "Error: you must be on 'main' branch to deploy to preprod."; \
+	    exit 1; \
+	  fi; \
+	  echo "Step 2: verify uncommitted changes"; \
+	  CHANGES=$$(git status --porcelain); \
+	  PREPROD_COMMIT_MSG=""; \
+	  if [ -n "$$CHANGES" ]; then \
+	    echo "You have local changes. Let's commit them."; \
+	    read -p "Enter preproduction commit message: " MSG; \
+	    git add .; \
+	    git commit -m "$$MSG"; \
+	    git push origin main; \
+	    PREPROD_COMMIT_MSG="$$MSG"; \
+	  else \
+	    echo "No uncommitted changes found, continuing..."; \
+	    PREPROD_COMMIT_MSG=$$(git log -1 --pretty=%B); \
+	  fi; \
+	  echo "Step 3: checkout 'preprod', merge 'main', push, then come back"; \
+	  git checkout preprod; \
+	  git merge --no-ff --no-edit -m "$$PREPROD_COMMIT_MSG" main; \
+	  git push origin preprod; \
+	  git checkout main; \
+	  echo "✅ Preproduction deployment completed!"; \
 	)
 
 # Commande pour pousser l'image sur Docker Hub
@@ -272,7 +306,7 @@ help:
 	@echo "  make docker-stop         - Arrêter le conteneur PostgreSQL"
 	@echo "  make docker-logs         - Afficher les logs du conteneur PostgreSQL"
 	@echo "  make docker-psql         - Se connecter à PostgreSQL en ligne de commande"
-	@echo "  make deploy              - Déployer l'application avec Docker en utilisant .env.docker"
+	@echo "  make prod                - Déployer l'application avec Docker en utilisant .env.docker"
 	@echo "  make push-image          - Tagger et pousser l'image Docker sur Docker Hub"
 	@echo "  make prisma-studio       - Lancer Prisma Studio"
 	@echo "  make prisma-generate     - Générer le client Prisma"
