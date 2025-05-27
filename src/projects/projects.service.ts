@@ -115,6 +115,9 @@ export class ProjectsService {
         await fetch(webhookUrl, {
           method: 'POST',
           body: JSON.stringify(body),
+          headers: {
+            'Content-Type': 'application/json',
+          },
         });
       } catch {
         this.logger.error(
