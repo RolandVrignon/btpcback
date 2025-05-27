@@ -174,6 +174,9 @@ export class DocumentsService {
         await fetch(url, {
           method: 'POST',
           body: JSON.stringify(body),
+          headers: {
+            'Content-Type': 'application/json',
+          },
         });
       } catch {
         this.logger.error(
@@ -1315,6 +1318,11 @@ export class DocumentsService {
                       projectId: dto.projectId,
                       text: text,
                       webhookUrl: dto.projectWebhookUrl,
+                      environment:
+                        (process.env.N8N_ENVIRONMENT as
+                          | 'staging'
+                          | 'preprod'
+                          | 'prod') || 'staging',
                     });
 
                     const n8nWebhookUrl =
@@ -1410,6 +1418,11 @@ export class DocumentsService {
                         name: document.name,
                         text: document.text,
                         webhookUrl: dto.documentWebhookUrl,
+                        environment:
+                          (process.env.N8N_ENVIRONMENT as
+                            | 'staging'
+                            | 'preprod'
+                            | 'prod') || 'staging',
                       });
 
                       const n8nWebhookUrl =

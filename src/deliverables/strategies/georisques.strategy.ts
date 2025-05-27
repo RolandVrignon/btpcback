@@ -52,6 +52,9 @@ export class GeorisquesStrategy implements DeliverableStrategy {
         latitude,
         longitude,
         publicDataType: 'GEORISQUES',
+        environment:
+          (process.env.N8N_ENVIRONMENT as 'staging' | 'preprod' | 'prod') ||
+          'staging',
       };
 
       const response = await fetch(url, {

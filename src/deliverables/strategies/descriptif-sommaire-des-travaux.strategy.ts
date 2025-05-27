@@ -173,6 +173,9 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
       documents: documentData,
       userPrompt: context.user_prompt,
       webhookUrl: context.webhookUrl ? context.webhookUrl : null,
+      environment:
+        (process.env.N8N_ENVIRONMENT as 'staging' | 'preprod' | 'prod') ||
+        'staging',
     };
 
     const n8nPromise = (async () => {
