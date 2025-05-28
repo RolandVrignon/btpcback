@@ -89,6 +89,7 @@ model Organization {
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
   deletedAt DateTime?
+  @@map("organization")
 }
 
 model Apikey {
@@ -100,6 +101,7 @@ model Apikey {
   updatedAt      DateTime     @updatedAt
 
   @@index([organizationId])
+  @@map("apikey")
 }
 
 model Project {
@@ -129,6 +131,7 @@ model Project {
   deliverables              Deliverable[]
 
   @@index([organizationId])
+  @@map("project")
 }
 
 model Document {
@@ -185,6 +188,7 @@ model Document {
 
   @@index([projectId])
   @@index([category])
+  @@map("document")
 }
 
 model Chunk {
@@ -200,6 +204,7 @@ model Chunk {
 
   @@index([documentId])
   @@index([text], map: "chunk_text_idx")
+  @@map("chunk")
 }
 
 model Embedding {
@@ -217,6 +222,7 @@ model Embedding {
   @@unique([chunkId, modelName, modelVersion], name: "unique_chunk_model")
   @@index([chunkId])
   @@index([vector], map: "embedding_vector_idx")
+  @@map("embedding")
 }
 
 model Usage {
@@ -235,6 +241,7 @@ model Usage {
   @@index([projectId])
   @@index([modelName])
   @@index([type])
+  @@map("usage")
 }
 
 model Deliverable {
@@ -266,6 +273,7 @@ model Deliverable {
   @@index([projectId])
   @@index([type])
   @@index([status])
+  @@map("deliverable")
 }
 
 // Junction table for Many-to-Many relation between Document and Deliverable
@@ -282,6 +290,7 @@ model DocumentDeliverable {
   @@unique([documentId, deliverableId])
   @@index([documentId])
   @@index([deliverableId])
+  @@map("document_deliverable")
 }
 
 model ReferenceDocument {
@@ -310,6 +319,7 @@ model ReferenceDocument {
   ReferenceImage         ReferenceImage[]
 
   @@index([category])
+  @@map("reference_document")
 }
 
 model ReferenceChunk {
@@ -325,6 +335,7 @@ model ReferenceChunk {
   updatedAt DateTime @updatedAt
 
   @@index([referenceDocumentId])
+  @@map("reference_chunk")
 }
 
 model ReferenceEmbedding {
@@ -341,6 +352,7 @@ model ReferenceEmbedding {
   @@unique([referenceChunkId, modelName, modelVersion], name: "unique_reference_chunk_model")
   @@index([referenceChunkId])
   @@index([vector], map: "reference_embedding_vector_idx")
+  @@map("reference_embedding")
 }
 
 model ReferenceImage {
@@ -356,6 +368,7 @@ model ReferenceImage {
   updatedAt           DateTime @updatedAt
 
   referenceDocument ReferenceDocument @relation(fields: [referenceDocumentId], references: [id], onDelete: Cascade)
+  @@map("reference_image")
 }
 
 model DocumentReferenceLink {
@@ -370,6 +383,7 @@ model DocumentReferenceLink {
   referenceDocument ReferenceDocument @relation(fields: [referenceDocumentId], references: [id], onDelete: Cascade)
 
   @@unique([documentId, referenceDocumentId])
+  @@map("document_reference_link")
 }
 
 model ShortUrl {
@@ -378,4 +392,5 @@ model ShortUrl {
   longUrl   String
   createdAt DateTime @default(now())
   expiresAt DateTime @default(dbgenerated("(now() + interval '1 hour')"))
+  @@map("short_url")
 }

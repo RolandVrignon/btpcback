@@ -16,9 +16,9 @@ export class ReferenceEmbeddingsRepository {
     const results = await this.prisma.$queryRawUnsafe(`
       SELECT re.id, re."referenceChunkId", rc.text, rc."referenceDocumentId", rc.page, rd.title AS "referenceDocumentTitle",
         (re.vector <=> '[${vector.join(',')}]') AS distance
-      FROM "ReferenceEmbedding" re
-      JOIN "ReferenceChunk" rc ON re."referenceChunkId" = rc.id
-      JOIN "ReferenceDocument" rd ON rc."referenceDocumentId" = rd.id
+      FROM reference_embedding re
+      JOIN reference_chunk rc ON re."referenceChunkId" = rc.id
+      JOIN reference_document rd ON rc."referenceDocumentId" = rd.id
       WHERE re.vector IS NOT NULL
       ORDER BY distance ASC
       LIMIT ${limit}

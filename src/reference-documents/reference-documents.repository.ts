@@ -96,7 +96,7 @@ export class ReferenceDocumentsRepository {
     const results = await this.prisma.$queryRawUnsafe(`
       SELECT id, title, application_domain,
         (application_domain_vector <=> '[${vector.join(',')}]') AS distance
-      FROM "ReferenceDocument"
+      FROM reference_document
       WHERE application_domain_vector IS NOT NULL
       ORDER BY distance ASC
       LIMIT ${limit}
