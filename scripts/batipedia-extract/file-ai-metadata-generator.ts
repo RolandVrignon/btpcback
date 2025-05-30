@@ -332,7 +332,7 @@ async function processDocument(
 
     await prisma.$executeRawUnsafe(
       `
-        UPDATE "ReferenceDocument"
+        UPDATE reference_document
         SET application_domain = $1,
             application_domain_vector = $2::vector,
             mistral_ocr_result = $4::jsonb
@@ -376,8 +376,8 @@ async function processDocument(
           });
           const uuid = crypto.randomUUID();
           await prisma.$executeRawUnsafe(`
-              INSERT INTO "ReferenceEmbedding"
-                ("id", "vector", "modelName", "modelVersion", "dimensions", "referenceChunkId", "createdAt", "updatedAt")
+              INSERT INTO reference_embedding
+                (id, vector, "modelName", "modelVersion", dimensions, "referenceChunkId", "createdAt", "updatedAt")
               VALUES
                 (
                   '${uuid}',

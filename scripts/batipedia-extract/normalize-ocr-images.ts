@@ -14,9 +14,9 @@ async function normalizeOcrImages() {
           application_domain_vector::text, category, mistral_ocr_result,
           official_version, organization, published_at, effective_date, path,
           mimetype, size, "createdAt", "updatedAt"
-       FROM "ReferenceDocument"
-       WHERE jsonb_typeof("mistral_ocr_result") = 'array'
-         AND jsonb_array_length("mistral_ocr_result"::jsonb) > 0`,
+       FROM reference_document
+       WHERE jsonb_typeof(mistral_ocr_result) = 'array'
+         AND jsonb_array_length(mistral_ocr_result::jsonb) > 0`,
   );
 
   console.log(`Found ${docs.length} documents with OCR result`);

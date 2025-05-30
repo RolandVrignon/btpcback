@@ -14,7 +14,7 @@ async function main() {
   >(
     `
     SELECT id, title, application_domain, application_domain_vector::text
-    FROM "ReferenceDocument"
+    FROM reference_document
     WHERE application_domain IS NOT NULL
     `,
   );

@@ -127,7 +127,7 @@ async function main() {
   const docs: ReferenceDocument[] = await prisma.$queryRawUnsafe(`
     SELECT id, title, secondary_title, key_s3_title, category, mistral_ocr_result,
            application_domain, application_domain_vector::text
-    FROM "ReferenceDocument"
+    FROM reference_document
     WHERE mistral_ocr_result = '{}'::jsonb
   `);
 
