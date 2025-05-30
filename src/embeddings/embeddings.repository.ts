@@ -87,7 +87,7 @@ export class EmbeddingsRepository {
       await this.prisma.executeWithQueue(
         () =>
           this.prisma.$executeRaw`
-          INSERT INTO "Embedding" ("id", "vector", "modelName", "modelVersion", "dimensions", "chunkId", "createdAt", "updatedAt", "usage")
+          INSERT INTO embedding (id, vector, "modelName", "modelVersion", dimensions, "chunkId", "createdAt", "updatedAt", usage)
           VALUES (${uuid}, ${createEmbeddingDto.vector}::vector, ${createEmbeddingDto.modelName}, ${createEmbeddingDto.modelVersion}, ${createEmbeddingDto.dimensions}, ${createEmbeddingDto.chunkId}, NOW(), NOW(), ${createEmbeddingDto.usage})
         `,
       );
@@ -134,7 +134,7 @@ export class EmbeddingsRepository {
             return await this.prisma.executeWithQueue(
               () =>
                 this.prisma.$executeRaw`
-                INSERT INTO "Embedding" ("id", "vector", "modelName", "modelVersion", "dimensions", "chunkId", "createdAt", "updatedAt")
+                INSERT INTO embedding (id, vector, "modelName", "modelVersion", dimensions, "chunkId", "createdAt", "updatedAt")
                 VALUES (${uuid}, ${dto.vector}::vector, ${dto.modelName}, ${dto.modelVersion}, ${dto.dimensions}, ${dto.chunkId}, NOW(), NOW())
               `,
             );
@@ -168,7 +168,7 @@ export class EmbeddingsRepository {
       () =>
         this.prisma.$queryRaw`
         SELECT e.id, e."chunkId", e."modelName", e."modelVersion", e."dimensions", e."createdAt", e."updatedAt"
-        FROM "Embedding" e
+        FROM embedding e
       `,
     );
   }
@@ -181,7 +181,7 @@ export class EmbeddingsRepository {
       () =>
         this.prisma.$queryRaw`
         SELECT e.id, e."chunkId", e."modelName", e."modelVersion", e."dimensions", e."createdAt", e."updatedAt"
-        FROM "Embedding" e
+        FROM embedding e
         WHERE e."chunkId" = ${chunkId}
       `,
     );
@@ -203,7 +203,7 @@ export class EmbeddingsRepository {
       () =>
         this.prisma.$queryRaw`
         SELECT e.id, e."chunkId", e."modelName", e."modelVersion", e."dimensions", e."createdAt", e."updatedAt"
-        FROM "Embedding" e
+        FROM embedding e
         WHERE e."modelName" = ${modelName} AND e."modelVersion" = ${modelVersion}
       `,
     );
@@ -230,9 +230,9 @@ export class EmbeddingsRepository {
         d."filename" as "documentName",
         (e.vector <=> ${vector}::vector) as distance,
         (1 - (e.vector <=> ${vector}::vector)) as similarity
-      FROM "Embedding" e
-      JOIN "Chunk" c ON e."chunkId" = c.id
-      JOIN "Document" d ON c."documentId" = d.id
+      FROM embedding e
+      JOIN chunk c ON e."chunkId" = c.id
+      JOIN document d ON c."documentId" = d.id
       WHERE e."modelName" = ${modelName}
       AND e."modelVersion" = ${modelVersion}
     `;
@@ -286,9 +286,9 @@ export class EmbeddingsRepository {
         c."documentId",
         d."filename" as "documentName",
         (e.vector <#> ${vector}::vector) as similarity
-      FROM "Embedding" e
-      JOIN "Chunk" c ON e."chunkId" = c.id
-      JOIN "Document" d ON c."documentId" = d.id
+      FROM embedding e
+      JOIN chunk c ON e."chunkId" = c.id
+      JOIN document d ON c."documentId" = d.id
       WHERE e."modelName" = ${modelName}
       AND e."modelVersion" = ${modelVersion}
       ORDER BY similarity DESC
@@ -327,9 +327,9 @@ export class EmbeddingsRepository {
         ts_rank_cd(to_tsvector('french', c.text), plainto_tsquery('french', ${query})) as "textRank",
         (${vectorWeight} * (1 - (e.vector <=> ${vector}::vector)) +
          ${textWeight} * ts_rank_cd(to_tsvector('french', c.text), plainto_tsquery('french', ${query}))) as score
-      FROM "Embedding" e
-      JOIN "Chunk" c ON e."chunkId" = c.id
-      JOIN "Document" d ON c."documentId" = d.id
+      FROM embedding e
+      JOIN chunk c ON e."chunkId" = c.id
+      JOIN document d ON c."documentId" = d.id
       WHERE e."modelName" = ${modelName}
       AND e."modelVersion" = ${modelVersion}
       AND to_tsvector('french', c.text) @@ plainto_tsquery('french', ${query})
@@ -358,7 +358,7 @@ export class EmbeddingsRepository {
         c.page,
         c."documentId",
         ts_rank_cd(to_tsvector('french', c.text), plainto_tsquery('french', ${query})) as rank
-      FROM "Chunk" c
+      FROM chunk c
       WHERE to_tsvector('french', c.text) @@ plainto_tsquery('french', ${query})
       ORDER BY rank DESC
       LIMIT ${limit}
@@ -379,7 +379,7 @@ export class EmbeddingsRepository {
     const embeddings = await this.prisma.executeWithQueue(
       () =>
         this.prisma.$queryRaw`
-        SELECT id FROM "Embedding" WHERE id = ${id}
+        SELECT id FROM embedding WHERE id = ${id}
       `,
     );
 
@@ -391,7 +391,7 @@ export class EmbeddingsRepository {
     await this.prisma.executeWithQueue(
       () =>
         this.prisma.$executeRaw`
-        DELETE FROM "Embedding" WHERE id = ${id}
+        DELETE FROM embedding WHERE id = ${id}
       `,
     );
 
