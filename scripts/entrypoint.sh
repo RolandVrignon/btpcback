@@ -30,6 +30,13 @@ do
 done
 echo "PostgreSQL is ready!"
 
+
+# Si PRISMA_RESOLVE_MIGRATION est à true, on marque la migration manuelle comme appliquée
+if [ "$PRISMA_RESOLVE_MIGRATION" = "true" ]; then
+  echo "🟢 Résolution de la migration manuelle snake_case_rename..."
+  pnpm prisma migrate resolve --applied 20250601280380_map_snake_case || true
+fi
+
 # Generate Prisma client with runtime DATABASE_URL
 echo "Generating Prisma client..."
 npx prisma generate
