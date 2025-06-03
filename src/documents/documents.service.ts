@@ -45,6 +45,7 @@ export class DocumentsService {
   private static indexationQueue: Array<Promise<any>> = [];
   private static activeIndexations = 0;
   private static maxConcurrentIndexations: number;
+  private static pdfConversionQueue: Promise<void> = Promise.resolve();
 
   constructor(
     private configService: ConfigService,
@@ -540,31 +541,40 @@ export class DocumentsService {
     tempDir: string,
   ): Promise<string> {
     // Créer le répertoire temporaire s'il n'existe pas
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
+
+    try {
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+
+      // Récupérer le nom du fichier à partir du chemin S3
+      const fileName = path.basename(s3Path);
+      const tempFilePath = path.join(tempDir, fileName);
+
+      // Télécharger le fichier depuis S3
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: s3Path,
+      });
+
+      const response = await this.s3Client.send(command);
+
+      // Écrire le contenu dans un fichier temporaire
+      const writeStream = fs.createWriteStream(tempFilePath);
+      const readStream = Readable.from(
+        response.Body as unknown as Uint8Array | Buffer | string,
+      );
+
+      await finished(readStream.pipe(writeStream));
+
+      return tempFilePath;
+    } catch (error) {
+      this.logger.error(
+        `Erreur lors du téléchargement du document ${s3Path}:`,
+        error,
+      );
+      throw error;
     }
-
-    // Récupérer le nom du fichier à partir du chemin S3
-    const fileName = path.basename(s3Path);
-    const tempFilePath = path.join(tempDir, fileName);
-
-    // Télécharger le fichier depuis S3
-    const command = new GetObjectCommand({
-      Bucket: this.bucketName,
-      Key: s3Path,
-    });
-
-    const response = await this.s3Client.send(command);
-
-    // Écrire le contenu dans un fichier temporaire
-    const writeStream = fs.createWriteStream(tempFilePath);
-    const readStream = Readable.from(
-      response.Body as unknown as Uint8Array | Buffer | string,
-    );
-
-    await finished(readStream.pipe(writeStream));
-
-    return tempFilePath;
   }
 
   /**
@@ -580,23 +590,29 @@ export class DocumentsService {
       return filePath;
     }
 
-    // Si c'est un docx, le convertir en PDF
+    // Si c'est un docx ou doc, le convertir en PDF via la queue
     if (fileExt === '.docx' || fileExt === '.doc') {
       const outputPath = filePath.replace(/\.(docx|doc)$/i, '.pdf');
-
-      // Utiliser LibreOffice pour convertir le document
       const exec = promisify(execCallback);
       const command = `libreoffice --headless --convert-to pdf --outdir "${path.dirname(filePath)}" "${filePath}"`;
 
-      try {
-        await exec(command);
-        return outputPath;
-      } catch (error) {
-        this.logger.error('Erreur lors de la conversion du document:', error);
-        throw new Error(
-          `Échec de la conversion du document: ${(error as Error).message}`,
-        );
-      }
+      // Ajoute la conversion à la queue globale
+      await (DocumentsService.pdfConversionQueue =
+        DocumentsService.pdfConversionQueue.then(async () => {
+          try {
+            await exec(command);
+          } catch (error) {
+            this.logger.error(
+              'Erreur lors de la conversion du document:',
+              error,
+            );
+            throw new Error(
+              `Échec de la conversion du document: ${(error as Error).message}`,
+            );
+          }
+        }));
+
+      return outputPath;
     }
 
     // Pour les autres types de fichiers, lever une erreur
@@ -979,6 +995,8 @@ export class DocumentsService {
                 // Traiter tous les fichiers en parallèle pour créer les documents et télécharger les fichiers
                 const documentPromises = dto.downloadUrls.map(
                   async (downloadUrl) => {
+                    // Créer un nouveau document
+
                     try {
                       const document = await this.create({
                         filename: '',
@@ -991,111 +1009,45 @@ export class DocumentsService {
                       const response = await fetch(downloadUrl);
 
                       if (!response.ok) {
-                        await this.updateStatus(
-                          document.id,
-                          'ERROR',
-                          'ERROR',
-                          dto.documentWebhookUrl ? dto.documentWebhookUrl : '',
-                          404,
-                          'Impossible de télécharger le document',
-                          'Impossible de télécharger le document',
-                        );
                         return null;
                       }
 
-                      // Extraire le nom du fichier depuis les headers ou l'URL
-                      let fileName: string;
-                      const contentDisposition = response.headers.get(
-                        'content-disposition',
-                      );
-                      if (contentDisposition) {
-                        const matches =
-                          /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(
-                            contentDisposition,
-                          );
-                        if (matches != null && matches[1]) {
-                          fileName = matches[1].replace(/['"]/g, '');
-                        }
-                      }
-
-                      // Si pas de nom dans les headers, essayer de l'extraire de l'URL
-                      if (!fileName) {
-                        const url = new URL(downloadUrl);
-                        const pathSegments = url.pathname.split('/');
-                        fileName = decodeURIComponent(
-                          pathSegments[pathSegments.length - 1],
-                        );
-                      }
-
-                      // Si toujours pas de nom, générer un nom unique
-                      if (!fileName) {
-                        const timestamp = Date.now();
-                        const random = Math.random()
-                          .toString(36)
-                          .substring(2, 8);
-                        fileName = `document_${timestamp}_${random}`;
-                      }
-
-                      // Construire le chemin du fichier sur S3
-                      if (!process.env.AWS_S3_BUCKET) {
-                        await this.updateStatus(
-                          document.id,
-                          'ERROR',
-                          'ERROR',
-                          dto.documentWebhookUrl ? dto.documentWebhookUrl : '',
-                          500,
-                          'BUCKET_PATH is not defined',
-                          'BUCKET_PATH is not defined',
-                        );
-                        return null;
-                      }
-
-                      const filePath = `${process.env.AWS_S3_BUCKET}${dto.projectId}/${fileName}`;
-
-                      // Vérifier si le fichier existe déjà sur S3
                       try {
-                        const headObjectCommand = new HeadObjectCommand({
-                          Bucket: this.bucketName,
-                          Key: filePath,
-                        });
-
-                        this.logger.log(
-                          `Vérification de l'existence du fichier ${fileName} sur S3`,
+                        // Extraire le nom du fichier depuis les headers ou l'URL
+                        let fileName: string;
+                        const contentDisposition = response.headers.get(
+                          'content-disposition',
                         );
-                        await this.s3Client.send(headObjectCommand);
-                        this.logger.log(
-                          `Le fichier ${fileName} existe déjà sur S3`,
-                        );
-                      } catch (error) {
-                        if (
-                          error instanceof S3ServiceException &&
-                          error.name === 'NotFound'
-                        ) {
-                          // Le fichier n'existe pas sur S3, on va l'uploader
-                          this.logger.log(
-                            `Le fichier ${fileName} n'existe pas sur S3, on va l'uploader`,
-                          );
-                          this.logger.log(
-                            `Upload du fichier ${fileName} sur S3`,
-                          );
+                        if (contentDisposition) {
+                          const matches =
+                            /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(
+                              contentDisposition,
+                            );
+                          if (matches != null && matches[1]) {
+                            fileName = matches[1].replace(/['"]/g, '');
+                          }
+                        }
 
-                          const fileBuffer = await response.arrayBuffer();
-
-                          // Uploader le fichier sur S3
-                          const uploadCommand = new PutObjectCommand({
-                            Bucket: this.bucketName,
-                            Key: filePath,
-                            Body: Buffer.from(fileBuffer),
-                            ContentType:
-                              response.headers.get('content-type') ||
-                              this.getMimetype(fileName),
-                          });
-
-                          await this.s3Client.send(uploadCommand);
-                          this.logger.log(
-                            `Fichier ${fileName} uploadé avec succès sur S3`,
+                        // Si pas de nom dans les headers, essayer de l'extraire de l'URL
+                        if (!fileName) {
+                          const url = new URL(downloadUrl);
+                          const pathSegments = url.pathname.split('/');
+                          fileName = decodeURIComponent(
+                            pathSegments[pathSegments.length - 1],
                           );
-                        } else {
+                        }
+
+                        // Si toujours pas de nom, générer un nom unique
+                        if (!fileName) {
+                          const timestamp = Date.now();
+                          const random = Math.random()
+                            .toString(36)
+                            .substring(2, 8);
+                          fileName = `document_${timestamp}_${random}`;
+                        }
+
+                        // Construire le chemin du fichier sur S3
+                        if (!process.env.AWS_S3_BUCKET) {
                           await this.updateStatus(
                             document.id,
                             'ERROR',
@@ -1104,175 +1056,201 @@ export class DocumentsService {
                               ? dto.documentWebhookUrl
                               : '',
                             500,
-                            "Erreur lors de l'upload du fichier sur S3",
-                            "Erreur lors de l'upload du fichier sur S3",
+                            'BUCKET_PATH is not defined',
+                            'BUCKET_PATH is not defined',
                           );
                           return null;
                         }
-                      }
 
-                      // Mettre à jour le document dans la base de données
-                      const documentUpdated = await this.update(document.id, {
-                        filename: fileName,
-                        path: filePath,
-                        mimetype: this.getMimetype(fileName),
-                        size: 0,
-                        projectId: dto.projectId,
-                        status: Status.PENDING,
-                      });
+                        const filePath = `${process.env.AWS_S3_BUCKET}${dto.projectId}/${fileName}`;
 
-                      // Télécharger et extraire le texte seulement pour PDF ou DOCX
-                      try {
-                        const fileExt = path.extname(fileName).toLowerCase();
-                        if (
-                          fileExt.toLowerCase() === '.pdf' ||
-                          fileExt.toLowerCase() === '.docx' ||
-                          fileExt.toLowerCase() === '.doc'
-                        ) {
-                          // Télécharger le document depuis S3
-                          const tempDir = `/tmp/document-processing/${documentUpdated.id}`;
-                          const tempFilePath =
-                            await this.downloadDocumentFromS3(
-                              filePath,
-                              tempDir,
-                            );
+                        // Vérifier si le fichier existe déjà sur S3
+                        try {
+                          const headObjectCommand = new HeadObjectCommand({
+                            Bucket: this.bucketName,
+                            Key: filePath,
+                          });
 
-                          // Convertir le document si nécessaire
-                          let pdfFilePath: string;
-                          try {
-                            pdfFilePath =
-                              await this.convertToPdfIfNeeded(tempFilePath);
-                          } catch {
-                            await this.updateStatus(
-                              documentUpdated.id,
-                              'ERROR',
-                              'ERROR',
-                              dto.documentWebhookUrl
-                                ? dto.documentWebhookUrl
-                                : '',
-                              500,
-                              'Erreur lors de la conversion du document en PDF',
-                              'Erreur lors de la conversion du document en PDF',
-                            );
-                            return null;
-                          }
-
-                          // Extraire le texte du PDF
-                          let extractedText: Array<{
-                            text: string;
-                            page: number;
-                          }>;
-                          try {
-                            extractedText = await this.extractTextFromPdf(
-                              pdfFilePath,
-                              dto.projectId,
-                              fileName,
-                            );
-                          } catch {
-                            await this.updateStatus(
-                              documentUpdated.id,
-                              'ERROR',
-                              'ERROR',
-                              dto.documentWebhookUrl
-                                ? dto.documentWebhookUrl
-                                : '',
-                              500,
-                              "Erreur lors de l'extraction du texte du document",
-                              "Erreur lors de l'extraction du texte du document",
-                            );
-                            return null;
-                          }
-
-                          // Extraire les métadonnées du PDF
-                          let metadata: {
-                            author: string;
-                            title: string;
-                            subject: string;
-                            keywords: string;
-                            fileSize: number;
-                          };
-                          try {
-                            metadata =
-                              await this.extractPdfMetadata(pdfFilePath);
-                          } catch {
-                            await this.updateStatus(
-                              documentUpdated.id,
-                              'ERROR',
-                              'ERROR',
-                              dto.documentWebhookUrl
-                                ? dto.documentWebhookUrl
-                                : '',
-                              500,
-                              "Erreur lors de l'extraction des métadonnées du document",
-                              "Erreur lors de l'extraction des métadonnées du document",
-                            );
-                            return null;
-                          }
-
-                          const numPages = extractedText.length;
-
-                          await this.documentsRepository.update(
-                            documentUpdated.id,
-                            {
-                              metadata_numPages: numPages,
-                              metadata_author: metadata.author || '',
-                              size: metadata.fileSize,
-                            },
+                          this.logger.log(
+                            `Vérification de l'existence du fichier ${fileName} sur S3`,
                           );
+                          await this.s3Client.send(headObjectCommand);
+                          this.logger.log(
+                            `Le fichier ${fileName} existe déjà sur S3`,
+                          );
+                        } catch (error) {
+                          if (
+                            error instanceof S3ServiceException &&
+                            error.name === 'NotFound'
+                          ) {
+                            // Le fichier n'existe pas sur S3, on va l'uploader
+                            this.logger.log(
+                              `Le fichier ${fileName} n'existe pas sur S3, on va l'uploader`,
+                            );
+                            this.logger.log(
+                              `Upload du fichier ${fileName} sur S3`,
+                            );
 
-                          // Nettoyer les fichiers temporaires après extraction
-                          await this.cleanupTempFiles(tempDir);
+                            const fileBuffer = await response.arrayBuffer();
 
-                          return {
-                            document,
-                            text: extractedText
-                              .map(
-                                (pt, index) =>
-                                  `-------------- Page Selector ${index + 1} --------------\n\n${pt.text}\n\n`,
-                              )
-                              .join('\n'),
-                            extractedTextPerPage: extractedText,
-                          };
-                        } else {
-                          throw new BadRequestException(
-                            "Le fichier n'est pas géré par Documate",
+                            // Uploader le fichier sur S3
+                            const uploadCommand = new PutObjectCommand({
+                              Bucket: this.bucketName,
+                              Key: filePath,
+                              Body: Buffer.from(fileBuffer),
+                              ContentType:
+                                response.headers.get('content-type') ||
+                                this.getMimetype(fileName),
+                            });
+
+                            await this.s3Client.send(uploadCommand);
+                            this.logger.log(
+                              `Fichier ${fileName} uploadé avec succès sur S3`,
+                            );
+                          } else {
+                            throw new Error(
+                              "Erreur lors de l'upload du fichier sur S3 : " +
+                                (error as Error).message,
+                            );
+                          }
+                        }
+
+                        // Mettre à jour le document dans la base de données
+                        const documentUpdated = await this.update(document.id, {
+                          filename: fileName,
+                          path: filePath,
+                          mimetype: this.getMimetype(fileName),
+                          size: 0,
+                          projectId: dto.projectId,
+                          status: Status.PENDING,
+                        });
+
+                        // Télécharger et extraire le texte seulement pour PDF ou DOCX
+                        try {
+                          const fileExt = path.extname(fileName).toLowerCase();
+                          if (
+                            fileExt.toLowerCase() === '.pdf' ||
+                            fileExt.toLowerCase() === '.docx' ||
+                            fileExt.toLowerCase() === '.doc'
+                          ) {
+                            // Télécharger le document depuis S3
+                            const tempDir = `/tmp/document-processing/${documentUpdated.id}`;
+                            const tempFilePath =
+                              await this.downloadDocumentFromS3(
+                                filePath,
+                                tempDir,
+                              );
+
+                            // Convertir le document si nécessaire
+                            let pdfFilePath: string;
+                            try {
+                              pdfFilePath =
+                                await this.convertToPdfIfNeeded(tempFilePath);
+                            } catch (error) {
+                              await this.updateStatus(
+                                documentUpdated.id,
+                                'ERROR',
+                                'ERROR',
+                                dto.documentWebhookUrl
+                                  ? dto.documentWebhookUrl
+                                  : '',
+                                500,
+                                'Erreur lors de la conversion du document en PDF',
+                                'Erreur lors de la conversion du document en PDF',
+                              );
+                              throw error;
+                            }
+
+                            // Extraire le texte du PDF
+                            let extractedText: Array<{
+                              text: string;
+                              page: number;
+                            }>;
+
+                            try {
+                              extractedText = await this.extractTextFromPdf(
+                                pdfFilePath,
+                                dto.projectId,
+                                fileName,
+                              );
+                            } catch (error) {
+                              await this.updateStatus(
+                                documentUpdated.id,
+                                'ERROR',
+                                'ERROR',
+                                dto.documentWebhookUrl
+                                  ? dto.documentWebhookUrl
+                                  : '',
+                                500,
+                                "Erreur lors de l'extraction du texte du document",
+                                "Erreur lors de l'extraction du texte du document",
+                              );
+                              throw error;
+                            }
+
+                            const metadata =
+                              await this.extractPdfMetadata(pdfFilePath);
+
+                            const numPages = extractedText.length;
+
+                            await this.documentsRepository.update(
+                              documentUpdated.id,
+                              {
+                                metadata_numPages: numPages,
+                                metadata_author: metadata.author || '',
+                                size: metadata.fileSize,
+                              },
+                            );
+
+                            // Nettoyer les fichiers temporaires après extraction
+                            await this.cleanupTempFiles(tempDir);
+
+                            return {
+                              document,
+                              text: extractedText
+                                .map(
+                                  (pt, index) =>
+                                    `-------------- Page Selector ${index + 1} --------------\n\n${pt.text}\n\n`,
+                                )
+                                .join('\n'),
+                              extractedTextPerPage: extractedText,
+                            };
+                          } else {
+                            throw new BadRequestException(
+                              "Le fichier n'est pas géré par Documate",
+                            );
+                          }
+                        } catch (error) {
+                          this.logger.error(
+                            `1 - Erreur lors du traitement du fichier ${downloadUrl}:`,
+                            error,
+                          );
+                          throw new Error(
+                            "Erreur lors de l'extraction du texte du document ou des métadonnées : " +
+                              (error as Error).message,
                           );
                         }
                       } catch (error) {
                         this.logger.error(
-                          `Erreur lors du traitement du fichier ${downloadUrl}:`,
+                          `2 -Erreur lors du traitement du fichier ${downloadUrl}:`,
                           error,
                         );
-                        if (documentUpdated && documentUpdated.id) {
-                          await this.updateStatus(
-                            documentUpdated.id,
-                            'ERROR',
-                            'ERROR',
-                            dto.documentWebhookUrl
-                              ? dto.documentWebhookUrl
-                              : '',
-                            424,
-                            'Extension de fichier non supportée.',
-                            'Extension de fichier non supportée.',
-                          );
-                        }
-                        return {
-                          document: null,
-                          text: '',
-                          extractedTextPerPage: [],
-                        };
+                        throw error;
                       }
                     } catch (error) {
                       this.logger.error(
-                        `Erreur lors du traitement du fichier ${downloadUrl}:`,
+                        `3 - Erreur lors du traitement du fichier ${downloadUrl}:`,
                         error,
                       );
+                      return null;
                     }
                   },
                 );
 
                 // Attendre que tous les documents soient créés et que le texte soit extrait
-                const documentsWithText = await Promise.all(documentPromises);
+                const documentsWithText = (
+                  await Promise.all(documentPromises)
+                ).filter((doc) => doc !== null);
 
                 // Préparer les données pour n8n
                 const filteredDocuments = documentsWithText.map((doc) => ({
@@ -1292,6 +1270,17 @@ export class DocumentsService {
                 // Créer une promesse pour la requête projet sur n8n
                 const n8nProjectExtraction = (async () => {
                   try {
+                    const projet = await this.projectsService.findOne(
+                      dto.projectId,
+                    );
+
+                    if (projet.status === Status.COMPLETED) {
+                      return {
+                        success: true,
+                        reason: 'project_already_completed',
+                      };
+                    }
+
                     this.logger.log(
                       `[${indexationId}] Envoi des données du projet à n8n...`,
                     );
