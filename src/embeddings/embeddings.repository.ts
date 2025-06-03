@@ -87,7 +87,7 @@ export class EmbeddingsRepository {
       await this.prisma.executeWithQueue(
         () =>
           this.prisma.$executeRaw`
-          INSERT INTO embedding (id, vector, "modelName", "modelVersion", dimensions, "chunkId", "createdAt", "updatedAt", usage)
+          INSERT INTO embedding (id, vector, "model_name", "model_version", dimensions, "chunk_id", "created_at", "updated_at", usage)
           VALUES (${uuid}, ${createEmbeddingDto.vector}::vector, ${createEmbeddingDto.modelName}, ${createEmbeddingDto.modelVersion}, ${createEmbeddingDto.dimensions}, ${createEmbeddingDto.chunkId}, NOW(), NOW(), ${createEmbeddingDto.usage})
         `,
       );
@@ -134,7 +134,7 @@ export class EmbeddingsRepository {
             return await this.prisma.executeWithQueue(
               () =>
                 this.prisma.$executeRaw`
-                INSERT INTO embedding (id, vector, "modelName", "modelVersion", dimensions, "chunkId", "createdAt", "updatedAt")
+                INSERT INTO embedding (id, vector, "model_name", "model_version", dimensions, "chunk_id", "created_at", "updated_at")
                 VALUES (${uuid}, ${dto.vector}::vector, ${dto.modelName}, ${dto.modelVersion}, ${dto.dimensions}, ${dto.chunkId}, NOW(), NOW())
               `,
             );

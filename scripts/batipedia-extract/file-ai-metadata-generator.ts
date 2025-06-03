@@ -377,7 +377,7 @@ async function processDocument(
           const uuid = crypto.randomUUID();
           await prisma.$executeRawUnsafe(`
               INSERT INTO reference_embedding
-                (id, vector, "modelName", "modelVersion", dimensions, "referenceChunkId", "createdAt", "updatedAt")
+                (id, vector, "model_name", "model_version", dimensions, "reference_chunk_id", "created_at", "updated_at")
               VALUES
                 (
                   '${uuid}',
