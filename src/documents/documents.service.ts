@@ -170,7 +170,7 @@ export class DocumentsService {
     if (url) {
       try {
         this.logger.log(
-          `DOCUMENT [${documentUpdated.documentId}] - Envoi au webhook [${url}] : \n ${JSON.stringify(body, null, 2)}`,
+          `PROJECT [${documentUpdated.projectId}] - DOCUMENT [${documentUpdated.documentId}] - Envoi au webhook [${url}] : \n ${JSON.stringify(body, null, 2)}`,
         );
         await fetch(url, {
           method: 'POST',
@@ -181,7 +181,7 @@ export class DocumentsService {
         });
       } catch {
         this.logger.error(
-          `DOCUMENT [${documentUpdated.documentId}] - Erreur lors de l'envoi au webhook [${url}] : \n ${JSON.stringify(body, null, 2)}`,
+          `PROJECT [${documentUpdated.projectId}] - DOCUMENT [${documentUpdated.documentId}] - Erreur lors de l'envoi au webhook [${url}] : \n ${JSON.stringify(body, null, 2)}`,
         );
       }
     }
@@ -296,15 +296,9 @@ export class DocumentsService {
         this.configService.get<string>('CHUNK_BATCH_SIZE', '5'),
         10,
       );
-
-      this.logger.log(`Traitement des chunks par lots de ${batchSize}`);
-
       // Traiter les chunks par lots
       for (let i = 0; i < textChunks.length; i += batchSize) {
         const batch = textChunks.slice(i, i + batchSize);
-        this.logger.log(
-          `Traitement du lot ${i / batchSize + 1}/${Math.ceil(textChunks.length / batchSize)}`,
-        );
 
         await Promise.all(
           batch.map(async (chunk, batchIndex) => {
@@ -646,8 +640,6 @@ export class DocumentsService {
 
       const totalPages = parseInt(pagesMatch[1], 10);
 
-      this.logger.log(`Nombre de pages du PDF: ${totalPages}`);
-
       // Vérifier si le PDF est OCRisé en examinant plusieurs pages
       // Nous vérifierons la première page, une page au milieu et la dernière page
       const pagesToCheck = [
@@ -678,10 +670,6 @@ export class DocumentsService {
 
       // On considère le document comme OCRisé si au moins 2/3 des pages vérifiées contiennent du texte
       isOcred = ocrCheckCount >= Math.ceil(pagesToCheck.length * 0.66);
-
-      this.logger.log(
-        `${fileName} est ${isOcred ? 'OCRisé' : 'non OCRisé'} (${ocrCheckCount}/${pagesToCheck.length} pages contiennent du texte)`,
-      );
 
       // Si le document n'est pas OCRisé, traitement alternatif
       if (!isOcred) {
@@ -866,9 +854,6 @@ export class DocumentsService {
       chunks.push({ text: currentChunk, page: currentPage });
     }
 
-    this.logger.log(
-      `Créé ${chunks.length} chunks à partir de ${pageTexts.length} pages`,
-    );
     return chunks;
   }
 
@@ -934,12 +919,6 @@ export class DocumentsService {
     // Enregistrer le temps de début
     const startTime = Date.now();
 
-    this.logger.log(
-      `[${dto.projectId}] Confirmation de l'upload. Début du processus d'indexation... StartTime : ${startTime}`,
-    );
-
-    this.logger.log(`DTO reçu : ${JSON.stringify(dto)}`);
-
     // Vérifier si le projet existe et appartient à l'organisation via le repository
     const project =
       await this.documentsRepository.findProjectByIdAndOrganization(
@@ -956,16 +935,6 @@ export class DocumentsService {
     try {
       // Créer un nouvel identifiant unique pour cette tâche d'indexation
       const indexationId = `${dto.projectId}_${Date.now()}`;
-      this.logger.log(
-        `Nouvelle demande d'indexation: ${indexationId} (${dto.downloadUrls.length} fichiers)`,
-      );
-
-      // Vérifier si nous pouvons démarrer immédiatement ou s'il faut mettre en attente
-      const canStartImmediately =
-        DocumentsService.activeIndexations <
-        DocumentsService.maxConcurrentIndexations;
-      const queuePosition =
-        DocumentsService.indexationQueue.length + (canStartImmediately ? 0 : 1);
 
       // Créer une promesse qui représente cette tâche d'indexation
       const indexationTask = new Promise<{ status: string; message?: string }>(
@@ -987,9 +956,6 @@ export class DocumentsService {
 
               // Démarrer l'indexation
               DocumentsService.activeIndexations++;
-              this.logger.log(
-                `[${indexationId}] Démarrage de l'indexation (${DocumentsService.activeIndexations}/${DocumentsService.maxConcurrentIndexations} actifs)`,
-              );
 
               try {
                 // Traiter tous les fichiers en parallèle pour créer les documents et télécharger les fichiers
@@ -1070,27 +1036,12 @@ export class DocumentsService {
                             Bucket: this.bucketName,
                             Key: filePath,
                           });
-
-                          this.logger.log(
-                            `Vérification de l'existence du fichier ${fileName} sur S3`,
-                          );
                           await this.s3Client.send(headObjectCommand);
-                          this.logger.log(
-                            `Le fichier ${fileName} existe déjà sur S3`,
-                          );
                         } catch (error) {
                           if (
                             error instanceof S3ServiceException &&
                             error.name === 'NotFound'
                           ) {
-                            // Le fichier n'existe pas sur S3, on va l'uploader
-                            this.logger.log(
-                              `Le fichier ${fileName} n'existe pas sur S3, on va l'uploader`,
-                            );
-                            this.logger.log(
-                              `Upload du fichier ${fileName} sur S3`,
-                            );
-
                             const fileBuffer = await response.arrayBuffer();
 
                             // Uploader le fichier sur S3
@@ -1259,15 +1210,11 @@ export class DocumentsService {
                   text: doc.text || '',
                 }));
 
-                this.logger.log(
-                  `[${indexationId}] Démarrage des processus en parallèle pour ${filteredDocuments.length} documents: requête n8n et indexation des documents`,
-                );
-
                 //******************************************************//
                 // Requête n8n pour l'extraction du projet              //
                 //******************************************************//
 
-                // Créer une promesse pour la requête projet sur n8n
+                // // Créer une promesse pour la requête projet sur n8n
                 const n8nProjectExtraction = (async () => {
                   try {
                     const projet = await this.projectsService.findOne(
@@ -1275,15 +1222,14 @@ export class DocumentsService {
                     );
 
                     if (projet.status === Status.COMPLETED) {
+                      this.logger.log(
+                        `PROJECT [${dto.projectId}] - STATUS [${projet.status}] - Project already completed`,
+                      );
                       return {
                         success: true,
                         reason: 'project_already_completed',
                       };
                     }
-
-                    this.logger.log(
-                      `[${indexationId}] Envoi des données du projet à n8n...`,
-                    );
 
                     // S'assurer qu'il y a au moins un document
                     if (filteredDocuments.length === 0) {
@@ -1429,16 +1375,10 @@ export class DocumentsService {
                       }
 
                       this.logger.log(
-                        `[${indexationId}] Sending document ${document.name} to n8n webhook...`,
+                        `PROJECT [${dto.projectId}] - DOCUMENT [${document.documentId}] - Sending document ${document.name} to n8n webhook...`,
                       );
 
                       const webhookUrl = `${n8nWebhookUrl}/index-process`;
-
-                      this.logger.log(`Webhook URL: ${webhookUrl}`);
-
-                      this.logger.log(
-                        `[${indexationId}] Envoi du document ${document.name} à n8n webhook : [${webhookUrl}]`,
-                      );
 
                       // Envoyer la requête n8n pour ce document avec fetch (natif)
                       await fetch(webhookUrl, {
@@ -1450,7 +1390,7 @@ export class DocumentsService {
                       });
                     } catch (error) {
                       this.logger.error(
-                        `[${indexationId}] Error de catch externe - Webhook non atteint pour ${document.name}:`,
+                        `PROJECT [${dto.projectId}] - DOCUMENT [${document.documentId}] - Error de catch externe - Webhook non atteint pour ${document.name}:`,
                         error,
                       );
 
@@ -1479,15 +1419,9 @@ export class DocumentsService {
                 // Créer une promesse pour l'indexation des documents
                 const indexationPromise = (async () => {
                   try {
-                    this.logger.log(
-                      `[${indexationId}] Début du processus d'indexation des documents...`,
-                    );
                     await this.processDocumentsInBackground(
                       documentsWithText,
                       dto.documentWebhookUrl ? dto.documentWebhookUrl : null,
-                    );
-                    this.logger.log(
-                      `[${indexationId}] Indexation des documents terminée avec succès`,
                     );
                     return { success: true };
                   } catch (error) {
@@ -1512,7 +1446,7 @@ export class DocumentsService {
 
                 if (!indexationResult.success) {
                   this.logger.error(
-                    `[${indexationId}] L'indexation a échoué: ${indexationResult.error || 'erreur inconnue'}`,
+                    `PROJECT [${dto.projectId}] - L'indexation a échoué: ${indexationResult.error || 'erreur inconnue'}`,
                   );
                 }
 
@@ -1522,7 +1456,7 @@ export class DocumentsService {
                 const executionTimeSec = (executionTimeMs / 1000).toFixed(2);
 
                 this.logger.log(
-                  `[${indexationId}] Fin d'exécution => temps d'exécution: ${executionTimeMs}ms (${executionTimeSec}s)`,
+                  `PROJECT [${dto.projectId}] - Fin d'exécution => temps d'exécution: ${executionTimeMs}ms (${executionTimeSec}s)`,
                 );
 
                 // Résoudre la promesse avec le résultat
@@ -1530,9 +1464,6 @@ export class DocumentsService {
               } finally {
                 // Réduire le compteur d'indexations actives
                 DocumentsService.activeIndexations--;
-                this.logger.log(
-                  `[${indexationId}] Fin de l'indexation (${DocumentsService.activeIndexations}/${DocumentsService.maxConcurrentIndexations} actifs)`,
-                );
 
                 // Retirer cette tâche de la file d'attente
                 const taskIndex =
@@ -1578,19 +1509,8 @@ export class DocumentsService {
       // Ajouter la tâche à la file d'attente
       void DocumentsService.indexationQueue.push(indexationTask);
 
-      // Indiquer à l'utilisateur que sa demande a été prise en compte
-      const queueMessage = canStartImmediately
-        ? 'Traitement démarré immédiatement'
-        : `En attente, position ${queuePosition} dans la file d'attente`;
-
-      await this.projectsService.updateStatus(
-        dto.projectId,
-        Status.PROGRESS,
-        queueMessage,
-        '200',
-        dto.projectWebhookUrl ? dto.projectWebhookUrl : null,
-      );
-    } catch (error) {
+      return { status: 'OK', message: 'Traitement des documents en cours' };
+    } catch {
       // Calculer le temps d'exécution même en cas d'erreur
       const endTime = Date.now();
       const executionTimeMs = endTime - startTime;
@@ -1600,9 +1520,11 @@ export class DocumentsService {
         `Temps d'exécution de confirmMultipleUploads (avec erreur): ${executionTimeMs}ms (${executionTimeSec}s)`,
       );
 
-      throw new BadRequestException(
-        `Erreur lors de la confirmation des uploads: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
-      );
+      throw new BadRequestException({
+        status: 'ERROR',
+        message: 'Erreur lors de la confirmation des uploads',
+        projectId: dto.projectId,
+      });
     }
   }
 
@@ -1676,10 +1598,6 @@ export class DocumentsService {
             200,
             null,
             `Indexation terminée pour le document en ${durationInSeconds} secondes`,
-          );
-
-          this.logger.log(
-            `Indexation terminée pour le document ${document.id} en ${durationInSeconds} secondes`,
           );
         } catch (e) {
           this.logger.error(

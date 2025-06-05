@@ -42,11 +42,6 @@ export class DocumentsPubliquesStrategy implements DeliverableStrategy {
         throw new Error('Project city is not defined');
       }
 
-      this.logger.log(
-        'Generating DOCUMENTS_PUBLIQUES => Project address:',
-        project.closest_formatted_address,
-      );
-
       // Call the n8n webhook to get city documents
       const n8nUrl = this.configService.get<string>('N8N_WEBHOOK_URL');
 

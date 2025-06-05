@@ -157,7 +157,9 @@ export class SearchService {
   ): Promise<SearchResponseDto> {
     this.validateSearchParams(params);
 
-    this.logger.log(`[SEMANTIC SEARCH] Recherche pour: "${params.query}"`);
+    this.logger.log(
+      `PROJECT [${params.projectId || 'N/A'}] [SEMANTIC SEARCH] Recherche pour: "${params.query}"`,
+    );
 
     // Vérifier l'accès au projet si un projectId est fourni
     if (params.projectId) {
@@ -167,7 +169,7 @@ export class SearchService {
     const { result: results, executionTimeMs } =
       await this.measureExecutionTime(async () => {
         this.logger.log(
-          `[SEMANTIC SEARCH] Exécution de la requête full-text sur les chunks`,
+          `PROJECT [${params.projectId || 'N/A'}] [SEMANTIC SEARCH] Exécution de la requête full-text sur les chunks`,
         );
 
         // Utiliser le repository pour la recherche sémantique
@@ -179,7 +181,7 @@ export class SearchService {
         );
 
         this.logger.log(
-          `[SEMANTIC SEARCH] Nombre de résultats: ${Array.isArray(chunks) ? chunks.length : 0}`,
+          `PROJECT [${params.projectId || 'N/A'}] [SEMANTIC SEARCH] Nombre de résultats: ${Array.isArray(chunks) ? chunks.length : 0}`,
         );
 
         // Vérifier si nous avons des résultats
@@ -192,13 +194,23 @@ export class SearchService {
         // Transformer les résultats
         const results = (chunks as SemanticSearchResult[]).map(
           (chunk: SemanticSearchResult, index: number) => {
-            this.logger.log(`[SEMANTIC SEARCH] Résultat #${index + 1}:`);
-            this.logger.log(`  ID: ${chunk.id}`);
-            this.logger.log(`  Document ID: ${chunk.documentId}`);
-            this.logger.log(`  Score: ${chunk.score}`);
-            this.logger.log(`  Page: ${chunk.page}`);
             this.logger.log(
-              `  Texte: ${chunk.text.substring(0, 150)}${chunk.text.length > 150 ? '...' : ''}`,
+              `PROJECT [${params.projectId || 'N/A'}] [SEMANTIC SEARCH] Résultat #${index + 1}`,
+            );
+            this.logger.log(
+              `PROJECT [${params.projectId || 'N/A'}]   ID: ${chunk.id}`,
+            );
+            this.logger.log(
+              `PROJECT [${params.projectId || 'N/A'}]   Document ID: ${chunk.documentId}`,
+            );
+            this.logger.log(
+              `PROJECT [${params.projectId || 'N/A'}]   Score: ${chunk.score}`,
+            );
+            this.logger.log(
+              `PROJECT [${params.projectId || 'N/A'}]   Page: ${chunk.page}`,
+            );
+            this.logger.log(
+              `PROJECT [${params.projectId || 'N/A'}]   Texte: ${chunk.text.substring(0, 150)}${chunk.text.length > 150 ? '...' : ''}`,
             );
 
             return {
@@ -211,7 +223,9 @@ export class SearchService {
           },
         );
 
-        this.logger.log(`[SEMANTIC SEARCH] Recherche terminée`);
+        this.logger.log(
+          `PROJECT [${params.projectId || 'N/A'}] [SEMANTIC SEARCH] Recherche terminée`,
+        );
         return results;
       });
 
@@ -231,7 +245,9 @@ export class SearchService {
   ): Promise<SearchResponseDto> {
     this.validateSearchParams(params);
 
-    this.logger.log(`[HYBRID SEARCH] Recherche pour: "${params.query}"`);
+    this.logger.log(
+      `PROJECT [${params.projectId || 'N/A'}] [HYBRID SEARCH] Recherche pour: "${params.query}"`,
+    );
 
     const { result: results, executionTimeMs } =
       await this.measureExecutionTime(async () => {
@@ -244,7 +260,7 @@ export class SearchService {
         this.logger.log('searchResults:', searchResults);
 
         this.logger.log(
-          `[HYBRID SEARCH] Nombre de résultats initiaux: ${Array.isArray(searchResults) ? searchResults.length : 0}`,
+          `PROJECT [${params.projectId || 'N/A'}] [HYBRID SEARCH] Nombre de résultats initiaux: ${Array.isArray(searchResults) ? searchResults.length : 0}`,
         );
 
         // Vérifier si nous avons des résultats
@@ -265,7 +281,7 @@ export class SearchService {
         this.logger.log('referenceChunkId:', referenceChunkId);
 
         this.logger.log(
-          `[HYBRID SEARCH] ID du chunk de référence: ${referenceChunkId}`,
+          `PROJECT [${params.projectId || 'N/A'}] [HYBRID SEARCH] ID du chunk de référence: ${referenceChunkId}`,
         );
 
         if (!referenceChunkId) {
@@ -274,7 +290,9 @@ export class SearchService {
           );
         }
 
-        this.logger.log(`[HYBRID SEARCH] Exécution de la requête hybride`);
+        this.logger.log(
+          `PROJECT [${params.projectId || 'N/A'}] [HYBRID SEARCH] Exécution de la requête hybride`,
+        );
 
         // Utiliser le repository pour la recherche hybride
         const chunks = await this.searchRepository.hybridSearch(
@@ -289,19 +307,29 @@ export class SearchService {
         );
 
         this.logger.log(
-          `[HYBRID SEARCH] Nombre de résultats finaux: ${Array.isArray(chunks) ? chunks.length : 0}`,
+          `PROJECT [${params.projectId || 'N/A'}] [HYBRID SEARCH] Nombre de résultats finaux: ${Array.isArray(chunks) ? chunks.length : 0}`,
         );
 
         // Transformer les résultats
         const results = (chunks as SemanticSearchResult[]).map(
           (chunk: SemanticSearchResult, index: number) => {
-            this.logger.log(`[HYBRID SEARCH] Résultat #${index + 1}:`);
-            this.logger.log(`  ID: ${chunk.id}`);
-            this.logger.log(`  Document ID: ${chunk.documentId}`);
-            this.logger.log(`  Score: ${chunk.score}`);
-            this.logger.log(`  Page: ${chunk.page}`);
             this.logger.log(
-              `  Texte: ${chunk.text.substring(0, 150)}${chunk.text.length > 150 ? '...' : ''}`,
+              `PROJECT [${params.projectId || 'N/A'}] [HYBRID SEARCH] Résultat #${index + 1}`,
+            );
+            this.logger.log(
+              `PROJECT [${params.projectId || 'N/A'}]   ID: ${chunk.id}`,
+            );
+            this.logger.log(
+              `PROJECT [${params.projectId || 'N/A'}]   Document ID: ${chunk.documentId}`,
+            );
+            this.logger.log(
+              `PROJECT [${params.projectId || 'N/A'}]   Score: ${chunk.score}`,
+            );
+            this.logger.log(
+              `PROJECT [${params.projectId || 'N/A'}]   Page: ${chunk.page}`,
+            );
+            this.logger.log(
+              `PROJECT [${params.projectId || 'N/A'}]   Texte: ${chunk.text.substring(0, 150)}${chunk.text.length > 150 ? '...' : ''}`,
             );
 
             return {
@@ -314,7 +342,9 @@ export class SearchService {
           },
         );
 
-        this.logger.log(`[HYBRID SEARCH] Recherche terminée`);
+        this.logger.log(
+          `PROJECT [${params.projectId || 'N/A'}] [HYBRID SEARCH] Recherche terminée`,
+        );
         return results;
       });
 
