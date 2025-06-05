@@ -66,7 +66,9 @@ export class DeliverablesService {
         };
         await strategy.generate(context);
       } catch (error) {
-        this.logger.error('Error processing deliverable:', error);
+        this.logger.error(
+          `PROJECT [${data.projectId}] - DELIVERABLE [${data.deliverableId}] - TYPE [${data.type}] - Error processing deliverable : ${error}`,
+        );
         await this.updateStatus(
           data.deliverableId,
           Status.ERROR,
@@ -159,8 +161,6 @@ export class DeliverablesService {
   async findAll(projectId: string, organization: OrganizationEntity) {
     // Verify project access
     const project = await this.projectsRepository.findById(projectId);
-    this.logger.log('project', project);
-    this.logger.log('organization', organization);
     if (project.organizationId !== organization.id) {
       throw new ForbiddenException('Accès non autorisé au projet');
     }
@@ -246,15 +246,8 @@ export class DeliverablesService {
         existingDeliverable[existingDeliverable.length - 1];
 
       if (selectedDeliverable && selectedDeliverable.status === 'COMPLETED') {
-        this.logger.log(
-          `Délivrable existant trouvé de type ${type} pour le projet ${projectId}`,
-        );
         return selectedDeliverable;
       }
-    } else {
-      this.logger.log(
-        `Vérification d'existence désactivée, création d'un nouveau délivrable de type ${type} pour le projet ${projectId}`,
-      );
     }
 
     // Création du délivrable
@@ -270,8 +263,6 @@ export class DeliverablesService {
     // Fonction pour vérifier périodiquement l'état du délivrable
     const checkDeliverableStatus = async () => {
       attempts++;
-
-      this.logger.log(`Vérification de l'état du délivrable ${deliverable.id}`);
 
       const currentDeliverable = await this.findOne(
         deliverable.id,
@@ -331,9 +322,6 @@ export class DeliverablesService {
 
     if (webhookUrl) {
       try {
-        this.logger.log(
-          `DELIVERABLE [${id}] = ${deliverable.type} - Envoi au webhook [${webhookUrl}] : \n ${JSON.stringify(body, null, 2)}`,
-        );
         await fetch(webhookUrl, {
           method: 'POST',
           body: JSON.stringify(body),
@@ -343,7 +331,7 @@ export class DeliverablesService {
         });
       } catch {
         this.logger.error(
-          `DELIVERABLE [${id}] = ${deliverable.type} - Erreur lors de l'envoi au webhook [${webhookUrl}] : \n ${JSON.stringify(body, null, 2)}`,
+          `PROJECT [${deliverable.projectId}] - DELIVERABLE [${id}] - TYPE [${deliverable.type}] - Erreur lors de l'envoi au webhook [${webhookUrl}] : ${JSON.stringify(body, null, 2)}`,
         );
       }
     }

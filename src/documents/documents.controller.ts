@@ -183,9 +183,6 @@ export class DocumentsController {
     @Body() confirmMultipleUploadsDto: ConfirmMultipleUploadsDto,
     @Organization() organization: OrganizationEntity,
   ) {
-    this.logger.log(
-      `[${confirmMultipleUploadsDto.projectId}] Confirmation de l'upload. Début du processus d'indexation...`,
-    );
     return this.documentsService.confirmMultipleUploads(
       confirmMultipleUploadsDto,
       organization.id,

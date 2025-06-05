@@ -200,7 +200,6 @@ export class DescriptifSommaireDesTravauxStrategy extends BaseDeliverableStrateg
         );
 
         const n8nWebhookUrl = this.configService.get<string>('N8N_WEBHOOK_URL');
-        this.logger.log('n8nWebhookUrl:', n8nWebhookUrl);
 
         if (!n8nWebhookUrl) {
           this.logger.warn(

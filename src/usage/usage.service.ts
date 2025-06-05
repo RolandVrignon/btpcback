@@ -36,7 +36,7 @@ export class UsageService {
       return await this.usageRepository.createRaw(data);
     } catch (error) {
       this.logger.error(
-        "Erreur lors de la création de l'enregistrement d'utilisation:",
+        `Erreur lors de la création de l'enregistrement d'utilisation [projectId: ${data.projectId}]:`,
         error,
       );
       throw error;
@@ -75,7 +75,7 @@ export class UsageService {
       return await this.usageRepository.create(data);
     } catch (error) {
       this.logger.error(
-        "Erreur lors de l'enregistrement de l'utilisation d'embedding:",
+        `Erreur lors de l'enregistrement de l'utilisation d'embedding [projectId: ${projectId}]:`,
         error,
       );
       throw error;
@@ -114,7 +114,7 @@ export class UsageService {
       return await this.usageRepository.createRaw(data);
     } catch (error) {
       this.logger.error(
-        "Erreur lors de l'enregistrement de l'utilisation de text-to-text:",
+        `Erreur lors de l'enregistrement de l'utilisation de text-to-text [projectId: ${projectId}]:`,
         error,
       );
       throw error;

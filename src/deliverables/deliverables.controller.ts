@@ -47,7 +47,6 @@ export class DeliverablesController {
     @Body() createDeliverableDto: CreateDeliverableDto,
     @Organization() organization: OrganizationEntity,
   ) {
-    this.logger.log('createDeliverableDto : ', createDeliverableDto);
     return this.deliverablesService.create(createDeliverableDto, organization);
   }
 
@@ -68,7 +67,6 @@ export class DeliverablesController {
     @Param('projectId') projectId: string,
     @Organization() organization: OrganizationEntity,
   ) {
-    console.log('findAll', projectId, organization);
     return this.deliverablesService.findAll(projectId, organization);
   }
 
@@ -118,7 +116,6 @@ export class DeliverablesController {
     @Body() createDeliverableDto: CreateDeliverableDto,
     @Organization() organization: OrganizationEntity,
   ) {
-    console.log('createDeliverableDto : ', createDeliverableDto);
     return this.deliverablesService.findOrCreateAndWaitForDeliverable(
       createDeliverableDto,
       organization,

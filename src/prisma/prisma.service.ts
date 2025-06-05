@@ -72,6 +72,7 @@ export class PrismaService
   }
 
   async onModuleDestroy() {
+    this.logger.log('Déconnexion de la base de données.');
     await this.$disconnect();
   }
 

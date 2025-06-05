@@ -47,7 +47,6 @@ export class StorageController {
     @Body() uploadUrlDto: UploadUrlDto,
     @Organization() organization: OrganizationEntity,
   ): Promise<UploadUrlResponseDto> {
-    this.logger.log('organization', organization);
     return this.storageService.createUploadUrl(uploadUrlDto, organization.id);
   }
 

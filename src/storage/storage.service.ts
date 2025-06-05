@@ -62,14 +62,14 @@ export class StorageService implements OnModuleInit {
    */
   async onModuleInit() {
     try {
-      this.logger.log('Verifying S3 connection...');
+      this.logger.log(`[projectId: N/A] Verifying S3 connection...`);
 
       // Test the connection by listing buckets
       const command = new ListBucketsCommand({});
       const { Buckets } = await this.s3Client.send(command);
 
       this.logger.log(
-        `Successfully connected to S3. Found ${Buckets?.length || 0} buckets.`,
+        `[projectId: N/A] Successfully connected to S3. Found ${Buckets?.length || 0} buckets.`,
       );
 
       // Check if the configured bucket exists
@@ -78,18 +78,20 @@ export class StorageService implements OnModuleInit {
       );
 
       if (bucketExists) {
-        this.logger.log(`Configured bucket '${this.bucketName}' exists.`);
+        this.logger.log(
+          `[projectId: N/A] Configured bucket '${this.bucketName}' exists.`,
+        );
       } else {
         this.logger.warn(
-          `Configured bucket '${this.bucketName}' does not exist. You may need to create it.`,
+          `[projectId: N/A] Configured bucket '${this.bucketName}' does not exist. You may need to create it.`,
         );
       }
     } catch (error) {
       this.logger.error(
-        `Failed to connect to S3: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `[projectId: N/A] Failed to connect to S3: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
       this.logger.error(
-        'Application will continue, but S3 operations may fail.',
+        `[projectId: N/A] Application will continue, but S3 operations may fail.`,
       );
     }
   }
